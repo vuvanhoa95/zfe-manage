@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Shield } from 'lucide-react';
 
 export default function LoginPage() {
@@ -79,36 +78,20 @@ export default function LoginPage() {
             <div className="relative z-10 w-full max-w-md mx-4">
                 {/* Logo & Brand Section */}
                 <div className="text-center mb-10 animate-fade-in">
-                    <div className="inline-flex items-center justify-center mb-6 transform hover:scale-105 transition-all duration-300 relative">
-                        <div className="relative w-64 h-32 md:w-80 md:h-40">
-                            <Image
-                                src="/logo.png"
-                                alt="ZFENIX Logo"
-                                fill
-                                className="object-contain drop-shadow-2xl"
-                                priority
-                                quality={100}
-                                unoptimized
-                                onError={(e) => {
-                                    // Fallback nếu logo không load được
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    const parent = target.parentElement;
-                                    if (parent) {
-                                        parent.innerHTML = `
-                                            <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#178AF3] via-[#0F6FC9] to-[#053663] rounded-3xl shadow-2xl shadow-blue-500/50">
-                                                <span class="text-4xl font-bold text-white italic">Z</span>
-                                            </div>
-                                        `;
-                                    }
-                                }}
-                            />
+                    <div className="inline-flex items-center justify-center mb-6 transform hover:scale-110 hover:rotate-3 transition-all duration-300 relative">
+                        {/* Logo Box with Gradient */}
+                        <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#178AF3] via-[#0F6FC9] to-[#053663] rounded-3xl shadow-2xl shadow-blue-500/30 relative">
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-3xl"></div>
+                            <span className="text-4xl font-bold text-white italic relative z-10 drop-shadow-lg">Z</span>
+                            <div className="absolute -inset-1 bg-gradient-to-br from-[#178AF3] to-[#053663] rounded-3xl blur opacity-50 animate-pulse"></div>
                         </div>
                     </div>
-                    <h1 className="text-4xl font-bold text-[#053663] mb-2 tracking-tight">
-                        ZFENIX
+                    <h1 className="text-5xl font-black text-[#053663] mb-3 tracking-tighter">
+                        <span className="bg-gradient-to-r from-[#053663] via-[#178AF3] to-[#0F6FC9] bg-clip-text text-transparent drop-shadow-sm">
+                            ZFENIX
+                        </span>
                     </h1>
-                    <p className="text-sm text-[#2F343A]/70 uppercase tracking-[0.3em] font-semibold mb-2">
+                    <p className="text-sm text-[#2F343A]/70 uppercase tracking-[0.4em] font-bold mb-2">
                         Quản Lý Dự Án
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
