@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { QuotationFormData } from '@/types/quotation';
 import PricingTable from './PricingTable';
 import PaymentMilestones from './PaymentMilestones';
+import ProjectSelector from './ProjectSelector';
 import { calculateQuotationTotals, enrichQuotationLinesWithProjectContext } from '@/lib/utils';
 
 type Customer = {
@@ -530,20 +531,12 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium mb-1">Mã dự án</label>
-                                <select
+                                <ProjectSelector
                                     value={data.projectId}
-                                    onChange={(e) => handleProjectChange(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded"
-                                    disabled={isLoadingProjects || lockProject}
-                                >
-                                    <option value="">{isLoadingProjects ? 'Đang tải...' : 'Chọn dự án...'}</option>
-                                    {projects.map((project) => (
-                                        <option key={project.id} value={project.id}>
-                                            {project.projectNo} - {project.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={(projectId) => handleProjectChange(projectId)}
+                                    disabled={lockProject}
+                                    isLoading={isLoadingProjects}
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Tên dự án</label>

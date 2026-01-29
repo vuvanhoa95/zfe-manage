@@ -49,26 +49,59 @@ async function generateNextQuotationNo(forYear?: number) {
 }
 
 async function main() {
-    const email = 'admin@bimcompany.vn';
-    const password = 'admin'; // Change this in production
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Create/Update main admin user
+    const adminEmail = 'hoavv@zfenix.com';
+    const adminPassword = 'Zfenix2026';
+    const adminHashedPassword = await bcrypt.hash(adminPassword, 10);
 
-    const existingUser = await prisma.user.findUnique({
-        where: { email },
+    const existingAdmin = await prisma.user.findUnique({
+        where: { email: adminEmail },
     });
 
-    if (!existingUser) {
+    if (!existingAdmin) {
         await prisma.user.create({
             data: {
-                email,
-                password: hashedPassword,
+                email: adminEmail,
+                password: adminHashedPassword,
+                name: 'Hoa VV',
+                role: 'ADMIN',
+            },
+        });
+        console.log('✅ Main admin user created: ' + adminEmail + ' / ' + adminPassword);
+    } else {
+        // Update existing user
+        await prisma.user.update({
+            where: { email: adminEmail },
+            data: {
+                password: adminHashedPassword,
+                name: 'Hoa VV',
+                role: 'ADMIN',
+            },
+        });
+        console.log('✅ Main admin user updated: ' + adminEmail + ' / ' + adminPassword);
+    }
+
+    // Keep old admin user for backward compatibility (optional)
+    const oldEmail = 'admin@bimcompany.vn';
+    const oldPassword = 'admin';
+    const oldHashedPassword = await bcrypt.hash(oldPassword, 10);
+
+    const existingOldUser = await prisma.user.findUnique({
+        where: { email: oldEmail },
+    });
+
+    if (!existingOldUser) {
+        await prisma.user.create({
+            data: {
+                email: oldEmail,
+                password: oldHashedPassword,
                 name: 'Admin User',
                 role: 'ADMIN',
             },
         });
-        console.log('✅ Admin user created: ' + email + ' / ' + password);
+        console.log('✅ Legacy admin user created: ' + oldEmail + ' / ' + oldPassword);
     } else {
-        console.log('ℹ️ Admin user already exists');
+        console.log('ℹ️ Legacy admin user already exists');
     }
 
     const adminUser = await prisma.user.findUnique({ where: { email } });
