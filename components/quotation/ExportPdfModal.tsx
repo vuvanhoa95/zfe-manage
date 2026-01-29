@@ -21,7 +21,7 @@ export default function ExportPdfModal({ isOpen, onClose, quotationId, quotation
         setExportType(type);
 
         try {
-            const url = `/api/quotations/${quotationId}/export-pdf`;
+            const url = `/api/quotations/${quotationId}/export-pdf?mode=${type}`;
             
             if (type === 'download') {
                 // Download PDF trực tiếp
@@ -41,15 +41,32 @@ export default function ExportPdfModal({ isOpen, onClose, quotationId, quotation
                 onClose();
             } else if (type === 'print') {
                 // Mở PDF trong tab mới và trigger print dialog
+                // Sử dụng inline mode để browser có thể in
                 const printWindow = window.open(url, '_blank');
                 if (printWindow) {
-                    printWindow.onload = () => {
-                        setTimeout(() => {
-                            printWindow.print();
-                            // Đóng tab sau khi in (tùy chọn)
-                            // printWindow.close();
-                        }, 500);
-                    };
+                    // Wait for PDF to load, then trigger print
+                    const checkLoaded = setInterval(() => {
+                        try {
+                            if (printWindow.document.readyState === 'complete') {
+                                clearInterval(checkLoaded);
+                                setTimeout(() => {
+                                    printWindow.print();
+                                }, 1000);
+                            }
+                        } catch (e) {
+                            // Cross-origin, use alternative method
+                            clearInterval(checkLoaded);
+                            setTimeout(() => {
+                                printWindow.print();
+                            }, 2000);
+                        }
+                    }, 100);
+                    
+                    // Fallback timeout
+                    setTimeout(() => {
+                        clearInterval(checkLoaded);
+                        printWindow.print();
+                    }, 5000);
                 }
                 onClose();
             } else if (type === 'preview') {

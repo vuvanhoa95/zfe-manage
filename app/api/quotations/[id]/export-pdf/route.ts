@@ -10,6 +10,9 @@ export async function GET(
 ) {
     try {
         const resolvedParams = params instanceof Promise ? await params : params;
+        const { searchParams } = new URL(request.url);
+        const mode = searchParams.get('mode'); // 'download' | 'print' | 'preview'
+        
         const session = await getServerSession(authOptions);
         if (!session?.user) {
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -38,11 +41,20 @@ export async function GET(
 
         const pdfBuffer = await generatePdf(quotation as any, company);
 
+        // Set headers based on mode
+        const headers: HeadersInit = {
+            'Content-Type': 'application/pdf',
+        };
+
+        if (mode === 'download') {
+            headers['Content-Disposition'] = `attachment; filename="BaoGia_${quotation.quotationNo}.pdf"`;
+        } else {
+            // For print and preview, use inline so browser can handle it
+            headers['Content-Disposition'] = `inline; filename="BaoGia_${quotation.quotationNo}.pdf"`;
+        }
+
         return new NextResponse(new Uint8Array(pdfBuffer as any), {
-            headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="Quotation_${quotation.quotationNo}.pdf"`,
-            },
+            headers,
         });
     } catch (error) {
         console.error('PDF Export Error:', error);
