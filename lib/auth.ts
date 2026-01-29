@@ -16,26 +16,41 @@ export const authOptions: NextAuthOptions = {
                     throw new Error('Vui lòng nhập đầy đủ email và mật khẩu');
                 }
 
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email },
-                });
+                try {
+                    const user = await prisma.user.findUnique({
+                        where: { email: credentials.email },
+                    });
 
-                if (!user || !user.password) {
-                    throw new Error('Không tìm thấy người dùng với email này');
+                    if (!user || !user.password) {
+                        throw new Error('Không tìm thấy người dùng với email này');
+                    }
+
+                    const isValid = await bcrypt.compare(credentials.password, user.password);
+
+                    if (!isValid) {
+                        throw new Error('Mật khẩu không chính xác');
+                    }
+
+                    return {
+                        id: user.id,
+                        name: user.name,
+                        email: user.email,
+                        role: user.role,
+                    };
+                } catch (error: any) {
+                    // Log error for debugging (only in development)
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('Auth error:', error);
+                    }
+                    
+                    // Check if it's a database connection error
+                    if (error?.code === 'P1001' || error?.message?.includes('connect')) {
+                        throw new Error('Không thể kết nối đến database. Vui lòng kiểm tra cấu hình DATABASE_URL.');
+                    }
+                    
+                    // Re-throw original error
+                    throw error;
                 }
-
-                const isValid = await bcrypt.compare(credentials.password, user.password);
-
-                if (!isValid) {
-                    throw new Error('Mật khẩu không chính xác');
-                }
-
-                return {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                };
             },
         }),
     ],
@@ -62,4 +77,5 @@ export const authOptions: NextAuthOptions = {
         strategy: 'jwt',
     },
     secret: process.env.NEXTAUTH_SECRET,
+    debug: process.env.NODE_ENV === 'development',
 };

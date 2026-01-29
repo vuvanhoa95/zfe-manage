@@ -24,13 +24,30 @@ export default function LoginPage() {
             });
 
             if (result?.error) {
-                setError('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
-            } else {
+                // Hiển thị lỗi chi tiết hơn
+                const errorMessage = result.error;
+                console.error('Login error:', errorMessage);
+                
+                if (errorMessage.includes('database') || errorMessage.includes('DATABASE_URL') || errorMessage.includes('connect')) {
+                    setError('Lỗi kết nối database. Vui lòng kiểm tra cấu hình server.');
+                } else if (errorMessage.includes('NEXTAUTH_SECRET')) {
+                    setError('Lỗi cấu hình authentication. Vui lòng liên hệ quản trị viên.');
+                } else if (errorMessage.includes('CredentialsSignin')) {
+                    setError('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
+                } else {
+                    setError(errorMessage || 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
+                }
+            } else if (result?.ok) {
                 router.push('/');
                 router.refresh();
+            } else {
+                console.error('Login failed - no error, no ok:', result);
+                setError('Đăng nhập thất bại. Vui lòng thử lại.');
             }
-        } catch (err) {
-            setError('Có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.');
+        } catch (err: any) {
+            console.error('Login error:', err);
+            const errorMessage = err?.message || 'Có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
