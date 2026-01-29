@@ -91,13 +91,13 @@ export default function Header() {
                                 </span>
                             ))}
                         </nav>
-                        <div className="min-w-0">
-                            <p className="text-xl sm:text-2xl font-extrabold text-zf-error leading-tight truncate uppercase tracking-wide">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-xl sm:text-2xl font-extrabold text-zf-error leading-tight break-words uppercase tracking-wide">
                                 {title}
                             </p>
                             <div className="mt-1 h-0.5 w-14 rounded-full bg-gradient-to-r from-zf-error via-zf-accent to-zf-error" />
                             {subtitle ? (
-                                <p className="mt-1 text-sm text-gray-500 leading-tight truncate hidden sm:block">
+                                <p className="mt-1 text-sm text-gray-500 leading-tight break-words hidden sm:block">
                                     {subtitle}
                                 </p>
                             ) : null}

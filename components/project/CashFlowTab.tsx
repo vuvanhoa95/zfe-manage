@@ -485,6 +485,7 @@ export default function CashFlowTab({ projectId, isNew }: { projectId: string; i
                                         <select
                                             {...form.register('category')}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            title={form.watch('category') || 'Thu từ báo giá (đợt thanh toán hợp đồng)'}
                                         >
                                             <option value="Thu từ báo giá">Thu từ báo giá (đợt thanh toán hợp đồng)</option>
                                             <option value="Khác">Khác</option>

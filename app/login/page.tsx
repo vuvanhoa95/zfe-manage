@@ -78,45 +78,20 @@ export default function LoginPage() {
             <div className="relative z-10 w-full max-w-md mx-4">
                 {/* Logo & Brand Section */}
                 <div className="text-center mb-10 animate-fade-in">
-                    <div className="inline-flex items-center justify-center mb-6 transform hover:scale-105 transition-all duration-300 relative">
-                        {/* ZFENIX Text Logo */}
-                        <div className="relative inline-block">
-                            {/* Glow Effect */}
-                            <div className="absolute -inset-4 bg-gradient-to-r from-[#178AF3]/30 via-[#0F6FC9]/30 to-[#053663]/30 rounded-2xl blur-2xl animate-pulse"></div>
-                            
-                            {/* Main Logo Text */}
-                            <div className="relative flex items-center gap-1">
-                                {/* Letter Z - Accent Blue */}
-                                <span className="text-7xl md:text-8xl font-black text-[#178AF3] drop-shadow-lg relative z-10" style={{ 
-                                    fontFamily: 'system-ui, -apple-system, sans-serif',
-                                    letterSpacing: '-0.02em',
-                                    textShadow: '0 4px 20px rgba(23, 138, 243, 0.4), 0 2px 8px rgba(23, 138, 243, 0.3)'
-                                }}>
-                                    Z
-                                </span>
-                                
-                                {/* Letters FENIX - Navy Blue */}
-                                <span className="text-7xl md:text-8xl font-black text-[#053663] drop-shadow-lg relative z-10" style={{ 
-                                    fontFamily: 'system-ui, -apple-system, sans-serif',
-                                    letterSpacing: '-0.02em',
-                                    textShadow: '0 4px 20px rgba(5, 54, 99, 0.3), 0 2px 8px rgba(5, 54, 99, 0.2)'
-                                }}>
-                                    FENIX
-                                </span>
-                            </div>
-                            
-                            {/* Accent Bar on E */}
-                            <div className="absolute left-[0.48em] top-[0.55em] w-[0.15em] h-[0.15em] bg-[#178AF3] rounded-sm z-20" style={{ 
-                                transform: 'translateX(calc(1.2em * 1))',
-                                boxShadow: '0 2px 8px rgba(23, 138, 243, 0.5)'
-                            }}></div>
-                            
-                            {/* Decorative Elements */}
-                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-[#178AF3]/50 to-transparent rounded-full"></div>
+                    <div className="inline-flex items-center justify-center mb-4 transform hover:scale-105 transition-all duration-300 relative">
+                        <div className="relative w-72 h-36 md:w-96 md:h-48">
+                            <Image
+                                src="/logo-white.png"
+                                alt="ZFENIX Logo"
+                                fill
+                                className="object-contain drop-shadow-2xl"
+                                priority
+                                quality={100}
+                            />
                         </div>
                     </div>
-                    <p className="text-sm text-[#2F343A]/70 uppercase tracking-[0.4em] font-bold mb-2">
-                        Quản Lý Dự Án
+                    <p className="text-lg md:text-xl font-bold text-white mb-2 drop-shadow-lg">
+                        Quản lý dự án
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
                         <div className="h-px w-12 bg-gradient-to-r from-transparent to-blue-400/50"></div>
