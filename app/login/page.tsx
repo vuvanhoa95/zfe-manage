@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Shield } from 'lucide-react';
 
 export default function LoginPage() {
@@ -78,17 +79,19 @@ export default function LoginPage() {
             <div className="relative z-10 w-full max-w-md mx-4">
                 {/* Logo & Brand Section */}
                 <div className="text-center mb-10 animate-fade-in">
-                    <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#178AF3] via-[#0F6FC9] to-[#053663] rounded-3xl shadow-2xl shadow-blue-500/50 mb-6 transform hover:scale-110 hover:rotate-3 transition-all duration-300 relative">
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-3xl"></div>
-                        <span className="text-4xl font-bold text-white italic relative z-10 drop-shadow-lg">Z</span>
-                        <div className="absolute -inset-1 bg-gradient-to-br from-[#178AF3] to-[#053663] rounded-3xl blur opacity-50 animate-pulse"></div>
+                    <div className="inline-flex items-center justify-center mb-6 transform hover:scale-105 transition-all duration-300 relative">
+                        <div className="relative w-64 h-32 md:w-80 md:h-40">
+                            <Image
+                                src="/logo.png"
+                                alt="ZFENIX Logo"
+                                fill
+                                className="object-contain drop-shadow-2xl"
+                                priority
+                                quality={100}
+                            />
+                        </div>
                     </div>
-                    <h1 className="text-6xl font-black text-white mb-4 tracking-tighter drop-shadow-2xl">
-                        <span className="bg-gradient-to-r from-white via-blue-100 to-blue-200 bg-clip-text text-transparent">
-                            ZFENIX
-                        </span>
-                    </h1>
-                    <p className="text-sm text-blue-200/90 uppercase tracking-[0.4em] font-bold">
+                    <p className="text-sm text-blue-200/90 uppercase tracking-[0.4em] font-bold mb-2">
                         Quản Lý Dự Án
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
@@ -127,7 +130,7 @@ export default function LoginPage() {
                                 Email
                             </label>
                             <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                                     <Mail className={`w-5 h-5 transition-colors ${email ? 'text-[#178AF3]' : 'text-[#5B6470]'}`} />
                                 </div>
                                 <input
@@ -135,8 +138,9 @@ export default function LoginPage() {
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-200 rounded-xl outline-none transition-all focus:border-[#178AF3] focus:ring-4 focus:ring-blue-500/10 text-[#2F343A] placeholder:text-gray-400"
+                                    className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-200 rounded-xl outline-none transition-all focus:border-[#178AF3] focus:ring-4 focus:ring-blue-500/10 text-[#2F343A] placeholder:text-gray-400 relative z-0"
                                     placeholder="admin@bimcompany.vn"
+                                    autoComplete="email"
                                 />
                             </div>
                         </div>
@@ -147,7 +151,7 @@ export default function LoginPage() {
                                 Mật khẩu
                             </label>
                             <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
                                     <Lock className={`w-5 h-5 transition-colors ${password ? 'text-[#178AF3]' : 'text-[#5B6470]'}`} />
                                 </div>
                                 <input
@@ -155,13 +159,15 @@ export default function LoginPage() {
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full pl-12 pr-12 py-3.5 bg-white border-2 border-gray-200 rounded-xl outline-none transition-all focus:border-[#178AF3] focus:ring-4 focus:ring-blue-500/10 text-[#2F343A] placeholder:text-gray-400"
+                                    className="w-full pl-12 pr-12 py-3.5 bg-white border-2 border-gray-200 rounded-xl outline-none transition-all focus:border-[#178AF3] focus:ring-4 focus:ring-blue-500/10 text-[#2F343A] placeholder:text-gray-400 relative z-0"
                                     placeholder="••••••••"
+                                    autoComplete="current-password"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#5B6470] hover:text-[#178AF3] transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-[#5B6470] hover:text-[#178AF3] transition-colors z-20"
+                                    tabIndex={-1}
                                 >
                                     {showPassword ? (
                                         <EyeOff className="w-5 h-5" />
@@ -313,6 +319,21 @@ export default function LoginPage() {
                 /* Smooth focus transitions */
                 input:focus {
                     transform: translateY(-1px);
+                }
+
+                /* Ensure icons stay visible */
+                input:focus ~ div,
+                input:autofill ~ div {
+                    z-index: 10 !important;
+                }
+
+                /* Fix browser autofill background */
+                input:-webkit-autofill,
+                input:-webkit-autofill:hover,
+                input:-webkit-autofill:focus {
+                    -webkit-box-shadow: 0 0 0px 1000px white inset !important;
+                    box-shadow: 0 0 0px 1000px white inset !important;
+                    -webkit-text-fill-color: #2F343A !important;
                 }
 
                 /* Glassmorphism effect */
