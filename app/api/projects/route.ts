@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { projectCreateSchema, type ProjectCreateInput } from '@/lib/validation/project';
+import { cache, cacheKeys } from '@/lib/cache';
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,6 +12,15 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status');
         const search = searchParams.get('search');
         const yearParam = searchParams.get('year');
+        
+        // Check cache (only for non-search queries to avoid stale data)
+        if (!search) {
+            const cacheKey = cacheKeys.projectList(searchParams.toString());
+            const cached = cache.get(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...cached, cached: true });
+            }
+        }
 
         const where: Prisma.ProjectWhereInput = {};
 
@@ -38,29 +48,45 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Fetch projects with relations
-        const projects = await prisma.project.findMany({
-            where,
-            include: {
-                customer: true,
-                finalQuotation: {
-                    select: {
-                        id: true,
-                        totalAfterVat: true,
-                        outsourceCost: true,
-                        taxCost: true,
-                        commissionCost: true,
-                        totalBeforeVat: true,
+        // Pagination
+        const page = parseInt(searchParams.get('page') || '1');
+        const pageSize = parseInt(searchParams.get('pageSize') || '20');
+        const skip = (page - 1) * pageSize;
+
+        // Fetch projects with relations (with pagination)
+        const [projects, total] = await Promise.all([
+            prisma.project.findMany({
+                where,
+                include: {
+                    customer: {
+                        select: {
+                            id: true,
+                            name: true,
+                            taxCode: true,
+                        },
+                    },
+                    finalQuotation: {
+                        select: {
+                            id: true,
+                            totalAfterVat: true,
+                            outsourceCost: true,
+                            taxCost: true,
+                            commissionCost: true,
+                            totalBeforeVat: true,
+                        },
+                    },
+                    _count: {
+                        select: { quotations: true, cashFlows: true },
                     },
                 },
-                _count: {
-                    select: { quotations: true, cashFlows: true },
+                orderBy: {
+                    createdAt: 'desc',
                 },
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+                skip,
+                take: pageSize,
+            }),
+            prisma.project.count({ where }),
+        ]);
 
         const projectsWithComputedTotals = projects.map((project) => {
             // Rule: financial numbers MUST come from finalQuotation only.
@@ -84,7 +110,24 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        return NextResponse.json({ success: true, data: projectsWithComputedTotals });
+        const result = {
+            success: true,
+            data: projectsWithComputedTotals,
+            pagination: {
+                page,
+                pageSize,
+                total,
+                totalPages: Math.ceil(total / pageSize),
+            },
+        };
+
+        // Cache for 30 seconds (only if no search)
+        if (!search) {
+            const cacheKey = cacheKeys.projectList(searchParams.toString());
+            cache.set(cacheKey, result, 30000);
+        }
+
+        return NextResponse.json(result);
     } catch (error: unknown) {
         console.error('Failed to fetch projects:', error);
 

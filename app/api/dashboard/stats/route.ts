@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { cache, cacheKeys } from '@/lib/cache';
 
 // GET /api/dashboard/stats - Get dashboard statistics
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const statusFilter = searchParams.get('status'); // Optional: filter by status (ACCEPTED, SENT, etc.)
+
+        // Check cache first
+        const cacheKey = cacheKeys.dashboardStats(statusFilter || undefined);
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            return NextResponse.json({ success: true, data: cached, cached: true });
+        }
 
         // Build where clause
         const where: any = {};
@@ -14,6 +22,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Financials must come from FINAL quotations only (Project.finalQuotationId)
+        // Optimize: Only select needed fields and limit to recent projects
         const projects = await prisma.project.findMany({
             where: {
                 // Chỉ tính các dự án có báo giá chốt
@@ -23,7 +32,8 @@ export async function GET(request: NextRequest) {
                     in: ['ACTIVE', 'COMPLETED'],
                 },
             },
-            include: {
+            select: {
+                id: true,
                 customer: { select: { name: true } },
                 finalQuotation: {
                     select: {
@@ -174,29 +184,34 @@ export async function GET(request: NextRequest) {
             count: data.count,
         }));
 
+        const result = {
+            totalQuotations,
+            quotationsByStatus,
+            projectedRevenue: {
+                beforeVat: totalRevenueBeforeVat,
+                afterVat: totalRevenueAfterVat,
+            },
+            costs: {
+                outsource: totalOutsourceCost,
+                tax: totalTaxCost,
+                commission: totalCommissionCost,
+                total: totalCosts,
+            },
+            profit: {
+                amount: totalProfit,
+                margin: profitMargin,
+            },
+            monthlyChartData,
+            recentQuotations,
+            paymentMilestones: paymentMilestonesSummary,
+        };
+
+        // Cache for 30 seconds
+        cache.set(cacheKey, result, 30000);
+
         return NextResponse.json({
             success: true,
-            data: {
-                totalQuotations,
-                quotationsByStatus,
-                projectedRevenue: {
-                    beforeVat: totalRevenueBeforeVat,
-                    afterVat: totalRevenueAfterVat,
-                },
-                costs: {
-                    outsource: totalOutsourceCost,
-                    tax: totalTaxCost,
-                    commission: totalCommissionCost,
-                    total: totalCosts,
-                },
-                profit: {
-                    amount: totalProfit,
-                    margin: profitMargin,
-                },
-                monthlyChartData,
-                recentQuotations,
-                paymentMilestones: paymentMilestonesSummary,
-            },
+            data: result,
         });
     } catch (error: any) {
         console.error('Error fetching dashboard stats:', error);

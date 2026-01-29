@@ -19,9 +19,15 @@ export async function GET(
                 },
                 quotations: {
                     include: {
-                        customer: true,
+                        customer: {
+                            select: {
+                                id: true,
+                                name: true,
+                            },
+                        },
                     },
                     orderBy: { createdAt: 'desc' },
+                    take: 50, // Limit to last 50 quotations
                 },
                 cashFlows: {
                     include: {
@@ -33,6 +39,7 @@ export async function GET(
                         },
                     },
                     orderBy: { date: 'desc' },
+                    take: 100, // Limit to last 100 cash flows
                 },
             },
         });
