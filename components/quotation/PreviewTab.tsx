@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { QuotationFormData } from '@/types/quotation';
 import { formatVND, numberToVietnameseWords } from '@/lib/number-to-words-vn';
 import { calculateQuotationTotals, formatVietnameseDate } from '@/lib/utils';
@@ -245,6 +246,8 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                                     className="w-full border border-gray-200 rounded-md p-2 text-sm min-h-[160px] resize-vertical"
                                     value={summaryText}
                                     onChange={(e) => setSummaryText(e.target.value)}
+                                    aria-label="Tóm tắt báo giá"
+                                    title="Tóm tắt báo giá"
                                 />
                                 <p className="text-xs text-gray-500">
                                     Bạn có thể chỉnh sửa nội dung này và copy để dùng trong email/tài liệu khác.
@@ -260,6 +263,8 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                                     className="w-full border border-gray-200 rounded-md p-2 text-sm min-h-[160px] resize-vertical"
                                     value={emailText}
                                     onChange={(e) => setEmailText(e.target.value)}
+                                    aria-label="Email gửi khách hàng"
+                                    title="Email gửi khách hàng"
                                 />
                                 <p className="text-xs text-gray-500">
                                     Hãy kiểm tra lại nội dung trước khi gửi cho khách hàng.
@@ -270,9 +275,25 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                 )}
                 <style>{`@media print { body * { visibility: hidden; } #printArea, #printArea * { visibility: visible; } #printArea { position: absolute; left: 0; top: 0; width: 100%; } .no-print { display: none !important; } }`}</style>
                 <div id="printArea" className="bg-white p-8">
-
-                    <div className="text-right text-sm mb-6 italic">{data.location}, {dateInfo.full}</div>
-                    <h1 className="text-center text-2xl font-bold mb-8 text-zf-primary">{data.title || 'BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM'}</h1>
+                    {/* Header with Logo */}
+                    <div className="mb-8 pb-6 border-b border-gray-200">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="relative w-48 h-24">
+                                <Image
+                                    src="/logo.png"
+                                    alt="ZFENIX Logo"
+                                    fill
+                                    className="object-contain"
+                                    priority
+                                    quality={100}
+                                />
+                            </div>
+                            <div className="text-right text-sm italic text-gray-600">
+                                {data.location}, {dateInfo.full}
+                            </div>
+                        </div>
+                        <h1 className="text-center text-2xl font-bold text-zf-primary">{data.title || 'BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM'}</h1>
+                    </div>
                     <div className="mb-6 text-sm">Chúng tôi xin trân trọng cảm ơn Quý Công ty đã tin tưởng và mời chúng tôi tham gia chào giá dịch vụ tư vấn tạo lập mô hình BIM.</div>
                     <div className="mb-6">
                         <h3 className="font-bold mb-2 text-zf-primary">I. THÔNG TIN DỰ ÁN</h3>

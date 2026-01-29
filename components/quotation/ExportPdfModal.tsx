@@ -26,9 +26,26 @@ export default function ExportPdfModal({ isOpen, onClose, quotationId, quotation
             if (type === 'download') {
                 // Download PDF trực tiếp
                 const response = await fetch(url);
-                if (!response.ok) throw new Error('Failed to generate PDF');
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Check if response is actually PDF
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/pdf')) {
+                    const errorText = await response.text();
+                    console.error('Non-PDF response:', errorText);
+                    throw new Error('Server không trả về file PDF. Vui lòng kiểm tra lại.');
+                }
                 
                 const blob = await response.blob();
+                
+                if (blob.size === 0) {
+                    throw new Error('File PDF rỗng. Vui lòng thử lại.');
+                }
+                
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = downloadUrl;
@@ -43,40 +60,51 @@ export default function ExportPdfModal({ isOpen, onClose, quotationId, quotation
                 // Mở PDF trong tab mới và trigger print dialog
                 // Sử dụng inline mode để browser có thể in
                 const printWindow = window.open(url, '_blank');
-                if (printWindow) {
-                    // Wait for PDF to load, then trigger print
-                    const checkLoaded = setInterval(() => {
-                        try {
-                            if (printWindow.document.readyState === 'complete') {
-                                clearInterval(checkLoaded);
-                                setTimeout(() => {
-                                    printWindow.print();
-                                }, 1000);
-                            }
-                        } catch (e) {
-                            // Cross-origin, use alternative method
+                if (!printWindow) {
+                    throw new Error('Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt popup của trình duyệt.');
+                }
+                
+                // Wait for PDF to load, then trigger print
+                const checkLoaded = setInterval(() => {
+                    try {
+                        if (printWindow.document.readyState === 'complete') {
                             clearInterval(checkLoaded);
                             setTimeout(() => {
                                 printWindow.print();
-                            }, 2000);
+                            }, 1500);
                         }
-                    }, 100);
-                    
-                    // Fallback timeout
-                    setTimeout(() => {
+                    } catch (e) {
+                        // Cross-origin, use alternative method
                         clearInterval(checkLoaded);
+                        setTimeout(() => {
+                            printWindow.print();
+                        }, 2000);
+                    }
+                }, 200);
+                
+                // Fallback timeout
+                setTimeout(() => {
+                    clearInterval(checkLoaded);
+                    try {
                         printWindow.print();
-                    }, 5000);
-                }
+                    } catch (e) {
+                        console.error('Print error:', e);
+                    }
+                }, 5000);
+                
                 onClose();
             } else if (type === 'preview') {
                 // Mở PDF trong tab mới để preview
-                window.open(url, '_blank');
+                const previewWindow = window.open(url, '_blank');
+                if (!previewWindow) {
+                    throw new Error('Không thể mở cửa sổ xem trước. Vui lòng kiểm tra cài đặt popup của trình duyệt.');
+                }
                 onClose();
             }
         } catch (error) {
             console.error('Export PDF error:', error);
-            alert('Không thể xuất PDF. Vui lòng thử lại.');
+            const errorMessage = error instanceof Error ? error.message : 'Không thể xuất PDF. Vui lòng thử lại.';
+            alert(`Lỗi: ${errorMessage}`);
         } finally {
             setLoading(false);
         }

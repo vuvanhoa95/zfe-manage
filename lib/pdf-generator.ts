@@ -1,8 +1,30 @@
-import puppeteer from 'puppeteer';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { formatVND } from './number-to-words-vn';
 import { QuotationWithRelations } from '@/types/quotation';
+
+// Dynamic imports for Vercel compatibility
+let puppeteer: any;
+let chromium: any;
+
+// Check if running on Vercel
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+
+// Load appropriate puppeteer based on environment
+async function getPuppeteer() {
+  if (!puppeteer) {
+    if (isVercel) {
+      // Use puppeteer-core with chromium for Vercel
+      puppeteer = await import('puppeteer-core');
+      chromium = await import('@sparticuz/chromium');
+      chromium.setGraphicsMode(false);
+    } else {
+      // Use full puppeteer for local development
+      puppeteer = await import('puppeteer');
+    }
+  }
+  return { puppeteer, chromium };
+}
 
 function escapeHtml(value: string) {
   return value
@@ -35,17 +57,34 @@ function getCompanyLogoDataUri(logoUrl: string | undefined | null): string | nul
 }
 
 export async function generatePdf(data: QuotationWithRelations, company: any) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  let browser;
+  try {
+    const { puppeteer: puppeteerLib, chromium: chromiumLib } = await getPuppeteer();
 
-  const page = await browser.newPage();
-  const companyLogoDataUri = getCompanyLogoDataUri(company?.logoUrl);
-  const projectSlogan = typeof company?.projectSlogan === 'string' ? company.projectSlogan : '';
+    const launchOptions: any = {
+      headless: true,
+      args: isVercel && chromiumLib ? chromiumLib.args : [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+      ],
+    };
 
-  // Create HTML content with ZFENIX Executive styling
-  const htmlContent = `
+    // Use Chromium executable for Vercel
+    if (isVercel && chromiumLib) {
+      launchOptions.executablePath = await chromiumLib.executablePath();
+    }
+
+    browser = await puppeteerLib.launch(launchOptions);
+
+    const page = await browser.newPage();
+    const companyLogoDataUri = getCompanyLogoDataUri(company?.logoUrl);
+    const projectSlogan = typeof company?.projectSlogan === 'string' ? company.projectSlogan : '';
+
+    // Create HTML content with ZFENIX Executive styling
+    const htmlContent = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -381,21 +420,36 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
         </div>
       </body>
     </html>
-  `;
+    `;
 
-  await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
-  const pdfBuffer = await page.pdf({
-    format: 'A4',
-    printBackground: true,
-    margin: {
-      top: '0mm',
-      right: '0mm',
-      bottom: '0mm',
-      left: '0mm',
-    },
-  });
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '0mm',
+        right: '0mm',
+        bottom: '0mm',
+        left: '0mm',
+      },
+    });
 
-  await browser.close();
-  return pdfBuffer;
+    await browser.close();
+    return pdfBuffer;
+  } catch (error) {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.error('Error closing browser:', closeError);
+      }
+    }
+    console.error('PDF Generation Error:', error);
+    throw new Error(
+      error instanceof Error
+        ? `Lỗi tạo PDF: ${error.message}`
+        : 'Lỗi không xác định khi tạo PDF'
+    );
+  }
 }

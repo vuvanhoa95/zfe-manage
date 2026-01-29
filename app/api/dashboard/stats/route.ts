@@ -185,25 +185,25 @@ export async function GET(request: NextRequest) {
         }));
 
         const result = {
-            totalQuotations,
-            quotationsByStatus,
-            projectedRevenue: {
-                beforeVat: totalRevenueBeforeVat,
-                afterVat: totalRevenueAfterVat,
-            },
-            costs: {
-                outsource: totalOutsourceCost,
-                tax: totalTaxCost,
-                commission: totalCommissionCost,
-                total: totalCosts,
-            },
-            profit: {
-                amount: totalProfit,
-                margin: profitMargin,
-            },
-            monthlyChartData,
-            recentQuotations,
-            paymentMilestones: paymentMilestonesSummary,
+                totalQuotations,
+                quotationsByStatus,
+                projectedRevenue: {
+                    beforeVat: totalRevenueBeforeVat,
+                    afterVat: totalRevenueAfterVat,
+                },
+                costs: {
+                    outsource: totalOutsourceCost,
+                    tax: totalTaxCost,
+                    commission: totalCommissionCost,
+                    total: totalCosts,
+                },
+                profit: {
+                    amount: totalProfit,
+                    margin: profitMargin,
+                },
+                monthlyChartData,
+                recentQuotations,
+                paymentMilestones: paymentMilestonesSummary,
         };
 
         // Cache for 30 seconds

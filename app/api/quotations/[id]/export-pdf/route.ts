@@ -58,6 +58,14 @@ export async function GET(
         });
     } catch (error) {
         console.error('PDF Export Error:', error);
-        return NextResponse.json({ success: false, error: 'Failed to generate PDF' }, { status: 500 });
+        const errorMessage = error instanceof Error ? error.message : 'Failed to generate PDF';
+        return NextResponse.json(
+            { 
+                success: false, 
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? String(error) : undefined
+            }, 
+            { status: 500 }
+        );
     }
 }
