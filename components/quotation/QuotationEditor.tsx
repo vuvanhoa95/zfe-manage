@@ -747,7 +747,11 @@ export default function QuotationEditor({
                                 lockProject={Boolean(projectContext) && isNew}
                             />
                         ) : tab === 'preview' ? (
-                            <PreviewTab data={formData} />
+                            <PreviewTab 
+                                data={formData} 
+                                quotationId={id}
+                                quotationNo={quotationNo}
+                            />
                         ) : (
                             <CatalogTab />
                         )

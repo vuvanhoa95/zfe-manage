@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react';
 import { QuotationFormData } from '@/types/quotation';
 import { formatVND, numberToVietnameseWords } from '@/lib/number-to-words-vn';
 import { calculateQuotationTotals, formatVietnameseDate } from '@/lib/utils';
+import ExportPdfModal from './ExportPdfModal';
 
 type PreviewTabProps = {
     data: QuotationFormData;
+    quotationId?: string;
+    quotationNo?: string;
 };
 
 type CompanyProfile = {
@@ -37,7 +40,7 @@ type AiChatResponse =
     | { success: true; data: { message: string } }
     | { success: false; error: string };
 
-export default function PreviewTab({ data }: PreviewTabProps) {
+export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTabProps) {
     const [company, setCompany] = useState<CompanyProfile | null>(null);
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
@@ -45,6 +48,7 @@ export default function PreviewTab({ data }: PreviewTabProps) {
     const [emailLoading, setEmailLoading] = useState(false);
     const [summaryText, setSummaryText] = useState('');
     const [emailText, setEmailText] = useState('');
+    const [showExportModal, setShowExportModal] = useState(false);
 
     const dateInfo = formatVietnameseDate(data.date);
     const { totalBeforeVat, vatAmount, totalAfterVat } = calculateQuotationTotals(data.lines, data.vatRate, data.totalArea);
@@ -193,7 +197,14 @@ export default function PreviewTab({ data }: PreviewTabProps) {
             <div className="max-w-7xl mx-auto p-6 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <button
-                        onClick={() => window.print()}
+                        onClick={() => {
+                            if (quotationId && quotationNo) {
+                                setShowExportModal(true);
+                            } else {
+                                // Fallback to window.print if no ID
+                                window.print();
+                            }
+                        }}
                         className="flex items-center gap-2 px-6 py-3 text-white rounded bg-zf-primary hover:bg-zf-primary-dark transition-colors"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -419,6 +430,16 @@ export default function PreviewTab({ data }: PreviewTabProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Export PDF Modal */}
+            {quotationId && quotationNo && (
+                <ExportPdfModal
+                    isOpen={showExportModal}
+                    onClose={() => setShowExportModal(false)}
+                    quotationId={quotationId}
+                    quotationNo={quotationNo}
+                />
+            )}
         </div>
     );
 }
