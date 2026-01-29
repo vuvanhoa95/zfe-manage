@@ -12,7 +12,20 @@ export const authOptions: NextAuthOptions = {
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials) {
+                // Debug logging
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('Authorize called with:', { 
+                        hasEmail: !!credentials?.email, 
+                        hasPassword: !!credentials?.password,
+                        emailLength: credentials?.email?.length || 0
+                    });
+                }
+                
                 if (!credentials?.email || !credentials?.password) {
+                    console.error('Missing credentials:', { 
+                        email: !!credentials?.email, 
+                        password: !!credentials?.password 
+                    });
                     throw new Error('Vui lòng nhập đầy đủ email và mật khẩu');
                 }
 
