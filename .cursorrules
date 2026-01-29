@@ -1,0 +1,67 @@
+# Cursor Rules - ZfeManage (Production Code)
+
+## ⚠️ QUAN TRỌNG: Rules & Documentation Location
+
+**Folder này (`ZfeManage`) là CODE CHÍNH để build và deploy app.**
+
+**Tất cả RULES, DOCUMENTATION, REQUIREMENTS được lưu tại folder `../quotation-app/`**
+
+Khi làm việc với code trong `ZfeManage`, bạn PHẢI đọc và tuân theo các rules từ `quotation-app`:
+
+### 📚 Files cần reference từ `quotation-app/`:
+
+1. **`.cursorrules`** (root level) - Tất cả coding rules và conventions
+2. **`ARCHITECTURE.md`** - Kiến trúc hệ thống và data flow
+3. **`PROJECT_PLAN.md`** - Kế hoạch phát triển theo phases
+4. **`DEV_TODO.md`** - TODO list chi tiết cho development
+5. **`README.md`** - Tổng quan dự án và setup instructions
+6. **`QUICKSTART.md`** - Hướng dẫn nhanh để bắt đầu
+7. **`DELIVERY_SUMMARY.md`** - Tóm tắt các tính năng đã deliver
+8. **`docs/`** folder - Tài liệu bổ sung (nếu có)
+
+### 🔄 Workflow khi code trong ZfeManage:
+
+1. **Trước khi code**: Đọc rules từ `../quotation-app/.cursorrules` và các docs liên quan
+2. **Khi code**: Tuân theo tất cả conventions, patterns, và best practices được định nghĩa trong `quotation-app`
+3. **Sau khi code**: Đảm bảo code tuân thủ rules và có thể build/deploy được
+
+### 📋 Quick Reference - Key Rules từ quotation-app:
+
+- **TypeScript**: Strict mode, không dùng `any`
+- **Naming**: PascalCase cho components, camelCase cho variables
+- **API Routes**: Consistent error format `{ success: boolean, data?, error? }`
+- **Vietnamese**: Tất cả text UI phải bằng tiếng Việt
+- **Brand Colors**: ZFENIX Navy (#053663), ZFENIX Blue (#178AF3)
+- **Validation**: Luôn dùng Zod schemas
+- **Database**: Prisma với migrations, tránh N+1 queries
+
+### 🎯 Project Structure (ZfeManage):
+
+```
+ZfeManage/                    # ← CODE CHÍNH (Production)
+├── app/                      # Next.js App Router
+├── components/               # React Components
+├── lib/                      # Utilities & helpers
+├── prisma/                   # Database schema & migrations
+├── public/                   # Static files
+└── types/                    # TypeScript types
+
+../quotation-app/             # ← RULES & DOCS (Reference)
+├── .cursorrules              # ← ĐỌC FILE NÀY ĐỂ LẤY RULES
+├── ARCHITECTURE.md           # ← Kiến trúc hệ thống
+├── PROJECT_PLAN.md           # ← Kế hoạch phát triển
+├── DEV_TODO.md               # ← TODO list
+└── docs/                     # ← Tài liệu bổ sung
+```
+
+### ⚡ Khi được yêu cầu code trong ZfeManage:
+
+1. **LUÔN** đọc rules từ `../quotation-app/.cursorrules` trước
+2. **TUÂN THEO** tất cả conventions được định nghĩa
+3. **THAM KHẢO** `ARCHITECTURE.md` để hiểu data flow và patterns
+4. **KIỂM TRA** `DEV_TODO.md` để biết các tính năng đang làm
+5. **ĐẢM BẢO** code có thể build và deploy được
+
+---
+
+**Lưu ý**: Folder `quotation-app` chỉ dùng để lưu trữ rules và documentation. Code thực tế được viết trong `ZfeManage`.

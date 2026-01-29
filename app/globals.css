@@ -1,0 +1,268 @@
+@import "tailwindcss";
+
+:root {
+  /* ZFENIX Brand Colors */
+  --zf-primary: #053663; /* ZFENIX Navy */
+  --zf-primary-light: #0B4A80;
+  --zf-primary-dark: #042A4C;
+
+  --zf-accent: #178AF3; /* ZFENIX Blue */
+  --zf-accent-light: #4DA3F6;
+  --zf-accent-dark: #0F6FC9;
+
+  --zf-graphite: #2F343A; /* Graphite */
+
+  /* Semantic Colors */
+  --zf-success: #10B981;
+  --zf-warning: #F59E0B;
+  --zf-error: #EF4444;
+  --zf-info: #3B82F6;
+
+  /* Backgrounds */
+  --zf-bg-default: #FFFFFF;
+  --zf-bg-secondary: #F1F5F9;
+  --zf-bg-tertiary: #E2E8F0;
+
+  /* Texts */
+  --zf-text-primary: var(--zf-graphite);
+  --zf-text-secondary: #5B6470;
+  --zf-text-inverse: #FFFFFF;
+
+  /* Tailwind CSS compatibility variables */
+  --background: var(--zf-bg-default);
+  --foreground: var(--zf-text-primary);
+}
+
+@theme inline {
+  /* Branding */
+  --color-zf-primary: var(--zf-primary);
+  --color-zf-primary-light: var(--zf-primary-light);
+  --color-zf-primary-dark: var(--zf-primary-dark);
+
+  --color-zf-accent: var(--zf-accent);
+  --color-zf-accent-light: var(--zf-accent-light);
+  --color-zf-accent-dark: var(--zf-accent-dark);
+  --color-zf-graphite: var(--zf-graphite);
+
+  /* Semantic */
+  --color-zf-success: var(--zf-success);
+  --color-zf-warning: var(--zf-warning);
+  --color-zf-error: var(--zf-error);
+  --color-zf-info: var(--zf-info);
+
+  /* Backgrounds */
+  --color-zf-bg-default: var(--zf-bg-default);
+  --color-zf-bg-secondary: var(--zf-bg-secondary);
+  --color-zf-bg-tertiary: var(--zf-bg-tertiary);
+
+  /* Texts */
+  --color-zf-text-primary: var(--zf-text-primary);
+  --color-zf-text-secondary: var(--zf-text-secondary);
+  --color-zf-text-inverse: var(--zf-text-inverse);
+
+  /* Base */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+*,
+*::before,
+*::after {
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+html {
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+body {
+  background: var(--zf-bg-default);
+  color: var(--zf-text-primary);
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tab panel animations (ZFENIX) */
+.zf-tabpanel {
+  height: 100%;
+  width: 100%;
+  contain: layout paint;
+  will-change: opacity, transform;
+}
+
+.zf-tabpanel-enter {
+  animation-name: zf-tabpanel-enter;
+  animation-duration: var(--zf-tab-enter-ms, 260ms);
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.zf-tabpanel-exit {
+  animation-name: zf-tabpanel-exit;
+  animation-duration: var(--zf-tab-exit-ms, 180ms);
+  animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
+  animation-fill-mode: both;
+}
+
+/* iOS-style horizontal slide (direction-aware) */
+.zf-tabpanel-variant-ios.zf-tabpanel-enter.zf-tabpanel-dir-forward {
+  animation-name: zf-tabpanel-ios-enter-forward;
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.zf-tabpanel-variant-ios.zf-tabpanel-exit.zf-tabpanel-dir-forward {
+  animation-name: zf-tabpanel-ios-exit-forward;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.zf-tabpanel-variant-ios.zf-tabpanel-enter.zf-tabpanel-dir-backward {
+  animation-name: zf-tabpanel-ios-enter-backward;
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.zf-tabpanel-variant-ios.zf-tabpanel-exit.zf-tabpanel-dir-backward {
+  animation-name: zf-tabpanel-ios-exit-backward;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes zf-tabpanel-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.995);
+    filter: blur(0.8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes zf-tabpanel-exit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0) scale(0.998);
+    filter: blur(0.6px);
+  }
+}
+
+@keyframes zf-tabpanel-ios-enter-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes zf-tabpanel-ios-exit-forward {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+}
+
+@keyframes zf-tabpanel-ios-enter-backward {
+  from {
+    opacity: 0;
+    transform: translate3d(-24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes zf-tabpanel-ios-exit-backward {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zf-tabpanel-enter,
+  .zf-tabpanel-exit {
+    animation: none !important;
+  }
+}
+
+/* Page transitions (App navigation) */
+.zf-page {
+  height: 100%;
+  width: 100%;
+}
+
+.zf-page-enter {
+  animation: zf-page-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.zf-page-exit {
+  animation: zf-page-exit 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes zf-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes zf-page-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.995);
+    filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zf-page-enter,
+  .zf-page-exit {
+    animation: none !important;
+  }
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+/* Ensure Vietnamese characters render correctly */
+@supports (font-variant-east-asian: normal) {
+  * {
+    font-variant-east-asian: normal;
+  }
+}
