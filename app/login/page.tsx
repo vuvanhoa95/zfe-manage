@@ -57,22 +57,22 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
             {/* Animated Background Elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 {/* Animated Grid Pattern */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:40px_40px] opacity-60"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] opacity-40"></div>
                 
                 {/* Animated Gradient Orbs */}
-                <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/30 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-indigo-500/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
+                <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-indigo-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-400/10 rounded-full blur-3xl animate-pulse delay-2000"></div>
                 
                 {/* Floating Particles */}
-                <div className="absolute top-20 left-1/4 w-2 h-2 bg-blue-400 rounded-full animate-float"></div>
-                <div className="absolute top-40 right-1/4 w-1.5 h-1.5 bg-indigo-400 rounded-full animate-float delay-500"></div>
-                <div className="absolute bottom-32 left-1/3 w-1 h-1 bg-purple-400 rounded-full animate-float delay-1000"></div>
-                <div className="absolute bottom-20 right-1/3 w-2.5 h-2.5 bg-blue-300 rounded-full animate-float delay-1500"></div>
+                <div className="absolute top-20 left-1/4 w-2 h-2 bg-blue-500/30 rounded-full animate-float"></div>
+                <div className="absolute top-40 right-1/4 w-1.5 h-1.5 bg-indigo-500/30 rounded-full animate-float delay-500"></div>
+                <div className="absolute bottom-32 left-1/3 w-1 h-1 bg-purple-500/30 rounded-full animate-float delay-1000"></div>
+                <div className="absolute bottom-20 right-1/3 w-2.5 h-2.5 bg-blue-400/30 rounded-full animate-float delay-1500"></div>
             </div>
 
             {/* Main Content */}
@@ -88,10 +88,27 @@ export default function LoginPage() {
                                 className="object-contain drop-shadow-2xl"
                                 priority
                                 quality={100}
+                                unoptimized
+                                onError={(e) => {
+                                    // Fallback nếu logo không load được
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent) {
+                                        parent.innerHTML = `
+                                            <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[#178AF3] via-[#0F6FC9] to-[#053663] rounded-3xl shadow-2xl shadow-blue-500/50">
+                                                <span class="text-4xl font-bold text-white italic">Z</span>
+                                            </div>
+                                        `;
+                                    }
+                                }}
                             />
                         </div>
                     </div>
-                    <p className="text-sm text-blue-200/90 uppercase tracking-[0.4em] font-bold mb-2">
+                    <h1 className="text-4xl font-bold text-[#053663] mb-2 tracking-tight">
+                        ZFENIX
+                    </h1>
+                    <p className="text-sm text-[#2F343A]/70 uppercase tracking-[0.3em] font-semibold mb-2">
                         Quản Lý Dự Án
                     </p>
                     <div className="mt-4 flex items-center justify-center gap-2">
@@ -240,8 +257,8 @@ export default function LoginPage() {
 
                 {/* Security Badge */}
                 <div className="mt-8 text-center animate-fade-in delay-500">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 text-xs text-white/80">
-                        <Shield className="w-4 h-4 text-blue-300" />
+                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-gray-200 text-xs text-[#5B6470]">
+                        <Shield className="w-4 h-4 text-[#178AF3]" />
                         <span>Kết nối được mã hóa và bảo mật</span>
                     </div>
                 </div>
