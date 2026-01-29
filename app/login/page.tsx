@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight, Shield } from 'lucide-react';
 
 export default function LoginPage() {
@@ -80,17 +79,20 @@ export default function LoginPage() {
                 {/* Logo & Brand Section */}
                 <div className="text-center mb-10 animate-fade-in">
                     <div className="inline-flex items-center justify-center mb-6 transform hover:scale-105 transition-all duration-300 relative">
-                        <div className="relative w-64 h-32 md:w-80 md:h-40">
-                            <Image
-                                src="/logo-trans.png"
-                                alt="ZFENIX Logo"
-                                fill
-                                className="object-contain drop-shadow-2xl"
-                                priority
-                                quality={100}
-                                unoptimized
-                            />
-                        </div>
+                        <img
+                            src="/logo-trans.png"
+                            alt="ZFENIX Logo"
+                            className="w-64 h-auto md:w-80 max-w-full drop-shadow-2xl"
+                            style={{ maxHeight: '160px' }}
+                            onError={(e) => {
+                                console.error('Logo load error:', e);
+                                // Fallback to logo.png if logo-trans.png fails
+                                const target = e.target as HTMLImageElement;
+                                if (target.src !== '/logo.png') {
+                                    target.src = '/logo.png';
+                                }
+                            }}
+                        />
                     </div>
                     <p className="text-sm text-[#2F343A]/70 uppercase tracking-[0.4em] font-bold mb-2">
                         Quản Lý Dự Án
