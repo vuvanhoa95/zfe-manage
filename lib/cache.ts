@@ -1,6 +1,11 @@
 /**
  * Simple in-memory cache for API responses
- * For production, consider using Redis or Vercel KV
+ * 
+ * Note: In-memory cache is shared per serverless function instance.
+ * For better performance across multiple instances, consider using:
+ * - Vercel KV (recommended for Vercel)
+ * - Redis (for other platforms)
+ * - Upstash Redis (serverless Redis)
  */
 
 interface CacheEntry<T> {
