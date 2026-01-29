@@ -79,20 +79,41 @@ export default function LoginPage() {
                 {/* Logo & Brand Section */}
                 <div className="text-center mb-10 animate-fade-in">
                     <div className="inline-flex items-center justify-center mb-6 transform hover:scale-105 transition-all duration-300 relative">
-                        <img
-                            src="/logo-trans.png"
-                            alt="ZFENIX Logo"
-                            className="w-64 h-auto md:w-80 max-w-full drop-shadow-2xl"
-                            style={{ maxHeight: '160px' }}
-                            onError={(e) => {
-                                console.error('Logo load error:', e);
-                                // Fallback to logo.png if logo-trans.png fails
-                                const target = e.target as HTMLImageElement;
-                                if (target.src !== '/logo.png') {
-                                    target.src = '/logo.png';
-                                }
-                            }}
-                        />
+                        {/* ZFENIX Text Logo */}
+                        <div className="relative inline-block">
+                            {/* Glow Effect */}
+                            <div className="absolute -inset-4 bg-gradient-to-r from-[#178AF3]/30 via-[#0F6FC9]/30 to-[#053663]/30 rounded-2xl blur-2xl animate-pulse"></div>
+                            
+                            {/* Main Logo Text */}
+                            <div className="relative flex items-center gap-1">
+                                {/* Letter Z - Accent Blue */}
+                                <span className="text-7xl md:text-8xl font-black text-[#178AF3] drop-shadow-lg relative z-10" style={{ 
+                                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                                    letterSpacing: '-0.02em',
+                                    textShadow: '0 4px 20px rgba(23, 138, 243, 0.4), 0 2px 8px rgba(23, 138, 243, 0.3)'
+                                }}>
+                                    Z
+                                </span>
+                                
+                                {/* Letters FENIX - Navy Blue */}
+                                <span className="text-7xl md:text-8xl font-black text-[#053663] drop-shadow-lg relative z-10" style={{ 
+                                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                                    letterSpacing: '-0.02em',
+                                    textShadow: '0 4px 20px rgba(5, 54, 99, 0.3), 0 2px 8px rgba(5, 54, 99, 0.2)'
+                                }}>
+                                    FENIX
+                                </span>
+                            </div>
+                            
+                            {/* Accent Bar on E */}
+                            <div className="absolute left-[0.48em] top-[0.55em] w-[0.15em] h-[0.15em] bg-[#178AF3] rounded-sm z-20" style={{ 
+                                transform: 'translateX(calc(1.2em * 1))',
+                                boxShadow: '0 2px 8px rgba(23, 138, 243, 0.5)'
+                            }}></div>
+                            
+                            {/* Decorative Elements */}
+                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-transparent via-[#178AF3]/50 to-transparent rounded-full"></div>
+                        </div>
                     </div>
                     <p className="text-sm text-[#2F343A]/70 uppercase tracking-[0.4em] font-bold mb-2">
                         Quản Lý Dự Án
