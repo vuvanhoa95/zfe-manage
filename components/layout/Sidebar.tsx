@@ -42,11 +42,35 @@ export default function Sidebar() {
                 {/* Logo */}
                 <div className="p-6 border-b border-zf-primary-light/40">
                     <div className="flex items-center justify-between">
-                        {!collapsed && (
-                            <div>
-                                <h1 className="text-xl font-bold text-zf-text-inverse">ZFENIX</h1>
-                                <p className="mt-1 text-xs text-zf-text-inverse/85">Quản lý dòng tiền dự án</p>
+                        {!collapsed ? (
+                            <div className="flex items-center gap-3">
+                                <img
+                                    src="/logo-trans.png"
+                                    alt="ZFENIX Logo"
+                                    className="h-12 w-auto object-contain drop-shadow-lg"
+                                    onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        if (target.src !== '/logo.png') {
+                                            target.src = '/logo.png';
+                                        }
+                                    }}
+                                />
+                                <div>
+                                    <p className="text-xs text-zf-text-inverse/85 mt-1">Quản lý dự án</p>
+                                </div>
                             </div>
+                        ) : (
+                            <img
+                                src="/logo-trans.png"
+                                alt="ZFENIX"
+                                className="h-10 w-auto object-contain mx-auto drop-shadow-lg"
+                                onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    if (target.src !== '/logo.png') {
+                                        target.src = '/logo.png';
+                                    }
+                                }}
+                            />
                         )}
                         <button
                             onClick={() => setCollapsed(!collapsed)}
