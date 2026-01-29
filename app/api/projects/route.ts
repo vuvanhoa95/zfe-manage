@@ -190,8 +190,23 @@ export async function POST(request: NextRequest) {
         const parsed = projectCreateSchema.safeParse(json);
 
         if (!parsed.success) {
+            const errors = parsed.error.flatten();
+            const errorMessages = Object.entries(errors.fieldErrors)
+                .map(([field, messages]) => {
+                    if (messages && messages.length > 0) {
+                        return `${field}: ${messages.join(', ')}`;
+                    }
+                    return null;
+                })
+                .filter(Boolean)
+                .join('; ');
+
             return NextResponse.json(
-                { success: false, error: 'Dữ liệu dự án không hợp lệ', details: parsed.error.flatten() },
+                {
+                    success: false,
+                    error: errorMessages || 'Dữ liệu dự án không hợp lệ',
+                    details: process.env.NODE_ENV === 'development' ? errors : undefined,
+                },
                 { status: 400 },
             );
         }

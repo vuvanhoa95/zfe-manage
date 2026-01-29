@@ -145,14 +145,25 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
             const method = isNew ? 'POST' : 'PUT';
             const url = isNew ? '/api/projects' : `/api/projects/${projectId}`;
 
+            // Clean up data before sending: convert empty strings to null
+            const cleanedData = {
+                ...project,
+                name: project.name.trim(),
+                code: project.code?.trim() || null,
+                description: project.description?.trim() || null,
+                customerId: project.customerId && project.customerId.trim() ? project.customerId : null,
+                location: project.location?.trim() || 'Hà Nội',
+                startDate: project.startDate && project.startDate.trim() ? project.startDate : null,
+                endDate: project.endDate && project.endDate.trim() ? project.endDate : null,
+                totalArea: project.totalArea ?? null,
+                notes: project.notes?.trim() || null,
+                imageUrl: project.imageUrl && project.imageUrl.trim() ? project.imageUrl : null,
+            };
+
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...project,
-                    startDate: project.startDate || null,
-                    endDate: project.endDate || null,
-                }),
+                body: JSON.stringify(cleanedData),
             });
 
             const result = await res.json();
@@ -173,7 +184,34 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
             }
         } catch (error: any) {
             console.error('Failed to save project:', error);
-            const errorMessage = error?.message || 'Không thể lưu dự án. Vui lòng kiểm tra lại thông tin và thử lại.';
+            let errorMessage = error?.message || 'Không thể lưu dự án. Vui lòng kiểm tra lại thông tin và thử lại.';
+            
+            // Try to extract more detailed error from response
+            if (error?.response) {
+                try {
+                    const errorData = await error.response.json();
+                    if (errorData.error) {
+                        errorMessage = errorData.error;
+                    }
+                    if (errorData.details?.fieldErrors) {
+                        const fieldErrors = Object.entries(errorData.details.fieldErrors)
+                            .map(([field, messages]: [string, any]) => {
+                                if (messages && messages.length > 0) {
+                                    return `${field}: ${messages.join(', ')}`;
+                                }
+                                return null;
+                            })
+                            .filter(Boolean)
+                            .join('\n');
+                        if (fieldErrors) {
+                            errorMessage = `${errorMessage}\n\nChi tiết:\n${fieldErrors}`;
+                        }
+                    }
+                } catch (e) {
+                    // Ignore JSON parse errors
+                }
+            }
+            
             alert(`Lỗi: ${errorMessage}`);
         } finally {
             setIsSaving(false);
