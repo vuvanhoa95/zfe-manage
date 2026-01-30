@@ -78,20 +78,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "✅ Migrations đã được apply" -ForegroundColor Green
 
-# Bước 5: Seed database (nếu không skip)
-if (-not $SkipSeed) {
-    Write-Host ""
-    Write-Host "🌱 Bước 5: Seed database..." -ForegroundColor Yellow
-    $seed = Read-Host "Bạn có muốn seed database? (y/n)"
-    if ($seed -eq "y" -or $seed -eq "Y") {
-        npx prisma db seed
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Database đã được seed" -ForegroundColor Green
-        } else {
-            Write-Host "⚠️  Seed có thể đã có lỗi (có thể đã có dữ liệu)" -ForegroundColor Yellow
-        }
-    }
-}
+# Bước 5: Seed database (tùy chọn)
+# Hiện tại bỏ qua bước này trong script để tránh lỗi encoding/interactive trên một số môi trường PowerShell.
+# Nếu cần seed database, hãy chạy thủ công:
+#   npx prisma db seed
 
 # Bước 6: Test build local (nếu không skip)
 if (-not $SkipBuild) {
@@ -124,8 +114,8 @@ Write-Host ""
 Write-Host "✅ Deploy thành công!" -ForegroundColor Green
 Write-Host ""
 Write-Host "📋 Checklist sau khi deploy:" -ForegroundColor Cyan
-Write-Host "  [ ] Kiem tra Build Logs tren Vercel Dashboard"
-Write-Host "  [ ] Kiem tra Function Logs"
-Write-Host "  [ ] Test dang nhap"
-Write-Host "  [ ] Test cac features chinh"
+Write-Host "  [ ] Kiểm tra Build Logs trên Vercel Dashboard"
+Write-Host "  [ ] Kiểm tra Function Logs"
+Write-Host "  [ ] Test đăng nhập"
+Write-Host "  [ ] Test các tính năng chính"
 Write-Host ""
