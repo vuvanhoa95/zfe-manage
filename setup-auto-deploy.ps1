@@ -1,8 +1,15 @@
 # Script setup Auto-Deploy cho ZfeManage
-# Usage: .\setup-auto-deploy.ps1 -GitHubRepo "https://github.com/USERNAME/REPO.git"
+# Usage: .\setup-auto-deploy.ps1 -GitHubUsername "USERNAME" [-RepoName "zfe-manage"]
+#    Hoặc: .\setup-auto-deploy.ps1 -GitHubRepo "https://github.com/USERNAME/REPO.git"
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(ParameterSetName="ByUsername")]
+    [string]$GitHubUsername,
+    
+    [Parameter(ParameterSetName="ByUsername")]
+    [string]$RepoName = "zfe-manage",
+    
+    [Parameter(ParameterSetName="ByUrl", Mandatory=$true)]
     [string]$GitHubRepo
 )
 
@@ -37,6 +44,9 @@ if ($currentRemote) {
 # Bước 3: Thêm GitHub remote
 Write-Host ""
 Write-Host "📋 Bước 3: Thêm GitHub remote..." -ForegroundColor Yellow
+if ($PSCmdlet.ParameterSetName -eq "ByUsername") {
+    $GitHubRepo = "https://github.com/$GitHubUsername/$RepoName.git"
+}
 git remote add origin $GitHubRepo
 Write-Host "✅ Đã thêm remote: $GitHubRepo" -ForegroundColor Green
 
