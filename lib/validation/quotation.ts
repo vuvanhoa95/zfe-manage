@@ -85,6 +85,7 @@ export const createQuotationSchema = z
     commissionType: z.enum(['direct', 'percentage']).optional(),
     commissionRate: z.number().nonnegative().optional(),
     commissionCost: z.number().nonnegative().optional(),
+    profitRate: z.number().min(0).max(1).optional(), // Tỷ lệ lợi nhuận (0-1, tương đương 0-100%)
 
     // Status
     status: quotationStatusSchema,

@@ -11,9 +11,11 @@ type PricingTableProps = {
     onChange: (lines: QuotationLineInput[]) => void;
     vatRate: number;
     onVatRateChange: (rate: number) => void;
+    profitRate?: number;
+    onProfitRateChange?: (rate: number) => void;
 };
 
-export default function PricingTable({ lines, onChange, vatRate, onVatRateChange, totalArea = 0 }: PricingTableProps & { totalArea?: number }) {
+export default function PricingTable({ lines, onChange, vatRate, onVatRateChange, profitRate = 0, onProfitRateChange, totalArea = 0 }: PricingTableProps & { totalArea?: number }) {
     const [catalogItems, setCatalogItems] = useState<any[]>([]);
     const [isCatalogOpen, setIsCatalogOpen] = useState(false);
     const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
@@ -556,6 +558,7 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
 
     // Calculate totals matching the ZFENIX logic
     const { totalBeforeVat, vatAmount, totalAfterVat } = calculateQuotationTotals(lines, vatRate, totalArea);
+    const profitAmount = totalBeforeVat * (profitRate || 0);
     const totalInWords = numberToVietnameseWords(totalAfterVat);
 
     const handleTitleChange =
@@ -1036,6 +1039,30 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                     </div>
                     <span className="text-xl font-bold text-zf-text-primary">{formatVND(vatAmount)} VNĐ</span>
                 </div>
+
+                {/* Profit calculation - chỉ hiển thị trong DataTab, không hiển thị trong Preview */}
+                {onProfitRateChange && (
+                    <div className="flex justify-between items-center gap-4 text-zf-text-secondary bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium">Lợi nhuận:</span>
+                            <input
+                                type="number"
+                                value={profitRate ? (profitRate * 100).toFixed(2) : ''}
+                                onChange={(e) => {
+                                    const value = e.target.value ? parseFloat(e.target.value) / 100 : 0;
+                                    onProfitRateChange(value);
+                                }}
+                                className="px-3 py-1 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold w-24"
+                                placeholder="0"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                            />
+                            <span className="text-sm">%</span>
+                        </div>
+                        <span className="text-xl font-bold text-green-600">{formatVND(profitAmount)} VNĐ</span>
+                    </div>
+                )}
 
                 <div className="border-t border-zf-bg-tertiary pt-4 flex justify-between items-center">
                     <span className="text-lg font-bold text-zf-text-primary">TỔNG CỘNG (đã VAT):</span>
