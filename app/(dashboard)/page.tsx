@@ -227,10 +227,6 @@ export default function DashboardPage() {
                         </p>
                     </div>
                 </div>
-                <div className="hidden md:flex flex-col items-end text-xs text-gray-500">
-                    <span>Hệ thống quản lý Báo giá &amp; Dòng tiền dự án</span>
-                    <span>Phiên bản demo nội bộ ZFENIX</span>
-                </div>
             </div>
 
             {/* Tabs nhỏ cho nội dung tổng quan */}
