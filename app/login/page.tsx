@@ -476,8 +476,8 @@ export default function LoginPage() {
                             </g>
                         </g>
                     </svg>
-                </div>
-                
+            </div>
+
                 {/* Timeline Bar - Bottom */}
                 <div className="absolute bottom-0 left-0 right-0 h-10 bg-white/40 backdrop-blur-sm border-t border-zf-graphite/10">
                     {/* Timeline Track */}
@@ -519,8 +519,8 @@ export default function LoginPage() {
                             <div className="timeline-milestone flex flex-col items-center gap-0.5" data-level="7">
                                 <div className="w-2.5 h-2.5 rounded-full bg-zf-accent/60"></div>
                                 <span className="text-[10px] font-medium text-zf-text-secondary">L7</span>
-                            </div>
                         </div>
+                    </div>
                         
                         {/* Timeline Progress Line */}
                         <div className="absolute bottom-4 left-0 h-1 bg-zf-accent/40 timeline-track"></div>
@@ -532,11 +532,11 @@ export default function LoginPage() {
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Overlay - Light with Vignette */}
                 <div className="absolute inset-0 bg-gradient-radial from-transparent via-white/20 to-white/40 pointer-events-none"></div>
-            </div>
-            
+                    </div>
+
             <div className="relative z-20 w-full max-w-md mx-auto sm:ml-8 sm:mr-auto md:ml-12 bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-white/20">
                 {/* Header Decor */}
                 <div className="bg-gradient-to-r from-zf-primary to-zf-primary-dark p-6 sm:p-8 text-zf-text-inverse text-center">
@@ -548,7 +548,7 @@ export default function LoginPage() {
                                 </span>
                             </h1>
                             <div className="absolute -inset-2 bg-gradient-to-r from-zf-accent/30 via-transparent to-zf-accent/30 blur-2xl opacity-60 animate-pulse"></div>
-                        </div>
+                            </div>
                     </div>
                     <p className="text-zf-text-inverse/80 text-xs sm:text-sm opacity-80 uppercase tracking-widest font-medium">QUẢN LÝ DỰ ÁN</p>
                 </div>
@@ -565,25 +565,25 @@ export default function LoginPage() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
                             <label className="block text-sm font-semibold text-zf-text-primary mb-1">Email</label>
-                            <input
-                                type="email"
-                                required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                 className="w-full px-4 py-3 border border-zf-graphite/20 rounded-xl outline-none focus:ring-2 focus:ring-zf-accent focus:border-zf-accent transition-all"
-                                placeholder="admin@bimcompany.vn"
-                            />
+                                    placeholder="admin@bimcompany.vn"
+                                />
                         </div>
 
                         <div>
                             <label className="block text-sm font-semibold text-zf-text-primary mb-1">Mật khẩu</label>
-                            <input
+                                <input
                                 type="password"
-                                required
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-3 border border-zf-graphite/20 rounded-xl outline-none focus:ring-2 focus:ring-zf-accent focus:border-zf-accent transition-all"
-                                placeholder="••••••••"
+                                    placeholder="••••••••"
                             />
                         </div>
 
@@ -603,7 +603,7 @@ export default function LoginPage() {
                             className={`
                 w-full py-4 bg-zf-accent text-zf-text-inverse rounded-xl font-bold text-lg transition-all shadow-lg shadow-zf-accent/30
                 ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-zf-accent-dark hover:-translate-y-1 active:scale-95'}
-              `}
+                            `}
                         >
                             {loading ? (
                                 <span className="flex items-center justify-center gap-2">
@@ -621,8 +621,8 @@ export default function LoginPage() {
                                 "Trustworthy Pinnacle"
                         </p>
                     </div>
+                    </div>
                 </div>
-            </div>
 
             <style jsx>{`
         @keyframes shake {
@@ -697,7 +697,7 @@ export default function LoginPage() {
         
         /* Building Level Reveal Animations */
         .building-level, .building-foundation {
-          opacity: 0;
+                        opacity: 0;
         }
         
         @keyframes foundation-reveal {
@@ -943,7 +943,7 @@ export default function LoginPage() {
           }
           10% { 
             transform: scale(1.5);
-            opacity: 1;
+                        opacity: 1;
             box-shadow: 0 0 12px #178AF3;
           }
         }
@@ -1039,7 +1039,7 @@ export default function LoginPage() {
           }
           98% { 
             transform: scale(1.5);
-            opacity: 1;
+                        opacity: 1;
             box-shadow: 0 0 12px #178AF3;
           }
         }
@@ -1093,8 +1093,8 @@ export default function LoginPage() {
         /* Vignette Effect - Light */
         .bg-gradient-radial {
           background: radial-gradient(ellipse at center, transparent 0%, rgba(255, 255, 255, 0.2) 50%, rgba(241, 245, 249, 0.4) 100%);
-        }
-      `}</style>
+                }
+            `}</style>
         </div>
     );
 }
