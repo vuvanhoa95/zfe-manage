@@ -3,6 +3,9 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
+// Kiểm tra xem có đang chạy trên Vercel không
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData();
@@ -36,6 +39,20 @@ export async function POST(request: NextRequest) {
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
+        // Trên Vercel (serverless), không thể tạo thư mục động
+        // Sử dụng base64 data URL để lưu vào database
+        if (isVercel) {
+            // Convert to base64 data URL
+            const base64 = buffer.toString('base64');
+            const dataUrl = `data:${file.type};base64,${base64}`;
+            
+            return NextResponse.json({
+                success: true,
+                data: { url: dataUrl },
+            });
+        }
+
+        // Local development: lưu vào file system
         // Create uploads directory if it doesn't exist
         const uploadsDir = join(process.cwd(), 'public', 'uploads', 'staff-avatars');
         if (!existsSync(uploadsDir)) {
