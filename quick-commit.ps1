@@ -43,51 +43,111 @@ Write-Host "Detected changes:" -ForegroundColor Cyan
 git status --short
 Write-Host ""
 
-# Analyze changes to auto-detect type
+# Analyze changes to auto-detect type and create detailed message
 $changedFiles = git diff --cached --name-only
 if (-not $changedFiles) {
     $changedFiles = git diff --name-only
 }
 
+# Get file status (added, modified, deleted)
+$fileStatus = git status --porcelain
+
 $autoType = ""
 $autoMessage = ""
+$changeDetails = @()
 
-# Auto-detect type based on file paths
-if ($changedFiles -match "\.(tsx?|jsx?)$") {
-    if ($changedFiles -match "(component|ui|layout)") {
-        $autoType = "feat"
-        $autoMessage = "Update components"
-    } elseif ($changedFiles -match "(api|route)") {
-        $autoType = "feat"
-        $autoMessage = "Update API routes"
-    } else {
-        $autoType = "refactor"
-        $autoMessage = "Code refactoring"
+# Categorize files
+$components = @()
+$apiRoutes = @()
+$styles = @()
+$docs = @()
+$database = @()
+$config = @()
+$tests = @()
+$other = @()
+
+foreach ($file in $changedFiles) {
+    $statusLine = $fileStatus | Where-Object { $_ -match [regex]::Escape($file) }
+    $status = if ($statusLine) { $statusLine.Substring(0, 2).Trim() } else { "M" }
+    $statusText = switch ($status) {
+        "A" { "thêm" }
+        "M" { "cập nhật" }
+        "D" { "xóa" }
+        "R" { "đổi tên" }
+        default { "thay đổi" }
     }
-} elseif ($changedFiles -match "\.(css|scss|tsx?)$" -and $changedFiles -match "(style|css|tailwind)") {
+    
+    $fileName = Split-Path -Leaf $file
+    
+    if ($file -match "components?/|ui/|layout/") {
+        $components += "$fileName ($statusText)"
+    } elseif ($file -match "api/|route\.ts") {
+        $apiRoutes += "$fileName ($statusText)"
+    } elseif ($file -match "\.(css|scss)$|tailwind|globals\.css") {
+        $styles += "$fileName ($statusText)"
+    } elseif ($file -match "\.md$|README|DOCS|\.cursor/commands/") {
+        $docs += "$fileName ($statusText)"
+    } elseif ($file -match "schema\.prisma|migration") {
+        $database += "$fileName ($statusText)"
+    } elseif ($file -match "package\.json|package-lock\.json|tsconfig|next\.config") {
+        $config += "$fileName ($statusText)"
+    } elseif ($file -match "\.(test|spec)\.(ts|js)") {
+        $tests += "$fileName ($statusText)"
+    } else {
+        $other += "$fileName ($statusText)"
+    }
+}
+
+# Determine type and create message
+if ($components.Count -gt 0) {
+    $autoType = "feat"
+    $changeDetails += "Components: $($components -join ', ')"
+    $autoMessage = "Cập nhật components"
+} elseif ($apiRoutes.Count -gt 0) {
+    $autoType = "feat"
+    $changeDetails += "API Routes: $($apiRoutes -join ', ')"
+    $autoMessage = "Cập nhật API routes"
+} elseif ($styles.Count -gt 0) {
     $autoType = "style"
-    $autoMessage = "Update styles"
-} elseif ($changedFiles -match "schema\.prisma|migration") {
+    $changeDetails += "Styles: $($styles -join ', ')"
+    $autoMessage = "Cập nhật styles"
+} elseif ($database.Count -gt 0) {
     $autoType = "chore"
-    $autoMessage = "Update database schema"
-} elseif ($changedFiles -match "\.md$|README|DOCS") {
+    $changeDetails += "Database: $($database -join ', ')"
+    $autoMessage = "Cập nhật database schema"
+} elseif ($docs.Count -gt 0) {
     $autoType = "docs"
-    $autoMessage = "Update documentation"
-} elseif ($changedFiles -match "package\.json|package-lock\.json") {
+    $changeDetails += "Documentation: $($docs -join ', ')"
+    $autoMessage = "Cập nhật documentation"
+} elseif ($config.Count -gt 0) {
     $autoType = "chore"
-    $autoMessage = "Update dependencies"
-} elseif ($changedFiles -match "\.(test|spec)\.(ts|js)") {
+    $changeDetails += "Config: $($config -join ', ')"
+    $autoMessage = "Cập nhật cấu hình"
+} elseif ($tests.Count -gt 0) {
     $autoType = "test"
-    $autoMessage = "Update tests"
+    $changeDetails += "Tests: $($tests -join ', ')"
+    $autoMessage = "Cập nhật tests"
 } else {
     $autoType = "chore"
-    $autoMessage = "Update files"
+    $changeDetails += "Files: $($other -join ', ')"
+    $autoMessage = "Cập nhật files"
+}
+
+# Add other categories if present
+if ($components.Count -eq 0 -and $apiRoutes.Count -gt 0) {
+    $changeDetails += "API Routes: $($apiRoutes -join ', ')"
+}
+if ($styles.Count -gt 0 -and $autoType -ne "style") {
+    $changeDetails += "Styles: $($styles -join ', ')"
+}
+if ($docs.Count -gt 0 -and $autoType -ne "docs") {
+    $changeDetails += "Documentation: $($docs -join ', ')"
 }
 
 # Use specified type or auto-detected
 $finalType = if ($Type) { $Type } else { $autoType }
 
-# Create commit message
+# Create commit message with detailed description
 if ($Message) {
     $commitMessage = if ($finalType) {
         "$finalType`: $Message"
@@ -98,22 +158,96 @@ if ($Message) {
     $commitMessage = "$finalType`: $autoMessage"
 }
 
-# Add timestamp if message is too short
-if ($commitMessage.Length -lt 20) {
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm"
-    $commitMessage = "$commitMessage - $timestamp"
+# Add detailed changes to message body
+if ($changeDetails.Count -gt 0) {
+    $detailsText = $changeDetails -join "`n"
+    # Limit details to avoid too long message
+    if ($detailsText.Length -gt 200) {
+        $detailsText = $detailsText.Substring(0, 200) + "..."
+    }
+    $commitMessage = "$commitMessage`n`n$detailsText"
 }
 
-Write-Host "Commit message: $commitMessage" -ForegroundColor Green
+# Add file count summary
+$fileCount = $changedFiles.Count
+$addedCount = ($fileStatus | Where-Object { $_ -match "^A" }).Count
+$modifiedCount = ($fileStatus | Where-Object { $_ -match "^ M|^M " }).Count
+$deletedCount = ($fileStatus | Where-Object { $_ -match "^D" }).Count
+
+$summary = "Tổng: $fileCount files"
+if ($addedCount -gt 0) { $summary += ", +$addedCount thêm" }
+if ($modifiedCount -gt 0) { $summary += ", ~$modifiedCount sửa" }
+if ($deletedCount -gt 0) { $summary += ", -$deletedCount xóa" }
+
+# Build commit message
+$commitTitle = if ($Message) {
+    if ($finalType) {
+        "$finalType`: $Message"
+    } else {
+        $Message
+    }
+} else {
+    "$finalType`: $autoMessage"
+}
+
+# Build detailed description for commit body
+$commitBody = @()
+
+# Add change details
+if ($changeDetails.Count -gt 0) {
+    foreach ($detail in $changeDetails) {
+        # Limit each detail line length and use ASCII-safe characters
+        $cleanDetail = $detail -replace '[^\x20-\x7E]', '?'  # Replace non-ASCII with ?
+        if ($cleanDetail.Length -gt 80) {
+            $cleanDetail = $cleanDetail.Substring(0, 80) + "..."
+        }
+        $commitBody += $cleanDetail
+    }
+}
+
+# Add summary
+if ($fileCount -gt 0) {
+    $cleanSummary = $summary -replace '[^\x20-\x7E]', '?'  # Replace non-ASCII
+    $commitBody += ""
+    $commitBody += $cleanSummary
+}
+
+# Create full commit message
+$fullCommitMessage = $commitTitle
+if ($commitBody.Count -gt 0) {
+    $fullCommitMessage += "`n`n" + ($commitBody -join "`n")
+}
+
+# Display commit message preview
+Write-Host "Commit message:" -ForegroundColor Green
+Write-Host "  $commitTitle" -ForegroundColor Cyan
+if ($changeDetails.Count -gt 0) {
+    Write-Host "  Details:" -ForegroundColor Gray
+    foreach ($detail in $changeDetails) {
+        Write-Host "    - $detail" -ForegroundColor Gray
+    }
+}
+if ($fileCount -gt 0) {
+    Write-Host "  $summary" -ForegroundColor Gray
+}
 Write-Host ""
 
 # Add all changes
 Write-Host "Adding files..." -ForegroundColor Yellow
 git add .
 
-# Commit
+# Commit using temporary file to avoid encoding issues
 Write-Host "Committing..." -ForegroundColor Yellow
-git commit -m $commitMessage
+$tempFile = [System.IO.Path]::GetTempFileName()
+try {
+    # Write commit message to temp file with UTF-8 encoding
+    [System.IO.File]::WriteAllText($tempFile, $fullCommitMessage, [System.Text.Encoding]::UTF8)
+    git commit -F $tempFile
+} finally {
+    if (Test-Path $tempFile) {
+        Remove-Item $tempFile -Force
+    }
+}
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Commit failed" -ForegroundColor Red

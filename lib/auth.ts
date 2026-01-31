@@ -61,6 +61,9 @@ export const authOptions: NextAuthOptions = {
                         console.error('Auth error:', error);
                         console.error('Error code:', error?.code);
                         console.error('Error message:', error?.message);
+                        if (error?.filePath) {
+                            console.error('Database file path:', error.filePath);
+                        }
                     }
                     
                     // Check if it's a database connection error
@@ -70,17 +73,22 @@ export const authOptions: NextAuthOptions = {
                     // Prisma error codes for connection issues
                     if (
                         errorCode === 'DATABASE_URL_MISSING' ||
+                        errorCode === 'DATABASE_FILE_NOT_FOUND' ||
                         errorCode === 'P1001' || // Can't reach database server
                         errorCode === 'P1002' || // Database server timed out
                         errorCode === 'P1003' || // Database does not exist
                         errorCode === 'P1017' || // Server has closed the connection
+                        errorCode === 'P1012' || // Schema mismatch
                         errorMessage.includes('DATABASE_URL_MISSING') ||
+                        errorMessage.includes('DATABASE_FILE_NOT_FOUND') ||
+                        errorMessage.includes('Database file not found') ||
                         errorMessage.includes('connect') ||
                         errorMessage.includes('connection') ||
                         errorMessage.includes('DATABASE_URL') ||
                         errorMessage.includes('ECONNREFUSED') ||
                         errorMessage.includes('ENOTFOUND') ||
-                        errorMessage.includes('timeout')
+                        errorMessage.includes('timeout') ||
+                        errorMessage.includes('schema')
                     ) {
                         throw new Error('database');
                     }

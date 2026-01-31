@@ -1,4 +1,6 @@
 import { PrismaClient } from '@prisma/client';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -12,6 +14,30 @@ function createPrismaClient() {
     throw error;
   }
 
+  // For SQLite, check if database file exists (only on server-side)
+  const databaseUrl = process.env.DATABASE_URL;
+  if (databaseUrl.startsWith('file:') && typeof window === 'undefined') {
+    try {
+      const dbPath = databaseUrl.replace('file:', '').trim();
+      const absolutePath = dbPath.startsWith('/') || dbPath.match(/^[A-Z]:/i) 
+        ? dbPath 
+        : join(process.cwd(), dbPath);
+      
+      if (!existsSync(absolutePath)) {
+        const error = new Error(`Database file not found: ${absolutePath}`);
+        (error as any).code = 'DATABASE_FILE_NOT_FOUND';
+        (error as any).filePath = absolutePath;
+        throw error;
+      }
+    } catch (error: any) {
+      // If it's not a file system error, re-throw
+      if (error.code === 'DATABASE_FILE_NOT_FOUND') {
+        throw error;
+      }
+      // Otherwise, ignore file system errors (might be in browser environment)
+    }
+  }
+
   // Use connection pooling for serverless (Vercel)
   // Neon provides pooled connections via ?pgbouncer=true or separate pooled connection string
   const client = new PrismaClient({
@@ -19,7 +45,7 @@ function createPrismaClient() {
     // Optimize for serverless
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: databaseUrl,
       },
     },
   });
