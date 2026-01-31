@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { getDatabaseErrorMessage } from '@/lib/db-health';
+import { getDatabaseErrorMessage } from '@/lib/db-error-messages';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');

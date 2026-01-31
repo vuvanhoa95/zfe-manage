@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { testDatabaseConnection } from './db-health';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -22,7 +21,7 @@ function createPrismaClient() {
   const databaseUrl = process.env.DATABASE_URL || '';
 
   // For SQLite, check if database file exists (only on server-side)
-  if (databaseUrl && databaseUrl.startsWith('file:') && typeof window === 'undefined') {
+  if (databaseUrl && databaseUrl.startsWith('file:')) {
     try {
       const dbPath = databaseUrl.replace('file:', '').trim();
       const absolutePath = dbPath.startsWith('/') || dbPath.match(/^[A-Z]:/i) 
@@ -88,15 +87,19 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Test connection on startup (only once, in development)
+// Dynamic import để tránh circular dependency
 if (
   process.env.NODE_ENV === 'development' &&
-  !globalForPrisma.prismaConnectionTested &&
-  typeof window === 'undefined'
+  !globalForPrisma.prismaConnectionTested
 ) {
   globalForPrisma.prismaConnectionTested = true;
   
-  // Test connection asynchronously (don't block startup)
-  testDatabaseConnection(prisma, 2, 1000)
+  // Dynamic import để tránh circular dependency
+  import('./db-health')
+    .then(({ testDatabaseConnection }) => {
+      // Test connection asynchronously (don't block startup)
+      return testDatabaseConnection(prisma, 2, 1000);
+    })
     .then((healthStatus) => {
       if (healthStatus.healthy) {
         console.log(
@@ -110,7 +113,10 @@ if (
       }
     })
     .catch((error) => {
-      console.warn('⚠️ Database connection test error:', error.message);
+      // Ignore import errors in production builds
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Database connection test error:', error.message);
+      }
     });
 }
 
