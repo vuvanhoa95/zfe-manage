@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "commit": "powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1",
-    "commit:push": "powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1 --push"
+    "commit:push": "powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1 -Push"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

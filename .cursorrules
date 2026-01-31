@@ -203,4 +203,37 @@ ZfeManage/                    # ← CODE CHÍNH (Production)
 
 ---
 
+## 🎮 Commands & Automation
+
+### Available Commands
+
+Khi người dùng yêu cầu chạy commands, AI có thể sử dụng các scripts sau:
+
+#### Git Commands:
+- **Quick Commit**: `.\quick-commit.ps1` - Commit với message tự động
+- **Quick Commit & Push**: `.\quick-commit.ps1 --push` - Commit và push (trigger auto-deploy)
+- **Git Status**: `git status` - Xem trạng thái Git
+- **Git Pull**: `git pull origin main` - Pull code từ remote
+
+#### Deploy Commands:
+- **Deploy Production**: `.\deploy-production.ps1` - Deploy lên Vercel
+- **Deploy (Skip Build)**: `.\deploy-production.ps1 --skip-build` - Deploy nhanh
+
+#### Build Commands:
+- **Build**: `npm run build` - Build project
+- **Dev Server**: `npm run dev` - Chạy dev server
+- **Linter**: `npm run lint` - Chạy ESLint
+
+#### Database Commands:
+- **Prisma Generate**: `npx prisma generate` - Generate Prisma Client
+- **Migrations**: `npx prisma migrate deploy` - Chạy migrations
+
+### Helper Script:
+- **Run Command**: `.\run-command.ps1 <command-name>` - Helper để chạy commands
+
+### Khi người dùng yêu cầu chạy command:
+1. Nhận diện command từ yêu cầu
+2. Sử dụng `run_terminal_cmd` tool để chạy command tương ứng
+3. Hiển thị kết quả cho người dùng
+
 **Lưu ý**: Folder `quotation-app` chỉ dùng để lưu trữ rules và documentation. Code thực tế được viết trong `ZfeManage`.
