@@ -15,6 +15,15 @@ import { Providers } from "@/components/Providers";
 export const metadata: Metadata = {
   title: "Quản lý dòng tiền dự án Zfenix",
   description: "Hệ thống quản lý dòng tiền dự án của Zfenix",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/logo.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: [
+      { url: "/logo.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({
