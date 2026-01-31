@@ -54,15 +54,37 @@ export const authOptions: NextAuthOptions = {
                     // Log error for debugging (only in development)
                     if (process.env.NODE_ENV === 'development') {
                         console.error('Auth error:', error);
+                        console.error('Error code:', error?.code);
+                        console.error('Error message:', error?.message);
                     }
                     
                     // Check if it's a database connection error
-                    if (error?.code === 'P1001' || error?.message?.includes('connect')) {
-                        throw new Error('Không thể kết nối đến database. Vui lòng kiểm tra cấu hình DATABASE_URL.');
+                    const errorMessage = error?.message || '';
+                    const errorCode = error?.code || '';
+                    
+                    // Prisma error codes for connection issues
+                    if (
+                        errorCode === 'P1001' || // Can't reach database server
+                        errorCode === 'P1002' || // Database server timed out
+                        errorCode === 'P1003' || // Database does not exist
+                        errorCode === 'P1017' || // Server has closed the connection
+                        errorMessage.includes('connect') ||
+                        errorMessage.includes('connection') ||
+                        errorMessage.includes('DATABASE_URL') ||
+                        errorMessage.includes('ECONNREFUSED') ||
+                        errorMessage.includes('ENOTFOUND') ||
+                        errorMessage.includes('timeout')
+                    ) {
+                        throw new Error('database');
                     }
                     
-                    // Re-throw original error
-                    throw error;
+                    // Check if it's a credentials error (user not found or wrong password)
+                    if (errorMessage.includes('Không tìm thấy') || errorMessage.includes('Mật khẩu')) {
+                        throw error; // Re-throw original error
+                    }
+                    
+                    // For other errors, throw generic error
+                    throw new Error('Có lỗi xảy ra trong quá trình xác thực. Vui lòng thử lại sau.');
                 }
             },
         }),

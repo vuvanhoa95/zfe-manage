@@ -28,11 +28,22 @@ export default function LoginPage() {
                 const errorMessage = result.error;
                 console.error('Login error:', errorMessage);
                 
-                if (errorMessage.includes('database') || errorMessage.includes('DATABASE_URL') || errorMessage.includes('connect')) {
+                // Check for database connection errors
+                if (
+                    errorMessage === 'database' ||
+                    errorMessage.includes('database') ||
+                    errorMessage.includes('DATABASE_URL') ||
+                    errorMessage.includes('connect') ||
+                    errorMessage.includes('connection')
+                ) {
                     setError('Lỗi kết nối database. Vui lòng kiểm tra cấu hình server.');
                 } else if (errorMessage.includes('NEXTAUTH_SECRET')) {
                     setError('Lỗi cấu hình authentication. Vui lòng liên hệ quản trị viên.');
-                } else if (errorMessage.includes('CredentialsSignin')) {
+                } else if (
+                    errorMessage.includes('CredentialsSignin') ||
+                    errorMessage.includes('Không tìm thấy') ||
+                    errorMessage.includes('Mật khẩu không chính xác')
+                ) {
                     setError('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
                 } else {
                     setError(errorMessage || 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
