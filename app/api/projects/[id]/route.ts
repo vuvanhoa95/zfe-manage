@@ -10,14 +10,30 @@ export async function GET(
         // Handle both sync and async params (Next.js 15+)
         const resolvedParams = params instanceof Promise ? await params : params;
         
-        const project = await prisma.project.findUnique({
+        // First, try to get the project with minimal includes to check if it exists
+        let project = await prisma.project.findUnique({
             where: { id: resolvedParams.id },
             include: {
                 customer: true,
-                createdBy: {
+            },
+        });
+
+        if (!project) {
+            return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
+        }
+
+        // Now fetch related data separately to handle errors gracefully
+        try {
+            const [createdBy, quotations, cashFlows] = await Promise.all([
+                // Fetch createdBy user
+                prisma.user.findUnique({
+                    where: { id: project.createdById },
                     select: { id: true, name: true, email: true },
-                },
-                quotations: {
+                }).catch(() => null), // Return null if user doesn't exist
+                
+                // Fetch quotations
+                prisma.quotation.findMany({
+                    where: { projectId: resolvedParams.id },
                     include: {
                         customer: {
                             select: {
@@ -27,9 +43,12 @@ export async function GET(
                         },
                     },
                     orderBy: { createdAt: 'desc' },
-                    take: 50, // Limit to last 50 quotations
-                },
-                cashFlows: {
+                    take: 50,
+                }).catch(() => []), // Return empty array on error
+                
+                // Fetch cash flows with safe includes
+                prisma.cashFlow.findMany({
+                    where: { projectId: resolvedParams.id },
                     include: {
                         quotation: {
                             select: { id: true, quotationNo: true },
@@ -39,35 +58,61 @@ export async function GET(
                         },
                     },
                     orderBy: { date: 'desc' },
-                    take: 100, // Limit to last 100 cash flows
-                },
-            },
-        });
+                    take: 100,
+                }).catch((err) => {
+                    console.warn('Error fetching cash flows with createdBy:', err);
+                    console.warn('Error details:', {
+                        message: err?.message,
+                        code: err?.code,
+                        meta: err?.meta,
+                    });
+                    // Try without createdBy include if it fails
+                    return prisma.cashFlow.findMany({
+                        where: { projectId: resolvedParams.id },
+                        include: {
+                            quotation: {
+                                select: { id: true, quotationNo: true },
+                            },
+                        },
+                        orderBy: { date: 'desc' },
+                        take: 100,
+                    }).catch((fallbackErr) => {
+                        console.error('Error fetching cash flows without createdBy:', fallbackErr);
+                        return [];
+                    });
+                }),
+            ]);
 
-        if (!project) {
-            return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
-        }
-
-        // Handle case where createdBy user might not exist (data integrity issue)
-        // This can happen if user was deleted or project was created with invalid user ID
-        if (!project.createdBy && project.createdById) {
-            console.warn(`Project ${resolvedParams.id} has invalid createdById: ${project.createdById}`);
-            // Try to get first available user as fallback for display
-            try {
-                const fallbackUser = await prisma.user.findFirst({
-                    select: { id: true, name: true, email: true },
-                    orderBy: { createdAt: 'asc' },
-                });
-                if (fallbackUser) {
-                    (project as any).createdBy = fallbackUser;
+            // If createdBy is null but we have a createdById, try to get a fallback user
+            if (!createdBy && project.createdById) {
+                console.warn(`Project ${resolvedParams.id} has invalid createdById: ${project.createdById}`);
+                try {
+                    const fallbackUser = await prisma.user.findFirst({
+                        select: { id: true, name: true, email: true },
+                        orderBy: { createdAt: 'asc' },
+                    });
+                    if (fallbackUser) {
+                        (project as any).createdBy = fallbackUser;
+                    }
+                } catch (userError) {
+                    console.warn('Could not get fallback user:', userError);
                 }
-            } catch (userError) {
-                // If we can't get a fallback user, just leave it null
-                console.warn('Could not get fallback user:', userError);
+            } else {
+                (project as any).createdBy = createdBy;
             }
-        }
 
-        return NextResponse.json({ success: true, data: project });
+            // Attach related data
+            (project as any).quotations = quotations || [];
+            (project as any).cashFlows = cashFlows || [];
+
+            return NextResponse.json({ success: true, data: project });
+        } catch (relationError: any) {
+            console.error('Error fetching project relations:', relationError);
+            // Return project with minimal data if relations fail
+            (project as any).quotations = [];
+            (project as any).cashFlows = [];
+            return NextResponse.json({ success: true, data: project });
+        }
     } catch (error: any) {
         console.error('Failed to fetch project:', error);
         console.error('Error details:', {

@@ -103,10 +103,14 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
             width: 210mm; 
             min-height: 297mm;
             margin: 0 auto; 
-            padding: 2.5cm 2cm; 
+            padding: 1.5cm 2cm 2cm 2cm; 
             box-sizing: border-box;
             background: white;
             position: relative;
+            page-break-after: always;
+          }
+          .a4:last-child {
+            page-break-after: auto;
           }
           .security-grid {
             position: absolute;
@@ -118,34 +122,90 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
           }
           
           /* Header */
-          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 64px; }
+          .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 32px; 
+            padding-bottom: 16px;
+            border-bottom: 1px solid #E2E8F0;
+          }
           .logo-box { 
-            display: flex; gap: 24px; align-items: center; 
+            display: flex; 
+            gap: 16px; 
+            align-items: center; 
           }
           .logo-icon,
           .logo-img {
-            width: 64px; height: 64px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 16px;
-            transform: rotate(3deg);
-            box-shadow: 0 10px 20px rgba(5, 54, 99, 0.2);
+            width: 48px; 
+            height: 48px;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            border-radius: 12px;
+            transform: rotate(2deg);
+            box-shadow: 0 4px 12px rgba(5, 54, 99, 0.1);
             overflow: hidden;
           }
           .logo-icon {
-            background: #053663; color: white;
-            font-weight: 900; font-size: 32px;
+            background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%); 
+            color: #053663;
+            font-weight: 900; 
+            font-size: 24px;
+            border: 1px solid #BFDBFE;
           }
-          .logo-img img { width: 100%; height: 100%; object-fit: contain; background: white; }
-          .company-name { font-weight: 800; font-size: 22px; text-transform: uppercase; letter-spacing: 2px; color: #053663; }
-          .company-tag { font-size: 10px; font-weight: 700; color: #178AF3; text-transform: uppercase; letter-spacing: 3px; margin-top: 4px; font-style: italic; }
-          .header-right { text-align: right; font-size: 10px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; }
-          .header-right p { margin: 4px 0; }
-          .highlight-text { color: #053663; }
+          .logo-img { 
+            background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+            border: 1px solid #BFDBFE;
+          }
+          .logo-img img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            padding: 4px;
+          }
+          .company-name { 
+            font-weight: 800; 
+            font-size: 18px; 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px; 
+            color: #053663; 
+            line-height: 1.2;
+          }
+          .company-tag { 
+            font-size: 9px; 
+            font-weight: 600; 
+            color: #178AF3; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            margin-top: 2px; 
+            font-style: italic; 
+          }
+          .header-right { 
+            text-align: right; 
+            font-size: 9px; 
+            font-weight: 600; 
+            color: #64748B; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            line-height: 1.4;
+          }
+          .header-right p { 
+            margin: 2px 0; 
+          }
+          .highlight-text { 
+            color: #053663; 
+            font-weight: 700;
+          }
 
           /* Title Block */
           .title-block { 
-            display: flex; justify-content: space-between; align-items: flex-end; 
-            border-bottom: 2px solid #053663; padding-bottom: 24px; margin-bottom: 60px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-end; 
+            border-bottom: 2px solid #053663; 
+            padding-bottom: 20px; 
+            margin-bottom: 40px; 
           }
           .main-title { font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 900; margin: 0; letter-spacing: -0.5px; color: #053663; text-transform: uppercase; }
           .doc-no { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #CBD5E1; }
@@ -207,6 +267,28 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
           }
           .section-block {
             margin-bottom: 20px;
+            page-break-inside: avoid;
+          }
+          
+          /* Page break controls */
+          .page-break {
+            page-break-before: always;
+          }
+          .no-break {
+            page-break-inside: avoid;
+          }
+          table {
+            page-break-inside: auto;
+          }
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+          thead {
+            display: table-header-group;
+          }
+          tfoot {
+            display: table-footer-group;
           }
           .section-body {
             font-size: 11px;
@@ -433,6 +515,7 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
         bottom: '0mm',
         left: '0mm',
       },
+      preferCSSPageSize: true,
     });
 
     await browser.close();
