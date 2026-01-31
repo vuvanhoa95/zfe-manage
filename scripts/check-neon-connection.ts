@@ -4,7 +4,8 @@
  * Chạy: npx tsx scripts/check-neon-connection.ts
  */
 
-import { checkDatabaseHealth, getDatabaseErrorMessage } from '../lib/db-health';
+import { checkDatabaseHealth } from '../lib/db-health';
+import { getDatabaseErrorMessage } from '../lib/db-error-messages';
 
 async function checkNeonConnection() {
   console.log('🔍 Đang kiểm tra kết nối Neon database...\n');
