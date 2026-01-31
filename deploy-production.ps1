@@ -191,8 +191,8 @@ Write-Host ""
 Write-Host "✅ Deploy thành công!" -ForegroundColor Green
 Write-Host ""
 Write-Host "📋 Checklist sau khi deploy:" -ForegroundColor Cyan
-Write-Host "  [ ] Kiem tra Build Logs tren Vercel Dashboard"
-Write-Host "  [ ] Kiem tra Function Logs"
-Write-Host "  [ ] Test dang nhap"
-Write-Host "  [ ] Test cac features chinh"
+Write-Host "  [ ] Kiểm tra Build Logs trên Vercel Dashboard"
+Write-Host "  [ ] Kiểm tra Function Logs"
+Write-Host "  [ ] Test đăng nhập"
+Write-Host "  [ ] Test các tính năng chính"
 Write-Host ""

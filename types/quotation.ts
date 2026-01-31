@@ -56,6 +56,7 @@ export type QuotationFormData = {
     commissionType?: 'direct' | 'percentage'; // Loại hoa hồng: nhập trực tiếp hoặc tính theo %
     commissionRate?: number; // Tỷ lệ hoa hồng (%)
     commissionCost?: number; // Chi phí hoa hồng
+    profitRate?: number;    // Tỷ lệ lợi nhuận (%) - tính trên tổng trước VAT
 
     // Status  
     status: QuotationStatus;

@@ -267,6 +267,7 @@ model Quotation {
   commissionType    String? // Loại hoa hồng: 'direct' hoặc 'percentage'
   commissionRate    Float?  // Tỷ lệ hoa hồng (%)
   commissionCost    Float?  // Chi phí hoa hồng
+  profitRate       Float?  // Tỷ lệ lợi nhuận (0-1, tương đương 0-100%) - tính trên tổng trước VAT
   
   // Status
   status String @default("DRAFT") // DRAFT, SENT, ACCEPTED, REJECTED

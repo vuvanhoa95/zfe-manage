@@ -166,6 +166,7 @@ export async function POST(request: NextRequest) {
                 commissionType: body.commissionType,
                 commissionRate: body.commissionRate,
                 commissionCost: body.commissionCost,
+                profitRate: body.profitRate,
                 totalBeforeVat,
                 vatAmount,
                 totalAfterVat,

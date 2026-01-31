@@ -769,6 +769,8 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
                             onChange={(lines) => updateField('lines', lines)}
                             vatRate={data.vatRate}
                             onVatRateChange={(rate) => updateField('vatRate', rate)}
+                            profitRate={data.profitRate}
+                            onProfitRateChange={(rate) => updateField('profitRate', rate)}
                             totalArea={data.totalArea}
                         />
                     </section>

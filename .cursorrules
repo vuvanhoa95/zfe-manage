@@ -1,6 +1,28 @@
 # Cursor Rules - ZfeManage (Production Code)
 
-## ⚠️ QUAN TRỌNG: Rules & Documentation Location
+## 🎯 ĐỊNH HƯỚNG AI - CÁCH TRẢ LỜI VÀ LÀM VIỆC
+
+### ⚠️ QUAN TRỌNG: Trả lời đúng trọng tâm
+
+Khi được hỏi hoặc yêu cầu làm việc với code:
+
+1. **HIỂU RÕ YÊU CẦU**: Đọc kỹ yêu cầu, xác định đúng vấn đề cần giải quyết
+2. **PHÂN TÍCH CODEBASE**: Tìm hiểu code hiện tại trước khi đề xuất giải pháp
+3. **TUÂN THEO PATTERNS**: Sử dụng patterns và conventions đã có trong codebase
+4. **TRẢ LỜI CỤ THỂ**: Đưa ra giải pháp cụ thể, không trả lời chung chung
+5. **CODE THỰC TẾ**: Implement code thực tế, không chỉ giải thích
+
+### 📋 Workflow khi làm việc:
+
+1. **Đọc yêu cầu** → Hiểu rõ vấn đề cần giải quyết
+2. **Tìm code liên quan** → Sử dụng codebase_search để tìm patterns hiện có
+3. **Đọc code mẫu** → Xem cách các tính năng tương tự được implement
+4. **Implement** → Code theo đúng patterns và conventions
+5. **Kiểm tra** → Đảm bảo code build được và tuân thủ rules
+
+---
+
+## 📚 Rules & Documentation Location
 
 **Folder này (`ZfeManage`) là CODE CHÍNH để build và deploy app.**
 
@@ -19,30 +41,132 @@ Khi làm việc với code trong `ZfeManage`, bạn PHẢI đọc và tuân theo
 7. **`DELIVERY_SUMMARY.md`** - Tóm tắt các tính năng đã deliver
 8. **`docs/`** folder - Tài liệu bổ sung (nếu có)
 
-### 🔄 Workflow khi code trong ZfeManage:
+---
 
-1. **Trước khi code**: Đọc rules từ `../quotation-app/.cursorrules` và các docs liên quan
-2. **Khi code**: Tuân theo tất cả conventions, patterns, và best practices được định nghĩa trong `quotation-app`
-3. **Sau khi code**: Đảm bảo code tuân thủ rules và có thể build/deploy được
+## 🔧 CODING RULES & CONVENTIONS
 
-### 📋 Quick Reference - Key Rules từ quotation-app:
+### TypeScript
 
-- **TypeScript**: Strict mode, không dùng `any`
-- **Naming**: PascalCase cho components, camelCase cho variables
-- **API Routes**: Consistent error format `{ success: boolean, data?, error? }`
-- **Vietnamese**: Tất cả text UI phải bằng tiếng Việt
-- **Brand Colors**: ZFENIX Navy (#053663), ZFENIX Blue (#178AF3)
-- **Validation**: Luôn dùng Zod schemas
-- **Database**: Prisma với migrations, tránh N+1 queries
+- **Strict mode**: Luôn bật strict mode, không dùng `any`
+- **Types**: Định nghĩa types rõ ràng, sử dụng types từ `types/` folder
+- **Interfaces**: Ưu tiên dùng `interface` cho object types
+- **Type imports**: Sử dụng `type` keyword khi import types: `import type { ... }`
 
-### 🎯 Project Structure (ZfeManage):
+### Naming Conventions
+
+- **Components**: PascalCase - `ProjectEditor.tsx`, `QuotationList.tsx`
+- **Variables/Functions**: camelCase - `projectId`, `getQuotationData()`
+- **Constants**: UPPER_SNAKE_CASE - `QUOTATION_STATUSES`, `MAX_FILE_SIZE`
+- **Files**: PascalCase cho components, camelCase cho utilities
+- **Folders**: kebab-case cho routes, PascalCase cho component folders
+
+### API Routes Pattern
+
+```typescript
+// ✅ ĐÚNG: Consistent response format
+export async function GET(request: Request) {
+  try {
+    const data = await fetchData();
+    return NextResponse.json({ 
+      success: true, 
+      data 
+    });
+  } catch (error) {
+    return NextResponse.json({ 
+      success: false, 
+      error: error.message 
+    }, { status: 500 });
+  }
+}
+```
+
+- **Response format**: `{ success: boolean, data?, error? }`
+- **Error handling**: Luôn wrap trong try-catch
+- **Status codes**: 200 cho success, 400 cho validation errors, 500 cho server errors
+- **Validation**: Luôn validate input với Zod schemas trước khi xử lý
+
+### Component Structure
+
+```typescript
+// ✅ ĐÚNG: Component structure
+'use client'; // Nếu cần client-side
+
+import { useState } from 'react';
+import type { ComponentProps } from '@/types/...';
+
+interface ComponentProps {
+  // Props definition
+}
+
+export default function ComponentName({ prop1, prop2 }: ComponentProps) {
+  // Component logic
+  return (
+    // JSX
+  );
+}
+```
+
+- **Default export**: Components dùng default export
+- **Props interface**: Định nghĩa props interface rõ ràng
+- **Client components**: Chỉ dùng `'use client'` khi cần thiết
+- **Type imports**: Sử dụng `type` keyword cho type-only imports
+
+### UI/UX Rules
+
+- **Vietnamese**: TẤT CẢ text UI phải bằng tiếng Việt
+  - Labels, buttons, messages, errors, placeholders
+  - Comments trong code có thể tiếng Anh
+- **Brand Colors**: 
+  - Primary: `#053663` (ZFENIX Navy) - `zf-primary`
+  - Accent: `#178AF3` (ZFENIX Blue) - `zf-accent`
+  - Graphite: `#2F343A` - `zf-graphite`
+- **Tailwind Classes**: Sử dụng CSS variables từ `globals.css`
+  - `bg-zf-primary`, `text-zf-accent`, `border-zf-graphite`
+- **Responsive**: Mobile-first approach, sử dụng Tailwind breakpoints
+
+### Validation Rules
+
+- **Zod schemas**: Luôn dùng Zod cho validation
+- **Schemas location**: Đặt trong `lib/validation/` folder
+- **Error messages**: Tiếng Việt, rõ ràng: `'Nội dung công việc không được để trống'`
+- **API validation**: Validate input trong API routes trước khi xử lý
+
+### Database Rules
+
+- **Prisma**: Sử dụng Prisma ORM với SQLite
+- **Migrations**: Luôn tạo migration khi thay đổi schema
+- **N+1 Queries**: Tránh N+1 queries, sử dụng `include` hoặc `select`
+- **Transactions**: Sử dụng transactions cho operations phức tạp
+- **Financial data**: Financial numbers MUST come from `finalQuotation` only
+
+### Data Handling
+
+- **Server Components**: Ưu tiên Server Components khi có thể
+- **Data fetching**: Fetch data trong Server Components hoặc API routes
+- **Caching**: Sử dụng Next.js caching strategies khi phù hợp
+- **Error boundaries**: Implement error handling cho data fetching
+
+---
+
+## 🎯 Project Structure
 
 ```
 ZfeManage/                    # ← CODE CHÍNH (Production)
 ├── app/                      # Next.js App Router
+│   ├── (dashboard)/         # Dashboard routes với layout
+│   ├── api/                 # API Routes
+│   └── login/               # Auth pages
 ├── components/               # React Components
+│   ├── project/            # Project-related components
+│   ├── quotation/          # Quotation-related components
+│   ├── layout/             # Layout components
+│   └── ui/                 # Reusable UI components
 ├── lib/                      # Utilities & helpers
-├── prisma/                   # Database schema & migrations
+│   ├── validation/         # Zod schemas
+│   └── ...                 # Other utilities
+├── prisma/                   # Database
+│   ├── schema.prisma        # Prisma schema
+│   └── migrations/          # Database migrations
 ├── public/                   # Static files
 └── types/                    # TypeScript types
 
@@ -54,13 +178,28 @@ ZfeManage/                    # ← CODE CHÍNH (Production)
 └── docs/                     # ← Tài liệu bổ sung
 ```
 
-### ⚡ Khi được yêu cầu code trong ZfeManage:
+---
 
-1. **LUÔN** đọc rules từ `../quotation-app/.cursorrules` trước
-2. **TUÂN THEO** tất cả conventions được định nghĩa
-3. **THAM KHẢO** `ARCHITECTURE.md` để hiểu data flow và patterns
-4. **KIỂM TRA** `DEV_TODO.md` để biết các tính năng đang làm
-5. **ĐẢM BẢO** code có thể build và deploy được
+## ⚡ Khi được yêu cầu code trong ZfeManage:
+
+1. **ĐỌC YÊU CẦU KỸ**: Hiểu rõ vấn đề cần giải quyết
+2. **TÌM CODE LIÊN QUAN**: Sử dụng codebase_search để tìm patterns hiện có
+3. **ĐỌC RULES**: Tham khảo `../quotation-app/.cursorrules` và docs liên quan
+4. **TUÂN THEO PATTERNS**: Sử dụng patterns đã có trong codebase
+5. **IMPLEMENT**: Code theo đúng conventions và rules
+6. **KIỂM TRA**: Đảm bảo code build được và tuân thủ rules
+
+---
+
+## 🚫 NHỮNG ĐIỀU KHÔNG NÊN LÀM
+
+- ❌ Không dùng `any` type
+- ❌ Không viết text UI bằng tiếng Anh
+- ❌ Không bỏ qua validation
+- ❌ Không tạo N+1 queries
+- ❌ Không hardcode values, dùng constants/config
+- ❌ Không trả lời chung chung, phải cụ thể và actionable
+- ❌ Không bỏ qua error handling
 
 ---
 
