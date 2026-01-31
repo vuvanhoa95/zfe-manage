@@ -4,28 +4,34 @@
 
 ## Mô tả
 
-Commit tự động với message thông minh. Push là bước riêng để tránh mất kết nối.
+Commit tự động với message thông minh và tự động push lên remote (trigger Vercel auto-deploy).
 
-**Lưu ý:** Command này chỉ commit (nhanh). Để push, chạy thêm command push riêng.
+**Lưu ý:** Command này sẽ commit VÀ push tự động. Nếu chỉ muốn commit, dùng flag `--no-push`.
 
 Command này sẽ:
 1. Phân tích files đã thay đổi
 2. Tự động tạo commit message phù hợp
 3. Commit với message đã tạo
+4. **Tự động push lên remote** (trigger Vercel auto-deploy)
 
 ## Cách sử dụng
 
 ### Cách 1: Yêu cầu AI chạy (Khuyến nghị)
 Chỉ cần nói với AI:
-- "Chạy quick commit"
+- "Chạy quick commit" hoặc `/1-commit`
 - "Commit code"
 - "Commit với message: fix bug"
 
-AI sẽ tự động chạy script PowerShell.
+**AI sẽ tự động chạy:** `powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1 --push`
 
 ### Cách 2: Chạy trực tiếp trong terminal
 
-**Commit (mặc định - nhanh, an toàn):**
+**Commit + Push (mặc định - trigger auto-deploy):**
+```powershell
+powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1 --push
+```
+
+**Chỉ commit (không push):**
 ```powershell
 powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1
 ```
@@ -35,20 +41,18 @@ powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1
 npm run commit
 ```
 
-**Để push sau khi commit:**
+**Push thủ công sau khi commit:**
 ```bash
 git push origin main
 ```
 
-**Hoặc commit + push cùng lúc (có thể mất thời gian):**
-```powershell
-powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1 --push
-```
-
 ## Xử lý lỗi kết nối
 
-Nếu gặp lỗi "Connection Error":
-1. Kiểm tra kết nối internet/VPN
-2. Chạy commit không push: `.\quick-commit.ps1` (không có `--push`)
+Nếu gặp lỗi "Connection Error" khi push:
+1. **Commit vẫn thành công** - code đã được commit local
+2. Kiểm tra kết nối internet/VPN
 3. Push thủ công sau: `git push origin main`
 4. Kiểm tra remote: `git remote -v`
+5. Nếu vẫn lỗi, commit không push: `.\quick-commit.ps1` (bỏ `--push`)
+
+**Lưu ý:** Script đã được cải thiện để xử lý lỗi kết nối tốt hơn. Nếu push fail, commit vẫn thành công và bạn có thể push sau.

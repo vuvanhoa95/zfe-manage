@@ -5,7 +5,7 @@ Folder này chứa các custom commands cho dự án ZfeManage.
 ## 📋 Danh sách Commands (theo thứ tự)
 
 ### 🔧 Git Commands (1-4)
-- `/1-commit` - Commit tự động với message thông minh (nhanh, an toàn)
+- `/1-commit` - Commit tự động với message thông minh và push (trigger auto-deploy)
 - `/2-status` - Xem trạng thái Git
 - `/3-pull` - Pull code từ remote
 - `/4-log` - Xem lịch sử commits
@@ -29,7 +29,7 @@ Folder này chứa các custom commands cho dự án ZfeManage.
 ## 🚀 Cách sử dụng
 
 Trong Cursor Chat, gõ `/` và chọn command từ danh sách, hoặc gõ trực tiếp:
-- `/1-commit` - Commit tự động (nhanh)
+- `/1-commit` - Commit và push tự động (trigger auto-deploy)
 - `/5-dev` - Chạy dev server
 - `/9-deploy` - Deploy production
 
@@ -38,9 +38,8 @@ Trong Cursor Chat, gõ `/` và chọn command từ danh sách, hoặc gõ trực
 **Workflow thường dùng:**
 1. `/5-dev` - Chạy dev server
 2. `/6-open` - Mở browser xem
-3. Code xong → `/1-commit` - Commit (nhanh)
-4. Push: `git push origin main` - Push để trigger auto-deploy
-5. `/9-deploy` - Deploy production (nếu cần)
+3. Code xong → `/1-commit` - Commit và push tự động (trigger Vercel auto-deploy)
+4. `/9-deploy` - Deploy production (nếu cần, thường không cần vì auto-deploy)
 
 **Database:**
 - `/13-generate` - Sau khi thay đổi schema
@@ -51,5 +50,5 @@ Trong Cursor Chat, gõ `/` và chọn command từ danh sách, hoặc gõ trực
 - Commands sẽ chạy trong terminal của Cursor
 - Một số commands cần quyền truy cập (Vercel login, Git credentials)
 - Auto-deploy chỉ trigger khi push lên `main` branch
-- `/1-commit` chỉ commit (nhanh), push riêng để tránh mất kết nối
-- Để push: chạy `/1-commit` trước, sau đó `git push origin main`
+- `/1-commit` sẽ tự động commit VÀ push (trigger auto-deploy)
+- Nếu gặp lỗi kết nối khi push, commit vẫn thành công và có thể push thủ công sau
