@@ -36,7 +36,7 @@ export default function LoginPage() {
                     errorMessage.includes('connect') ||
                     errorMessage.includes('connection')
                 ) {
-                    setError('Lỗi kết nối database. Vui lòng kiểm tra cấu hình server.');
+                    setError('Lỗi kết nối database. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình server.');
                 } else if (errorMessage.includes('NEXTAUTH_SECRET')) {
                     setError('Lỗi cấu hình authentication. Vui lòng liên hệ quản trị viên.');
                 } else if (

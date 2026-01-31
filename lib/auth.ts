@@ -30,6 +30,11 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 try {
+                    // Check DATABASE_URL before attempting connection
+                    if (!process.env.DATABASE_URL) {
+                        throw new Error('DATABASE_URL_MISSING');
+                    }
+
                     const user = await prisma.user.findUnique({
                         where: { email: credentials.email },
                     });
@@ -64,10 +69,12 @@ export const authOptions: NextAuthOptions = {
                     
                     // Prisma error codes for connection issues
                     if (
+                        errorCode === 'DATABASE_URL_MISSING' ||
                         errorCode === 'P1001' || // Can't reach database server
                         errorCode === 'P1002' || // Database server timed out
                         errorCode === 'P1003' || // Database does not exist
                         errorCode === 'P1017' || // Server has closed the connection
+                        errorMessage.includes('DATABASE_URL_MISSING') ||
                         errorMessage.includes('connect') ||
                         errorMessage.includes('connection') ||
                         errorMessage.includes('DATABASE_URL') ||

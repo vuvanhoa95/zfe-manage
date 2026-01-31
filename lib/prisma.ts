@@ -5,6 +5,13 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
+  // Check DATABASE_URL before creating client
+  if (!process.env.DATABASE_URL) {
+    const error = new Error('DATABASE_URL environment variable is not set');
+    (error as any).code = 'DATABASE_URL_MISSING';
+    throw error;
+  }
+
   // Use connection pooling for serverless (Vercel)
   // Neon provides pooled connections via ?pgbouncer=true or separate pooled connection string
   const client = new PrismaClient({

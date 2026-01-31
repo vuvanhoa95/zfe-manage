@@ -20,6 +20,18 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
+# Check if we're in a Git repository
+try {
+    $null = git rev-parse --git-dir 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Not a Git repository. Please run this script in a Git repository." -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    Write-Host "Error checking Git repository: $_" -ForegroundColor Red
+    exit 1
+}
+
 # Check for changes
 $status = git status --porcelain
 if (-not $status) {
@@ -114,14 +126,47 @@ Write-Host ""
 # Push if requested
 if ($Push) {
     Write-Host "Pushing to remote..." -ForegroundColor Yellow
-    $currentBranch = git branch --show-current
-    git push origin $currentBranch
     
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Pushed successfully to $currentBranch" -ForegroundColor Green
-        Write-Host "Vercel will auto-deploy..." -ForegroundColor Cyan
-    } else {
-        Write-Host "Push may have failed. Please check." -ForegroundColor Yellow
+    # Check remote connection first
+    try {
+        $remoteUrl = git remote get-url origin 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "No remote 'origin' configured. Skipping push." -ForegroundColor Yellow
+            Write-Host "Commit successful, but not pushed." -ForegroundColor Cyan
+            exit 0
+        }
+        Write-Host "Remote: $remoteUrl" -ForegroundColor Gray
+    } catch {
+        Write-Host "Could not check remote. Skipping push." -ForegroundColor Yellow
+        Write-Host "Commit successful, but not pushed." -ForegroundColor Cyan
+        exit 0
+    }
+    
+    $currentBranch = git branch --show-current
+    Write-Host "Pushing to origin/$currentBranch..." -ForegroundColor Yellow
+    
+    # Try to push with error handling
+    try {
+        git push origin $currentBranch 2>&1 | Out-String
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Pushed successfully to $currentBranch" -ForegroundColor Green
+            Write-Host "Vercel will auto-deploy..." -ForegroundColor Cyan
+        } else {
+            Write-Host "Push failed. This might be due to:" -ForegroundColor Red
+            Write-Host "  - Network connection issues" -ForegroundColor Yellow
+            Write-Host "  - VPN blocking connection" -ForegroundColor Yellow
+            Write-Host "  - Authentication problems" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "You can try pushing manually: git push origin $currentBranch" -ForegroundColor Cyan
+            Write-Host "Commit was successful, you can push later." -ForegroundColor Green
+            exit 0
+        }
+    } catch {
+        Write-Host "Error during push: $_" -ForegroundColor Red
+        Write-Host "Commit was successful. You can push manually later." -ForegroundColor Yellow
+        Write-Host "Command: git push origin $currentBranch" -ForegroundColor Gray
+        exit 0
     }
 } else {
     Write-Host "Tip: Add --push flag to auto push to remote" -ForegroundColor Cyan
