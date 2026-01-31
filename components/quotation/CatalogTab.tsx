@@ -38,9 +38,17 @@ type Unit = {
     isActive: boolean;
 };
 
+// Cache for catalog items by category
+const catalogCache = new Map<string, { data: CatalogItem[]; timestamp: number }>();
+const CATALOG_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
+// Cache for units
+let unitsCache: { data: Unit[]; timestamp: number } | null = null;
+const UNITS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export default function CatalogTab() {
     const [items, setItems] = useState<CatalogItem[]>([]);
-    const [units, setUnits] = useState<Unit[]>([]);
+    const [units, setUnits] = useState<Unit[]>(unitsCache?.data || []);
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingUnits, setIsLoadingUnits] = useState(false);
     const [activeCategory, setActiveCategory] = useState<'SCOPE' | 'DELIVERABLES' | 'PRICING' | 'UNITS'>('PRICING');
@@ -48,6 +56,7 @@ export default function CatalogTab() {
     const [editingUnit, setEditingUnit] = useState<Partial<Unit> | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [useCustomUnit, setUseCustomUnit] = useState(false);
+    const [hasLoadedCategory, setHasLoadedCategory] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (activeCategory === 'UNITS') {
@@ -73,15 +82,19 @@ export default function CatalogTab() {
     }, [editingItem, activeCategory, units]);
 
     const fetchItems = async () => {
+        // Check cache first
+        const now = Date.now();
+        const cached = catalogCache.get(activeCategory);
+        if (cached && (now - cached.timestamp) < CATALOG_CACHE_TTL && hasLoadedCategory.has(activeCategory)) {
+            setItems(cached.data);
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const url = `/api/catalog?category=${activeCategory}`;
-            const res = await fetch(url, {
-                cache: 'no-store',
-                headers: {
-                    'Cache-Control': 'no-cache',
-                },
-            });
+            const res = await fetch(url);
             
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);
@@ -91,7 +104,9 @@ export default function CatalogTab() {
             if (result.success && Array.isArray(result.data)) {
                 const fetchedItems = result.data || [];
                 console.log(`✅ Loaded ${fetchedItems.length} items for ${activeCategory}`);
+                catalogCache.set(activeCategory, { data: fetchedItems, timestamp: now });
                 setItems(fetchedItems);
+                setHasLoadedCategory(prev => new Set(prev).add(activeCategory));
             } else {
                 console.error('❌ API returned invalid data:', result);
                 setItems([]);
@@ -105,14 +120,17 @@ export default function CatalogTab() {
     };
 
     const fetchUnits = async () => {
+        // Check cache first
+        const now = Date.now();
+        if (unitsCache && (now - unitsCache.timestamp) < UNITS_CACHE_TTL) {
+            setUnits(unitsCache.data);
+            setIsLoadingUnits(false);
+            return;
+        }
+
         setIsLoadingUnits(true);
         try {
-            const res = await fetch('/api/units?activeOnly=false', {
-                cache: 'no-store',
-                headers: {
-                    'Cache-Control': 'no-cache',
-                },
-            });
+            const res = await fetch('/api/units?activeOnly=false');
             
             if (!res.ok) {
                 throw new Error(`HTTP error! status: ${res.status}`);
@@ -120,6 +138,7 @@ export default function CatalogTab() {
             
             const result = await res.json();
             if (result.success && Array.isArray(result.data)) {
+                unitsCache = { data: result.data || [], timestamp: now };
                 setUnits(result.data || []);
             } else {
                 console.error('❌ API returned invalid data:', result);
@@ -145,6 +164,13 @@ export default function CatalogTab() {
             });
             const result = await res.json();
             if (result.success) {
+                // Invalidate cache for this category
+                catalogCache.delete(activeCategory);
+                setHasLoadedCategory(prev => {
+                    const next = new Set(prev);
+                    next.delete(activeCategory);
+                    return next;
+                });
                 fetchItems();
                 setEditingItem(null);
             }
@@ -159,6 +185,13 @@ export default function CatalogTab() {
             const res = await fetch(`/api/catalog?id=${id}`, { method: 'DELETE' });
             const result = await res.json();
             if (result.success) {
+                // Invalidate cache for this category
+                catalogCache.delete(activeCategory);
+                setHasLoadedCategory(prev => {
+                    const next = new Set(prev);
+                    next.delete(activeCategory);
+                    return next;
+                });
                 fetchItems();
             }
         } catch (err) {
@@ -178,6 +211,8 @@ export default function CatalogTab() {
             });
             const result = await res.json();
             if (result.success) {
+                // Invalidate cache
+                unitsCache = null;
                 fetchUnits();
                 setEditingUnit(null);
             }
@@ -192,6 +227,8 @@ export default function CatalogTab() {
             const res = await fetch(`/api/units?id=${id}`, { method: 'DELETE' });
             const result = await res.json();
             if (result.success) {
+                // Invalidate cache
+                unitsCache = null;
                 fetchUnits();
             }
         } catch (err) {

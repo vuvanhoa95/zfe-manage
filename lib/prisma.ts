@@ -1,9 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { testDatabaseConnection } from './db-health';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  prismaConnectionTested?: boolean;
 };
 
 function createPrismaClient() {
@@ -11,12 +13,16 @@ function createPrismaClient() {
   if (!process.env.DATABASE_URL) {
     const error = new Error('DATABASE_URL environment variable is not set');
     (error as any).code = 'DATABASE_URL_MISSING';
-    throw error;
+    // Log warning but still create client - error will be thrown when connecting
+    if (process.env.NODE_ENV === 'development') {
+      console.error('⚠️ DATABASE_URL is not set');
+    }
   }
 
+  const databaseUrl = process.env.DATABASE_URL || '';
+
   // For SQLite, check if database file exists (only on server-side)
-  const databaseUrl = process.env.DATABASE_URL;
-  if (databaseUrl.startsWith('file:') && typeof window === 'undefined') {
+  if (databaseUrl && databaseUrl.startsWith('file:') && typeof window === 'undefined') {
     try {
       const dbPath = databaseUrl.replace('file:', '').trim();
       const absolutePath = dbPath.startsWith('/') || dbPath.match(/^[A-Z]:/i) 
@@ -24,17 +30,17 @@ function createPrismaClient() {
         : join(process.cwd(), dbPath);
       
       if (!existsSync(absolutePath)) {
-        const error = new Error(`Database file not found: ${absolutePath}`);
-        (error as any).code = 'DATABASE_FILE_NOT_FOUND';
-        (error as any).filePath = absolutePath;
-        throw error;
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`⚠️ Database file not found: ${absolutePath}`);
+        }
+        // Don't throw immediately - let Prisma handle it when connecting
+        // The error will be caught when actually using the client
       }
     } catch (error: any) {
-      // If it's not a file system error, re-throw
-      if (error.code === 'DATABASE_FILE_NOT_FOUND') {
-        throw error;
+      // Log but don't throw - let Prisma handle connection errors
+      if (process.env.NODE_ENV === 'development') {
+        console.error('⚠️ Error checking database file:', error.message);
       }
-      // Otherwise, ignore file system errors (might be in browser environment)
     }
   }
 
@@ -79,6 +85,33 @@ if (process.env.NODE_ENV !== 'production') {
     // Don't cache if model is missing - force recreate next time
     console.warn('⚠️ Not caching Prisma Client - model missing');
   }
+}
+
+// Test connection on startup (only once, in development)
+if (
+  process.env.NODE_ENV === 'development' &&
+  !globalForPrisma.prismaConnectionTested &&
+  typeof window === 'undefined'
+) {
+  globalForPrisma.prismaConnectionTested = true;
+  
+  // Test connection asynchronously (don't block startup)
+  testDatabaseConnection(prisma, 2, 1000)
+    .then((healthStatus) => {
+      if (healthStatus.healthy) {
+        console.log(
+          `✅ Database connection healthy (latency: ${healthStatus.latency}ms, retries: ${healthStatus.retryCount})`
+        );
+      } else {
+        console.warn(
+          `⚠️ Database connection test failed: ${healthStatus.error} (code: ${healthStatus.errorCode})`
+        );
+        console.warn('   This may cause issues when accessing the database.');
+      }
+    })
+    .catch((error) => {
+      console.warn('⚠️ Database connection test error:', error.message);
+    });
 }
 
 // Graceful shutdown

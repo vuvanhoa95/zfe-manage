@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { getDatabaseErrorMessage } from '@/lib/db-health';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -36,7 +37,30 @@ export default function LoginPage() {
                     errorMessage.includes('connect') ||
                     errorMessage.includes('connection')
                 ) {
-                    setError('Lỗi kết nối database. Vui lòng kiểm tra cấu hình server hoặc chạy: npx prisma migrate deploy && npx prisma generate');
+                    // Parse error code từ error message hoặc detect từ patterns
+                    let errorCode: string | undefined;
+                    
+                    // Detect Prisma error codes từ patterns
+                    if (errorMessage.includes('P1001') || errorMessage.includes("Can't reach database")) {
+                        errorCode = 'P1001';
+                    } else if (errorMessage.includes('P1002') || errorMessage.includes('timeout')) {
+                        errorCode = 'P1002';
+                    } else if (errorMessage.includes('P1003') || errorMessage.includes('does not exist')) {
+                        errorCode = 'P1003';
+                    } else if (errorMessage.includes('P1017') || errorMessage.includes('closed')) {
+                        errorCode = 'P1017';
+                    } else if (errorMessage.includes('P1012') || errorMessage.includes('schema')) {
+                        errorCode = 'P1012';
+                    } else if (errorMessage.includes('DATABASE_URL_MISSING') || errorMessage.includes('not set')) {
+                        errorCode = 'DATABASE_URL_MISSING';
+                    } else if (errorMessage.includes('ECONNREFUSED')) {
+                        errorCode = 'ECONNREFUSED';
+                    } else if (errorMessage.includes('ENOTFOUND')) {
+                        errorCode = 'ENOTFOUND';
+                    }
+                    
+                    const detailedMessage = getDatabaseErrorMessage(errorCode, errorMessage);
+                    setError(detailedMessage);
                 } else if (errorMessage.includes('NEXTAUTH_SECRET')) {
                     setError('Lỗi cấu hình authentication. Vui lòng liên hệ quản trị viên.');
                 } else if (

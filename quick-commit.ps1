@@ -70,11 +70,11 @@ foreach ($file in $changedFiles) {
     $statusLine = $fileStatus | Where-Object { $_ -match [regex]::Escape($file) }
     $status = if ($statusLine) { $statusLine.Substring(0, 2).Trim() } else { "M" }
     $statusText = switch ($status) {
-        "A" { "thêm" }
-        "M" { "cập nhật" }
-        "D" { "xóa" }
-        "R" { "đổi tên" }
-        default { "thay đổi" }
+        "A" { "added" }
+        "M" { "updated" }
+        "D" { "deleted" }
+        "R" { "renamed" }
+        default { "changed" }
     }
     
     $fileName = Split-Path -Leaf $file
@@ -102,35 +102,35 @@ foreach ($file in $changedFiles) {
 if ($components.Count -gt 0) {
     $autoType = "feat"
     $changeDetails += "Components: $($components -join ', ')"
-    $autoMessage = "Cập nhật components"
+    $autoMessage = "Update components"
 } elseif ($apiRoutes.Count -gt 0) {
     $autoType = "feat"
     $changeDetails += "API Routes: $($apiRoutes -join ', ')"
-    $autoMessage = "Cập nhật API routes"
+    $autoMessage = "Update API routes"
 } elseif ($styles.Count -gt 0) {
     $autoType = "style"
     $changeDetails += "Styles: $($styles -join ', ')"
-    $autoMessage = "Cập nhật styles"
+    $autoMessage = "Update styles"
 } elseif ($database.Count -gt 0) {
     $autoType = "chore"
     $changeDetails += "Database: $($database -join ', ')"
-    $autoMessage = "Cập nhật database schema"
+    $autoMessage = "Update database schema"
 } elseif ($docs.Count -gt 0) {
     $autoType = "docs"
     $changeDetails += "Documentation: $($docs -join ', ')"
-    $autoMessage = "Cập nhật documentation"
+    $autoMessage = "Update documentation"
 } elseif ($config.Count -gt 0) {
     $autoType = "chore"
     $changeDetails += "Config: $($config -join ', ')"
-    $autoMessage = "Cập nhật cấu hình"
+    $autoMessage = "Update configuration"
 } elseif ($tests.Count -gt 0) {
     $autoType = "test"
     $changeDetails += "Tests: $($tests -join ', ')"
-    $autoMessage = "Cập nhật tests"
+    $autoMessage = "Update tests"
 } else {
     $autoType = "chore"
     $changeDetails += "Files: $($other -join ', ')"
-    $autoMessage = "Cập nhật files"
+    $autoMessage = "Update files"
 }
 
 # Add other categories if present
@@ -174,10 +174,10 @@ $addedCount = ($fileStatus | Where-Object { $_ -match "^A" }).Count
 $modifiedCount = ($fileStatus | Where-Object { $_ -match "^ M|^M " }).Count
 $deletedCount = ($fileStatus | Where-Object { $_ -match "^D" }).Count
 
-$summary = "Tổng: $fileCount files"
-if ($addedCount -gt 0) { $summary += ", +$addedCount thêm" }
-if ($modifiedCount -gt 0) { $summary += ", ~$modifiedCount sửa" }
-if ($deletedCount -gt 0) { $summary += ", -$deletedCount xóa" }
+$summary = "Total: $fileCount files"
+if ($addedCount -gt 0) { $summary += ", +$addedCount added" }
+if ($modifiedCount -gt 0) { $summary += ", ~$modifiedCount modified" }
+if ($deletedCount -gt 0) { $summary += ", -$deletedCount deleted" }
 
 # Build commit message
 $commitTitle = if ($Message) {
@@ -196,20 +196,18 @@ $commitBody = @()
 # Add change details
 if ($changeDetails.Count -gt 0) {
     foreach ($detail in $changeDetails) {
-        # Limit each detail line length and use ASCII-safe characters
-        $cleanDetail = $detail -replace '[^\x20-\x7E]', '?'  # Replace non-ASCII with ?
-        if ($cleanDetail.Length -gt 80) {
-            $cleanDetail = $cleanDetail.Substring(0, 80) + "..."
+        # Limit each detail line length
+        if ($detail.Length -gt 100) {
+            $detail = $detail.Substring(0, 100) + "..."
         }
-        $commitBody += $cleanDetail
+        $commitBody += $detail
     }
 }
 
 # Add summary
 if ($fileCount -gt 0) {
-    $cleanSummary = $summary -replace '[^\x20-\x7E]', '?'  # Replace non-ASCII
     $commitBody += ""
-    $commitBody += $cleanSummary
+    $commitBody += $summary
 }
 
 # Create full commit message

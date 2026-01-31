@@ -56,7 +56,7 @@ export default function Sidebar() {
                                     }}
                                 />
                                 <div>
-                                    <p className="text-xs text-zf-text-inverse/85 mt-1">Quản lý dự án</p>
+                                    <p className="text-xs text-zf-text-inverse/85 mt-1">Zfenix Manage</p>
                                 </div>
                             </div>
                         ) : (

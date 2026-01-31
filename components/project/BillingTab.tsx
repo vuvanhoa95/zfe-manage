@@ -63,20 +63,69 @@ function getDocumentStatusLabel(status: DocumentStatus): { label: string; classN
     }
 }
 
-export default function BillingTab({ projectId, isNew }: BillingTabProps) {
-    const [isLoading, setIsLoading] = useState(!isNew);
+interface BillingTabProps {
+    projectId: string;
+    isNew: boolean;
+    projectData?: any; // Cached project data from parent
+}
+
+export default function BillingTab({ projectId, isNew, projectData }: BillingTabProps) {
+    const [isLoading, setIsLoading] = useState(!isNew && !projectData);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [cashFlows, setCashFlows] = useState<CashFlow[]>([]);
-    const [quotation, setQuotation] = useState<QuotationLite | null>(null);
+    const [cashFlows, setCashFlows] = useState<CashFlow[]>(projectData?.cashFlows || []);
+    const [quotation, setQuotation] = useState<QuotationLite | null>(() => {
+        if (projectData) {
+            const finalQuotationId = projectData.finalQuotationId as string | null | undefined;
+            const finalQuotationRaw =
+                (projectData.quotations || []).find((q: any) => q.id === finalQuotationId) ??
+                (projectData.quotations || [])[0];
+
+            if (finalQuotationRaw) {
+                return {
+                    id: finalQuotationRaw.id,
+                    quotationNo: finalQuotationRaw.quotationNo,
+                    totalAfterVat: finalQuotationRaw.totalAfterVat ?? null,
+                    outsourceCost: finalQuotationRaw.outsourceCost ?? null,
+                    taxCost: finalQuotationRaw.taxCost ?? null,
+                    commissionCost: finalQuotationRaw.commissionCost ?? null,
+                };
+            }
+        }
+        return null;
+    });
 
     useEffect(() => {
+        // If we have cached data, use it and skip fetch
+        if (projectData) {
+            setCashFlows(projectData.cashFlows || []);
+            const finalQuotationId = projectData.finalQuotationId as string | null | undefined;
+            const finalQuotationRaw =
+                (projectData.quotations || []).find((q: any) => q.id === finalQuotationId) ??
+                (projectData.quotations || [])[0];
+
+            if (finalQuotationRaw) {
+                setQuotation({
+                    id: finalQuotationRaw.id,
+                    quotationNo: finalQuotationRaw.quotationNo,
+                    totalAfterVat: finalQuotationRaw.totalAfterVat ?? null,
+                    outsourceCost: finalQuotationRaw.outsourceCost ?? null,
+                    taxCost: finalQuotationRaw.taxCost ?? null,
+                    commissionCost: finalQuotationRaw.commissionCost ?? null,
+                });
+            } else {
+                setQuotation(null);
+            }
+            setIsLoading(false);
+            return;
+        }
+
         if (isNew || !projectId) return;
 
         const fetchData = async () => {
             setIsLoading(true);
             setLoadError(null);
             try {
-                const res = await fetch(`/api/projects/${projectId}`, { cache: 'no-store' });
+                const res = await fetch(`/api/projects/${projectId}`);
                 if (!res.ok) {
                     throw new Error(`HTTP ${res.status}`);
                 }
@@ -119,7 +168,7 @@ export default function BillingTab({ projectId, isNew }: BillingTabProps) {
         };
 
         void fetchData();
-    }, [projectId, isNew]);
+    }, [projectId, isNew, projectData]);
 
     const summary = useMemo(() => {
         const totalIncome = cashFlows.filter((c) => c.type === 'INCOME').reduce((s, c) => s + c.amount, 0);

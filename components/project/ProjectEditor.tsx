@@ -78,6 +78,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [customers, setCustomers] = useState<any[]>([]);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [projectDataCache, setProjectDataCache] = useState<any>(null); // Cache full project data for tabs
 
     useEffect(() => {
         if (!isNew && projectId) {
@@ -107,6 +108,8 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     endDate: result.data.endDate ? new Date(result.data.endDate).toISOString().split('T')[0] : '',
                 };
                 setProject(projectData);
+                // Cache full project data for tabs to avoid refetching
+                setProjectDataCache(result.data);
             } else {
                 console.error('Failed to fetch project:', result);
                 alert('Không thể tải thông tin dự án. Vui lòng thử lại.');
@@ -319,14 +322,14 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         activeKey={activeTab}
                         variant="ios"
                         orderedKeys={['info', 'quotations', 'cashflow', 'billing'] as const}
-                        render={(tab) =>
-                            tab === 'cashflow' ? (
-                                <CashFlowTab projectId={projectId || project.id} isNew={isNew} />
-                            ) : tab === 'billing' ? (
-                                <BillingTab projectId={projectId || project.id} isNew={isNew} />
-                            ) : tab === 'quotations' ? (
-                                <ProjectQuotationsPanel projectId={projectId || project.id} isNew={isNew} />
-                            ) : (
+                    render={(tab) =>
+                        tab === 'cashflow' ? (
+                            <CashFlowTab projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
+                        ) : tab === 'billing' ? (
+                            <BillingTab projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
+                        ) : tab === 'quotations' ? (
+                            <ProjectQuotationsPanel projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
+                        ) : (
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
                                     <h2 className="text-xl font-bold text-gray-900">Thông tin cơ bản</h2>
 

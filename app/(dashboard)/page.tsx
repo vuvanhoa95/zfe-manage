@@ -219,7 +219,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
-                            ZFENIX • Trustworthy Pinnacle
+                            Zfenix Manage
                         </h1>
                         <p className="text-sm text-gray-600 mt-1">
                             Chào mừng bạn trở lại 👋&nbsp; Chúc bạn luôn nhiều năng lượng tích cực, làm việc vui như đi chơi,

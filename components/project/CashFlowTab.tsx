@@ -61,10 +61,26 @@ function getDocumentStatusLabel(status: DocumentStatus): { label: string; classN
     }
 }
 
-export default function CashFlowTab({ projectId, isNew }: { projectId: string; isNew: boolean }) {
-    const [cashFlows, setCashFlows] = useState<CashFlow[]>([]);
-    const [quotations, setQuotations] = useState<QuotationLite[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+export default function CashFlowTab({ 
+    projectId, 
+    isNew,
+    projectData 
+}: { 
+    projectId: string; 
+    isNew: boolean;
+    projectData?: any; // Cached project data from parent
+}) {
+    const [cashFlows, setCashFlows] = useState<CashFlow[]>(projectData?.cashFlows || []);
+    const [quotations, setQuotations] = useState<QuotationLite[]>(() => {
+        if (projectData?.quotations) {
+            return projectData.quotations.map((q: any) => ({
+                id: q.id,
+                quotationNo: q.quotationNo,
+            }));
+        }
+        return [];
+    });
+    const [isLoading, setIsLoading] = useState(!projectData); // Only load if no cached data
     const [isSaving, setIsSaving] = useState(false);
     const [editing, setEditing] = useState<CashFlow | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -98,11 +114,24 @@ export default function CashFlowTab({ projectId, isNew }: { projectId: string; i
     }, [cashFlows]);
 
     useEffect(() => {
+        // If we have cached data, use it and skip initial fetch
+        if (projectData) {
+            setCashFlows(projectData.cashFlows || []);
+            if (projectData.quotations) {
+                setQuotations(projectData.quotations.map((q: any) => ({
+                    id: q.id,
+                    quotationNo: q.quotationNo,
+                })));
+            }
+            setIsLoading(false);
+            return;
+        }
+        
         if (!isNew && projectId) {
             void refreshAll();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectId, isNew]);
+    }, [projectId, isNew, projectData]);
 
     async function refreshAll() {
         setIsLoading(true);
@@ -114,13 +143,23 @@ export default function CashFlowTab({ projectId, isNew }: { projectId: string; i
     }
 
     async function fetchCashFlows() {
-        const res = await fetch(`/api/projects/${projectId}/cashflows`, { cache: 'no-store' });
+        const res = await fetch(`/api/projects/${projectId}/cashflows`);
         const result = await res.json();
         if (result.success) setCashFlows(result.data || []);
     }
 
     async function fetchQuotations() {
-        const res = await fetch(`/api/projects/${projectId}`, { cache: 'no-store' });
+        // Only fetch if we don't have cached data
+        if (projectData?.quotations) {
+            const list: QuotationLite[] = projectData.quotations.map((q: any) => ({
+                id: q.id,
+                quotationNo: q.quotationNo,
+            }));
+            setQuotations(list);
+            return;
+        }
+        
+        const res = await fetch(`/api/projects/${projectId}`);
         const result = await res.json();
         if (result.success) {
             const list: QuotationLite[] = (result.data?.quotations || []).map((q: any) => ({

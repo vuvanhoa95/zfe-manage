@@ -30,32 +30,42 @@ const STATUS_CONFIG: Record<QuotationStatus, { label: string; badgeClass: string
 export default function ProjectQuotationsPanel({
     projectId,
     isNew,
+    projectData,
 }: {
     projectId: string;
     isNew: boolean;
+    projectData?: any; // Cached project data from parent
 }) {
     const router = useRouter();
 
-    const [isLoading, setIsLoading] = useState(!isNew);
+    const [isLoading, setIsLoading] = useState(!isNew && !projectData);
     const [loadError, setLoadError] = useState<string | null>(null);
-    const [quotations, setQuotations] = useState<QuotationLite[]>([]);
-    const [finalQuotationId, setFinalQuotationId] = useState<string | null>(null);
+    const [quotations, setQuotations] = useState<QuotationLite[]>(projectData?.quotations || []);
+    const [finalQuotationId, setFinalQuotationId] = useState<string | null>(projectData?.finalQuotationId || null);
     const [statusFilter, setStatusFilter] = useState<QuotationStatus | 'ALL'>('ALL');
     const [isUpdatingFinal, setIsUpdatingFinal] = useState(false);
     const [isDuplicatingId, setIsDuplicatingId] = useState<string | null>(null);
 
     useEffect(() => {
+        // If we have cached data, use it and skip initial fetch
+        if (projectData) {
+            setQuotations(projectData.quotations || []);
+            setFinalQuotationId(projectData.finalQuotationId || null);
+            setIsLoading(false);
+            return;
+        }
+
         if (!isNew && projectId) {
             void refresh();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectId, isNew]);
+    }, [projectId, isNew, projectData]);
 
     async function refresh() {
         setIsLoading(true);
         setLoadError(null);
         try {
-            const res = await fetch(`/api/projects/${projectId}`, { cache: 'no-store' });
+            const res = await fetch(`/api/projects/${projectId}`);
             const result = (await res.json()) as { success: boolean; data?: ProjectResponse; error?: string };
             if (!res.ok || !result.success || !result.data) {
                 throw new Error(result.error || 'Không thể tải danh sách báo giá');

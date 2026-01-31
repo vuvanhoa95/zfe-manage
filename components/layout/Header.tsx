@@ -36,14 +36,14 @@ export default function Header() {
         if (path === '/settings') return { title: 'Cài đặt', subtitle: 'Cấu hình hệ thống', icon: '⚙️' };
         if (path === '/reports') return { title: 'Báo cáo', subtitle: 'Tổng hợp hiệu quả báo giá', icon: '📈' };
 
-        return { title: 'Hệ thống báo giá', subtitle: 'ZFENIX Quotation Management', icon: '🧾' };
+        return { title: 'Zfenix Manage', subtitle: 'Hệ thống quản lý dự án và báo giá', icon: '🧾' };
     };
 
     const { title, subtitle, icon } = getPageMeta(pathname || '/');
 
     const crumbs = (() => {
         const path = (pathname || '/').split('?')[0];
-        if (path === '/') return [{ href: '/', label: 'ZFENIX' }];
+        if (path === '/') return [{ href: '/', label: 'Zfenix Manage' }];
 
         const mapLabel = (segment: string): string => {
             if (segment === 'projects') return 'Dự án';
@@ -60,7 +60,7 @@ export default function Header() {
         };
 
         const parts = path.split('/').filter(Boolean);
-        const out: Array<{ href: string; label: string }> = [{ href: '/', label: 'ZFENIX' }];
+        const out: Array<{ href: string; label: string }> = [{ href: '/', label: 'Zfenix Manage' }];
         let acc = '';
         parts.forEach((p) => {
             acc += `/${p}`;

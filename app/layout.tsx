@@ -13,8 +13,8 @@ const inter = Inter({
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Quản lý dòng tiền dự án Zfenix",
-  description: "Hệ thống quản lý dòng tiền dự án của Zfenix",
+  title: "Zfenix Manage",
+  description: "Hệ thống quản lý dự án và báo giá của Zfenix",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

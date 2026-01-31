@@ -41,10 +41,18 @@ type AiChatResponse =
     | { success: true; data: { message: string } }
     | { success: false; error: string };
 
+// Cache for company profile (rarely changes)
+let companyProfileCache: { data: CompanyProfile | null; timestamp: number } | null = null;
+const COMPANY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Cache for customers
+const customerCache = new Map<string, { data: Customer | null; timestamp: number }>();
+const CUSTOMER_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+
 export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTabProps) {
-    const [company, setCompany] = useState<CompanyProfile | null>(null);
+    const [company, setCompany] = useState<CompanyProfile | null>(companyProfileCache?.data || null);
     const [customer, setCustomer] = useState<Customer | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!companyProfileCache); // Only show loading if no cache
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [emailLoading, setEmailLoading] = useState(false);
     const [summaryText, setSummaryText] = useState('');
@@ -57,22 +65,50 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
 
     useEffect(() => {
         const fetchData = async () => {
-            setLoading(true);
-            try {
-                const compRes = await fetch('/api/company-profile');
-                const compResult = await compRes.json();
-                if (compResult.success) setCompany(compResult.data);
-
-                if (data.customerId) {
-                    const custRes = await fetch(`/api/customers/${data.customerId}`);
-                    const custResult = await custRes.json();
-                    if (custResult.success) setCustomer(custResult.data);
+            // Check cache for company profile
+            const now = Date.now();
+            if (companyProfileCache && (now - companyProfileCache.timestamp) < COMPANY_CACHE_TTL) {
+                setCompany(companyProfileCache.data);
+            } else {
+                setLoading(true);
+                try {
+                    const compRes = await fetch('/api/company-profile');
+                    const compResult = await compRes.json();
+                    if (compResult.success) {
+                        companyProfileCache = { data: compResult.data, timestamp: now };
+                        setCompany(compResult.data);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch company profile:', err);
                 }
-            } catch (err) {
-                console.error('Failed to fetch preview details:', err);
-            } finally {
-                setLoading(false);
             }
+
+            // Check cache for customer
+            if (data.customerId) {
+                const cachedCustomer = customerCache.get(data.customerId);
+                if (cachedCustomer && (now - cachedCustomer.timestamp) < CUSTOMER_CACHE_TTL) {
+                    setCustomer(cachedCustomer.data);
+                    if (!companyProfileCache || (now - companyProfileCache.timestamp) >= COMPANY_CACHE_TTL) {
+                        setLoading(false);
+                    }
+                } else {
+                    if (!companyProfileCache || (now - companyProfileCache.timestamp) >= COMPANY_CACHE_TTL) {
+                        setLoading(true);
+                    }
+                    try {
+                        const custRes = await fetch(`/api/customers/${data.customerId}`);
+                        const custResult = await custRes.json();
+                        if (custResult.success) {
+                            customerCache.set(data.customerId, { data: custResult.data, timestamp: now });
+                            setCustomer(custResult.data);
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch customer:', err);
+                    }
+                }
+            }
+            
+            setLoading(false);
         };
         fetchData();
     }, [data.customerId]);

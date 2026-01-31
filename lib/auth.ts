@@ -2,6 +2,7 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { getDatabaseErrorMessage } from '@/lib/db-health';
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -71,7 +72,7 @@ export const authOptions: NextAuthOptions = {
                     const errorCode = error?.code || '';
                     
                     // Prisma error codes for connection issues
-                    if (
+                    const isDatabaseError = 
                         errorCode === 'DATABASE_URL_MISSING' ||
                         errorCode === 'DATABASE_FILE_NOT_FOUND' ||
                         errorCode === 'P1001' || // Can't reach database server
@@ -88,9 +89,14 @@ export const authOptions: NextAuthOptions = {
                         errorMessage.includes('ECONNREFUSED') ||
                         errorMessage.includes('ENOTFOUND') ||
                         errorMessage.includes('timeout') ||
-                        errorMessage.includes('schema')
-                    ) {
-                        throw new Error('database');
+                        errorMessage.includes('schema');
+                    
+                    if (isDatabaseError) {
+                        // Throw error với code để login page có thể hiển thị message phù hợp
+                        const dbError = new Error('database');
+                        (dbError as any).errorCode = errorCode;
+                        (dbError as any).errorMessage = errorMessage;
+                        throw dbError;
                     }
                     
                     // Check if it's a credentials error (user not found or wrong password)
