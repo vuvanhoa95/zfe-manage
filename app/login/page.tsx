@@ -30,14 +30,23 @@ export default function LoginPage() {
                 console.error('Login error:', errorMessage);
                 
                 // Check for database connection errors
-                if (
+                // Format: "database|ERROR_CODE|ERROR_MESSAGE"
+                if (errorMessage.startsWith('database|')) {
+                    // Parse encoded error
+                    const parts = errorMessage.split('|');
+                    const errorCode = parts[1] || undefined;
+                    const originalMessage = parts[2] || errorMessage;
+                    
+                    const detailedMessage = getDatabaseErrorMessage(errorCode, originalMessage);
+                    setError(detailedMessage);
+                } else if (
                     errorMessage === 'database' ||
                     errorMessage.includes('database') ||
                     errorMessage.includes('DATABASE_URL') ||
                     errorMessage.includes('connect') ||
                     errorMessage.includes('connection')
                 ) {
-                    // Parse error code từ error message hoặc detect từ patterns
+                    // Fallback: Detect error code từ patterns (legacy support)
                     let errorCode: string | undefined;
                     
                     // Detect Prisma error codes từ patterns

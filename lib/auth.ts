@@ -64,13 +64,28 @@ export const authOptions: NextAuthOptions = {
                         if (error?.filePath) {
                             console.error('Database file path:', error.filePath);
                         }
+                        // Prisma errors có thể có meta field
+                        if (error?.meta) {
+                            console.error('Prisma error meta:', error.meta);
+                        }
+                    }
+                    
+                    // Extract error code và message
+                    // Prisma errors có code trong error.code
+                    // Custom errors có thể có code trong error.code hoặc message
+                    const errorMessage = error?.message || '';
+                    let errorCode = error?.code || '';
+                    
+                    // Check for Prisma error codes (P1001, P1002, etc.)
+                    if (!errorCode && errorMessage) {
+                        // Try to extract Prisma error code from message
+                        const prismaCodeMatch = errorMessage.match(/P\d{4}/);
+                        if (prismaCodeMatch) {
+                            errorCode = prismaCodeMatch[0];
+                        }
                     }
                     
                     // Check if it's a database connection error
-                    const errorMessage = error?.message || '';
-                    const errorCode = error?.code || '';
-                    
-                    // Prisma error codes for connection issues
                     const isDatabaseError = 
                         errorCode === 'DATABASE_URL_MISSING' ||
                         errorCode === 'DATABASE_FILE_NOT_FOUND' ||
@@ -79,23 +94,29 @@ export const authOptions: NextAuthOptions = {
                         errorCode === 'P1003' || // Database does not exist
                         errorCode === 'P1017' || // Server has closed the connection
                         errorCode === 'P1012' || // Schema mismatch
+                        errorCode === 'P2002' || // Unique constraint (might indicate DB is working but data issue)
                         errorMessage.includes('DATABASE_URL_MISSING') ||
                         errorMessage.includes('DATABASE_FILE_NOT_FOUND') ||
                         errorMessage.includes('Database file not found') ||
+                        errorMessage.includes('Unable to create database connection') ||
+                        errorMessage.includes('Can\'t reach database server') ||
                         errorMessage.includes('connect') ||
                         errorMessage.includes('connection') ||
                         errorMessage.includes('DATABASE_URL') ||
                         errorMessage.includes('ECONNREFUSED') ||
                         errorMessage.includes('ENOTFOUND') ||
                         errorMessage.includes('timeout') ||
-                        errorMessage.includes('schema');
+                        errorMessage.includes('schema') ||
+                        errorMessage.includes('SQLITE_CANTOPEN') ||
+                        errorMessage.includes('SQLITE_BUSY');
                     
                     if (isDatabaseError) {
-                        // Throw error với code để login page có thể hiển thị message phù hợp
-                        const dbError = new Error('database');
-                        (dbError as any).errorCode = errorCode;
-                        (dbError as any).errorMessage = errorMessage;
-                        throw dbError;
+                        // Encode error code vào message để login page có thể parse
+                        // Format: "database|ERROR_CODE|ERROR_MESSAGE"
+                        const encodedError = errorCode 
+                            ? `database|${errorCode}|${errorMessage || 'Database connection error'}`
+                            : `database|UNKNOWN|${errorMessage || 'Database connection error'}`;
+                        throw new Error(encodedError);
                     }
                     
                     // Check if it's a credentials error (user not found or wrong password)
