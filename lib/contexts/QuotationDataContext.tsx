@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { getCached, setCached } from '@/lib/cache/localStorageCache';
 
 // Types
 export type Customer = {
@@ -27,7 +28,8 @@ export type OutsourcingStaff = {
     id: string;
     name: string;
     discipline?: string;
-    rate?: number;
+    hourlyRate?: number;
+    dailyRate?: number;
     isActive: boolean;
 };
 
@@ -90,6 +92,21 @@ export function QuotationDataProvider({ children }: { children: React.ReactNode 
     
     // Overall loading (true if any data is loading)
     const isLoading = isLoadingCustomers || isLoadingProjects || isLoadingOutsourceStaff || isLoadingCatalog;
+    
+    // Cache keys and TTL
+    const CACHE_KEYS = {
+        customers: 'quotation-data-customers',
+        projects: 'quotation-data-projects',
+        outsourceStaff: 'quotation-data-outsource-staff',
+        catalog: 'quotation-data-catalog',
+    };
+    
+    const TTL = {
+        customers: 5 * 60 * 1000, // 5 minutes
+        projects: 5 * 60 * 1000, // 5 minutes
+        outsourceStaff: 10 * 60 * 1000, // 10 minutes
+        catalog: 10 * 60 * 1000, // 10 minutes
+    };
     
     // Fetch functions
     const fetchCustomers = useCallback(async () => {
@@ -160,6 +177,8 @@ export function QuotationDataProvider({ children }: { children: React.ReactNode 
             const result = await res.json();
             if (result.success) {
                 setCatalog(result.data);
+                // Save to cache
+                setCached(CACHE_KEYS.catalog, result.data, TTL.catalog);
             } else {
                 setError(result.error || 'Failed to fetch catalog');
             }
@@ -172,16 +191,103 @@ export function QuotationDataProvider({ children }: { children: React.ReactNode 
         }
     }, []);
     
-    // Fetch all initial data
+    // Fetch all initial data using batch endpoint with localStorage cache
     const fetchInitialData = useCallback(async () => {
         setError(null);
-        // Fetch all in parallel
-        await Promise.all([
-            fetchCustomers(),
-            fetchProjects(),
-            fetchOutsourceStaff(),
-            fetchCatalog(),
-        ]);
+        
+        // Try load from cache first
+        const cachedCustomers = getCached<Customer[]>(CACHE_KEYS.customers, TTL.customers);
+        const cachedProjects = getCached<Project[]>(CACHE_KEYS.projects, TTL.projects);
+        const cachedOutsourceStaff = getCached<OutsourcingStaff[]>(CACHE_KEYS.outsourceStaff, TTL.outsourceStaff);
+        const cachedCatalog = getCached<CatalogItem[]>(CACHE_KEYS.catalog, TTL.catalog);
+        
+        // If all cached data is available and valid, use it
+        if (cachedCustomers && cachedProjects && cachedOutsourceStaff) {
+            setCustomers(cachedCustomers);
+            setProjects(cachedProjects);
+            setOutsourceStaff(cachedOutsourceStaff);
+            setIsLoadingCustomers(false);
+            setIsLoadingProjects(false);
+            setIsLoadingOutsourceStaff(false);
+            
+            // Fetch in background to update cache (stale-while-revalidate pattern)
+            fetch('/api/quotation/initial-data')
+                .then((res) => res.json())
+                .then((result) => {
+                    if (result.success) {
+                        setCustomers(result.data.customers || []);
+                        setProjects(result.data.projects || []);
+                        setOutsourceStaff(result.data.outsourceStaff || []);
+                        
+                        // Update cache
+                        setCached(CACHE_KEYS.customers, result.data.customers || [], TTL.customers);
+                        setCached(CACHE_KEYS.projects, result.data.projects || [], TTL.projects);
+                        setCached(CACHE_KEYS.outsourceStaff, result.data.outsourceStaff || [], TTL.outsourceStaff);
+                    }
+                })
+                .catch((err) => {
+                    console.error('Background fetch failed:', err);
+                    // Ignore background fetch errors
+                });
+        } else {
+            // No valid cache, fetch from API
+            setIsLoadingCustomers(true);
+            setIsLoadingProjects(true);
+            setIsLoadingOutsourceStaff(true);
+            
+            try {
+                // Use batch endpoint to fetch all data in one request
+                const res = await fetch('/api/quotation/initial-data');
+                const result = await res.json();
+                
+                if (result.success) {
+                    // Set all data from batch response
+                    setCustomers(result.data.customers || []);
+                    setProjects(result.data.projects || []);
+                    setOutsourceStaff(result.data.outsourceStaff || []);
+                    
+                    // Save to cache
+                    setCached(CACHE_KEYS.customers, result.data.customers || [], TTL.customers);
+                    setCached(CACHE_KEYS.projects, result.data.projects || [], TTL.projects);
+                    setCached(CACHE_KEYS.outsourceStaff, result.data.outsourceStaff || [], TTL.outsourceStaff);
+                } else {
+                    setError(result.error || 'Failed to fetch initial data');
+                    // Fallback to individual fetches if batch fails
+                    await Promise.all([
+                        fetchCustomers(),
+                        fetchProjects(),
+                        fetchOutsourceStaff(),
+                    ]);
+                }
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Failed to fetch initial data';
+                setError(message);
+                console.error('Failed to fetch initial data:', err);
+                // Fallback to individual fetches
+                await Promise.all([
+                    fetchCustomers(),
+                    fetchProjects(),
+                    fetchOutsourceStaff(),
+                ]);
+            } finally {
+                setIsLoadingCustomers(false);
+                setIsLoadingProjects(false);
+                setIsLoadingOutsourceStaff(false);
+            }
+        }
+        
+        // Handle catalog separately
+        if (cachedCatalog) {
+            setCatalog(cachedCatalog);
+            setIsLoadingCatalog(false);
+            
+            // Background update
+            fetchCatalog().catch((err) => {
+                console.error('Background catalog fetch failed:', err);
+            });
+        } else {
+            await fetchCatalog();
+        }
     }, [fetchCustomers, fetchProjects, fetchOutsourceStaff, fetchCatalog]);
     
     // Fetch initial data on mount
