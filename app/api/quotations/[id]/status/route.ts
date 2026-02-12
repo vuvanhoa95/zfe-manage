@@ -14,13 +14,13 @@ const statusSchema = z.object({
     status: z.enum(STATUSES),
 });
 
-// Quy tắc chuyển trạng thái đơn giản:
-// DRAFT → SENT
+// Quy tắc chuyển trạng thái:
+// DRAFT → SENT | ACCEPTED | REJECTED (linh hoạt cho báo giá nội bộ)
 // SENT  → ACCEPTED | REJECTED
 // ACCEPTED: chỉ cho phép giữ nguyên (không quay lại)
 // REJECTED: cho phép chuyển lại SENT (gửi lại khách)
 const ALLOWED_TRANSITIONS: Partial<Record<QuotationStatus, QuotationStatus[]>> = {
-    DRAFT: ['SENT'],
+    DRAFT: ['SENT', 'ACCEPTED', 'REJECTED'],
     SENT: ['ACCEPTED', 'REJECTED'],
     REJECTED: ['SENT'],
 };
