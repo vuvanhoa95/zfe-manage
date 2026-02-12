@@ -2,34 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import type { QuotationFormData, OutsourcingStaff } from '@/types/quotation';
+import { useQuotationData, type Customer, type Project, type CatalogItem } from '@/lib/contexts/QuotationDataContext';
 import PricingTable from './PricingTable';
 import PaymentMilestones from './PaymentMilestones';
 import ProjectSelector from './ProjectSelector';
 import { calculateQuotationTotals, enrichQuotationLinesWithProjectContext } from '@/lib/utils';
 
-type Customer = {
-    id: string;
-    name: string;
-};
-
-type Project = {
-    id: string;
-    projectNo: string;
-    name: string;
-    description?: string | null;
-    notes?: string | null;
-    location?: string | null;
-    customerId: string | null;
-    totalArea: number | null;
-};
-
-type CatalogItem = {
-    id: string;
-    category: 'SCOPE' | 'DELIVERABLES' | 'PRICING';
-    title: string;
-    description?: string;
-    order: number;
-};
+// Types are now imported from QuotationDataContext
 
 type DataTabProps = {
     data: QuotationFormData;
@@ -71,74 +50,24 @@ const parseDeliverablesText = (raw?: string | null): string[] => {
 const buildDeliverablesHtml = (items: string[]): string => items.map((i) => `<li>${i}</li>`).join('');
 
 export default function DataTab({ data, onChange, lockProject = false }: DataTabProps) {
-    const [customers, setCustomers] = useState<Customer[]>([]);
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
-    const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+    // Use data from context instead of local state
+    const {
+        customers,
+        projects,
+        outsourceStaff: outsourceStaffList,
+        isLoadingCustomers,
+        isLoadingProjects,
+        isLoadingOutsourceStaff,
+    } = useQuotationData();
+
     const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
     const [isLoadingDeliverablesCatalog, setIsLoadingDeliverablesCatalog] = useState(false);
 
     const [aiLoadingScope, setAiLoadingScope] = useState(false);
     const [aiLoadingDeliverables, setAiLoadingDeliverables] = useState(false);
     const [aiLoadingSchedule, setAiLoadingSchedule] = useState(false);
-    const [outsourceStaffList, setOutsourceStaffList] = useState<OutsourcingStaff[]>([]);
-    const [isLoadingOutsourceStaff, setIsLoadingOutsourceStaff] = useState(true);
 
     const [activeSectionId, setActiveSectionId] = useState<string>('quotation-step-1');
-
-    useEffect(() => {
-        const fetchCustomers = async () => {
-            try {
-                const res = await fetch('/api/customers');
-                const result = await res.json();
-                if (result.success) {
-                    setCustomers(result.data);
-                }
-            } catch (err) {
-                console.error('Failed to fetch customers:', err);
-            } finally {
-                setIsLoadingCustomers(false);
-            }
-        };
-
-        void fetchCustomers();
-    }, []);
-
-    useEffect(() => {
-        const fetchProjects = async () => {
-            try {
-                const res = await fetch('/api/projects');
-                const result = await res.json();
-                if (result.success) {
-                    setProjects(result.data);
-                }
-            } catch (err) {
-                console.error('Failed to fetch projects:', err);
-            } finally {
-                setIsLoadingProjects(false);
-            }
-        };
-
-        void fetchProjects();
-    }, []);
-
-    useEffect(() => {
-        const fetchOutsourceStaff = async () => {
-            try {
-                const res = await fetch('/api/outsourcing-staff?isActive=true');
-                const result = await res.json();
-                if (result.success) {
-                    setOutsourceStaffList(result.data);
-                }
-            } catch (err) {
-                console.error('Failed to fetch outsource staff:', err);
-            } finally {
-                setIsLoadingOutsourceStaff(false);
-            }
-        };
-
-        void fetchOutsourceStaff();
-    }, []);
 
     useEffect(() => {
         const fetchDeliverablesCatalog = async () => {

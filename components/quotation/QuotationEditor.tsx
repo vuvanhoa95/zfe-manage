@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { QuotationFormData } from '@/types/quotation';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
+import { QuotationDataProvider } from '@/lib/contexts/QuotationDataContext';
 import DataTab from './DataTab';
 import PreviewTab from './PreviewTab';
 import CatalogTab from './CatalogTab';
@@ -546,7 +547,8 @@ export default function QuotationEditor({
     };
 
     return (
-        <div className="h-full flex flex-col bg-gray-50">
+        <QuotationDataProvider>
+            <div className="h-full flex flex-col bg-gray-50">
             {isLoadingExisting ? (
                 <div className="px-6 pt-6">
                     <div className="bg-white border border-gray-200 rounded-xl p-4 text-gray-600">
@@ -772,38 +774,49 @@ export default function QuotationEditor({
                 </div>
             </div>
 
-            {/* Tab Content */}
-            <div className="flex-1 overflow-hidden">
-                <AnimatedTabPanels
-                    activeKey={activeTab}
-                    variant="ios"
-                    orderedKeys={['data', 'preview', 'catalog'] as const}
+            {/* Tab Content - Keep-Alive: All tabs mounted, use display to show/hide */}
+            <div className="flex-1 overflow-hidden relative">
+                {/* Data Tab - Keep mounted */}
+                <div 
+                    key="data-tab"
+                    style={{ display: activeTab === 'data' ? 'block' : 'none' }}
                     className="h-full"
-                    render={(tab) =>
-                        tab === 'data' ? (
-                            <DataTab
-                                data={formData}
-                                onChange={setFormData}
-                                lockProject={Boolean(projectContext) && isNew}
-                            />
-                        ) : tab === 'preview' ? (
-                            <PreviewTab 
-                                data={formData}
-                                quotationId={id}
-                                quotationNo={quotationNo}
-                                onDataChange={async (field, value) => {
-                                    setFormData((prev) => ({ ...prev, [field]: value }));
-                                    // Auto-save after inline edit
-                                    if (!isNew && id) {
-                                        await handleSave(true);
-                                    }
-                                }}
-                            />
-                        ) : (
-                            <CatalogTab />
-                        )
-                    }
-                />
+                >
+                    <DataTab
+                        data={formData}
+                        onChange={setFormData}
+                        lockProject={Boolean(projectContext) && isNew}
+                    />
+                </div>
+                
+                {/* Preview Tab - Keep mounted */}
+                <div 
+                    key="preview-tab"
+                    style={{ display: activeTab === 'preview' ? 'block' : 'none' }}
+                    className="h-full"
+                >
+                    <PreviewTab 
+                        data={formData}
+                        quotationId={id}
+                        quotationNo={quotationNo}
+                        onDataChange={async (field, value) => {
+                            setFormData((prev) => ({ ...prev, [field]: value }));
+                            // Auto-save after inline edit
+                            if (!isNew && id) {
+                                await handleSave(true);
+                            }
+                        }}
+                    />
+                </div>
+                
+                {/* Catalog Tab - Keep mounted */}
+                <div 
+                    key="catalog-tab"
+                    style={{ display: activeTab === 'catalog' ? 'block' : 'none' }}
+                    className="h-full"
+                >
+                    <CatalogTab />
+                </div>
             </div>
 
             {/* AI Assistant Chatbot */}
@@ -819,6 +832,7 @@ export default function QuotationEditor({
                     })),
                 }}
             />
-        </div>
+            </div>
+        </QuotationDataProvider>
     );
 }
