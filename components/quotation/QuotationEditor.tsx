@@ -562,40 +562,34 @@ export default function QuotationEditor({
                     </div>
                 </div>
             ) : null}
-            {/* Header + Wizard Stepper (gộp 1 panel để tiết kiệm chiều cao) */}
-            <div className="bg-white rounded-lg shadow mb-3 mx-4 mt-3 overflow-hidden border-t-4 border-zf-accent">
-                <div className="p-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4 w-full">
-                        <div className="min-w-[220px]">
-                            <div className="flex items-baseline gap-2">
-                                <h1 className="text-lg font-bold text-zf-primary">ZFENIX</h1>
-                                {quotationNo ? (
-                                    <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono text-[10px] font-bold ring-1 ring-blue-200">
-                                        {quotationNo}
-                                    </span>
-                                ) : null}
-                            </div>
-                            <p className="text-gray-600 text-xs hidden sm:block">Hệ thống Báo giá BIM</p>
-                        </div>
+            {/* Compact Header Panel - Tối ưu không gian dọc */}
+            <div className="bg-white rounded-lg shadow mb-2 mx-4 mt-2 overflow-hidden border-t-4 border-zf-accent">
+                {/* Top Row: ZFENIX + Tabs + Status + Actions - Compact */}
+                <div className="px-3 py-2 flex flex-wrap items-center gap-2 border-b border-gray-200">
+                    {/* Left: ZFENIX Brand */}
+                    <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
+                        <h1 className="text-base font-bold text-zf-primary whitespace-nowrap">ZFENIX</h1>
+                        {quotationNo ? (
+                            <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ring-1 ring-blue-200 whitespace-nowrap">
+                                {quotationNo}
+                            </span>
+                        ) : null}
+                    </div>
 
-                        <div className="flex-1 max-w-sm">
-                            <VoiceInput onApply={handleVoiceApply} />
-                        </div>
-
-                        <div className="flex gap-2 justify-start lg:justify-end flex-1">
+                    {/* Center: Tab Buttons - Compact */}
+                    <div className="flex gap-1 flex-1 justify-center">
                         <button
                             onClick={() => setActiveTab('data')}
-                            className={`flex items-center gap-2 px-3 py-2 rounded transition-colors text-sm ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                                 activeTab === 'data'
                                     ? 'bg-zf-accent text-white'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-transform active:scale-[0.98]`}
-                            style={undefined}
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent`}
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -611,17 +605,16 @@ export default function QuotationEditor({
                         </button>
                         <button
                             onClick={() => setActiveTab('preview')}
-                            className={`flex items-center gap-2 px-3 py-2 rounded transition-colors text-sm ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                                 activeTab === 'preview'
                                     ? 'bg-zf-primary text-white'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-transform active:scale-[0.98]`}
-                            style={undefined}
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent`}
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -639,17 +632,16 @@ export default function QuotationEditor({
                         </button>
                         <button
                             onClick={() => setActiveTab('catalog')}
-                            className={`flex items-center gap-2 px-3 py-2 rounded transition-colors text-sm ${
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                                 activeTab === 'catalog'
                                     ? 'bg-zf-accent text-white'
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-transform active:scale-[0.98]`}
-                            style={undefined}
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent`}
                         >
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="18"
-                                height="18"
+                                width="14"
+                                height="14"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -665,28 +657,11 @@ export default function QuotationEditor({
                             Master Data
                         </button>
                     </div>
-                </div>
-                </div>
 
-                {stepErrors[activeStep] && stepErrors[activeStep]!.length > 0 && (
-                    <div className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                        <p className="font-semibold mb-1">Vui lòng kiểm tra lại thông tin ở bước hiện tại:</p>
-                        <ul className="list-disc list-inside space-y-0.5">
-                            {stepErrors[activeStep]!.map((msg, idx) => (
-                                <li key={idx}>{msg}</li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-
-                {/* Action Bar (gộp vào panel để giảm chiều cao tổng) */}
-                <div className="border-t border-gray-200 px-4 py-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <label
-                            htmlFor="quotation-status-select"
-                            className="text-xs font-medium text-gray-600"
-                        >
-                            Trạng thái
+                    {/* Right: Status + Quick Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <label htmlFor="quotation-status-select" className="text-xs font-medium text-gray-600 whitespace-nowrap">
+                            Trạng thái:
                         </label>
                         <select
                             id="quotation-status-select"
@@ -696,7 +671,7 @@ export default function QuotationEditor({
                                 void handleStatusChange(e.target.value as QuotationFormData['status'])
                             }
                             disabled={isUpdatingStatus}
-                            className="px-2 py-1.5 rounded-md border border-gray-300 bg-white text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[150px]"
+                            className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]"
                         >
                             <option value="DRAFT">Nháp</option>
                             <option value="SENT">Đã gửi khách</option>
@@ -704,14 +679,23 @@ export default function QuotationEditor({
                             <option value="REJECTED">Khách từ chối</option>
                         </select>
                         {isUpdatingStatus && (
-                            <span className="text-xs text-gray-500">Đang cập nhật...</span>
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Đang cập nhật...</span>
                         )}
-                        {statusError && <p className="text-xs text-red-600">{statusError}</p>}
+                        {statusError && <p className="text-xs text-red-600 whitespace-nowrap">{statusError}</p>}
+                    </div>
+                </div>
+
+                {/* Second Row: Voice Input + Action Buttons - Compact */}
+                <div className="px-3 py-2 flex flex-wrap items-center gap-2 border-b border-gray-200">
+                    {/* Voice Input - Compact */}
+                    <div className="flex-1 min-w-[200px] max-w-md">
+                        <VoiceInput onApply={handleVoiceApply} />
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
+                    {/* Action Buttons - Compact */}
+                    <div className="flex flex-wrap items-center gap-1.5">
                         {lastSaved && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">
                                 Đã lưu {lastSaved.toLocaleTimeString('vi-VN')}
                             </span>
                         )}
@@ -719,7 +703,7 @@ export default function QuotationEditor({
                         {!isNew && id && (
                             <a
                                 href={`/quotations/${id}/versions`}
-                                className="text-xs text-blue-600 hover:underline font-medium"
+                                className="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap"
                             >
                                 🕒 Lịch sử
                             </a>
@@ -729,7 +713,7 @@ export default function QuotationEditor({
                             <button
                                 type="button"
                                 onClick={() => void handleDuplicate()}
-                                className="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center gap-1 text-xs"
+                                className="px-2 py-1 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 transition-colors text-xs font-medium whitespace-nowrap"
                             >
                                 Nhân bản
                             </button>
@@ -738,7 +722,7 @@ export default function QuotationEditor({
                         <button
                             type="button"
                             onClick={() => void router.push('/quotations')}
-                            className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-xs"
+                            className="px-2 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-xs font-medium whitespace-nowrap"
                         >
                             Quay lại
                         </button>
@@ -747,7 +731,7 @@ export default function QuotationEditor({
                             <button
                                 type="button"
                                 onClick={() => void onExportDocx()}
-                                className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-xs"
+                                className="px-2 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-xs font-medium whitespace-nowrap"
                             >
                                 📥 DOCX
                             </button>
@@ -756,7 +740,7 @@ export default function QuotationEditor({
                         <button
                             onClick={() => handleSave(false)}
                             disabled={isSaving}
-                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium text-xs"
+                            className="px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors text-xs font-medium whitespace-nowrap"
                         >
                             {isSaving ? '💾 Đang lưu...' : '💾 Lưu'}
                         </button>
@@ -765,13 +749,25 @@ export default function QuotationEditor({
                             <button
                                 type="button"
                                 onClick={handleExportPdf}
-                                className="px-3 py-1.5 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors font-medium flex items-center gap-1 text-xs"
+                                className="px-2 py-1 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 transition-colors text-xs font-medium whitespace-nowrap"
                             >
                                 PDF 📄
                             </button>
                         )}
                     </div>
                 </div>
+
+                {/* Error Messages - Compact */}
+                {stepErrors[activeStep] && stepErrors[activeStep]!.length > 0 && (
+                    <div className="border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <p className="font-semibold mb-1">Vui lòng kiểm tra lại thông tin ở bước hiện tại:</p>
+                        <ul className="list-disc list-inside space-y-0.5">
+                            {stepErrors[activeStep]!.map((msg, idx) => (
+                                <li key={idx}>{msg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
 
             {/* Tab Content - Keep-Alive: All tabs mounted, use display to show/hide */}
