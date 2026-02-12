@@ -9,7 +9,7 @@ export async function GET(
         const resolvedParams = params instanceof Promise ? await params : params;
         const projectId = resolvedParams.id;
 
-        const tasks = await prisma.projectTask.findMany({
+        const tasks = await prisma.task.findMany({
             where: { projectId },
             orderBy: { createdAt: 'desc' },
         });
@@ -33,7 +33,7 @@ export async function POST(
         const projectId = resolvedParams.id;
         const body = await request.json();
 
-        const task = await prisma.projectTask.create({
+        const task = await prisma.task.create({
             data: {
                 projectId,
                 title: body.title,

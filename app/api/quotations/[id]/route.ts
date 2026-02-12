@@ -176,7 +176,6 @@ export async function PUT(
                 commissionType: body.commissionType,
                 commissionRate: body.commissionRate,
                 commissionCost: body.commissionCost,
-                profitRate: body.profitRate,
                 totalBeforeVat,
                 vatAmount,
                 totalAfterVat,

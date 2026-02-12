@@ -10,7 +10,7 @@ export async function PUT(
         const taskId = resolvedParams.taskId;
         const body = await request.json();
 
-        const task = await prisma.projectTask.update({
+        const task = await prisma.task.update({
             where: { id: taskId },
             data: {
                 title: body.title,
@@ -42,7 +42,7 @@ export async function DELETE(
         const resolvedParams = params instanceof Promise ? await params : params;
         const taskId = resolvedParams.taskId;
 
-        await prisma.projectTask.delete({
+        await prisma.task.delete({
             where: { id: taskId },
         });
 
