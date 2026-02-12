@@ -1,0 +1,125 @@
+---
+description: "Coding Standards & Best Practices - Áp dụng cho mọi code trong dự án"
+alwaysApply: true
+---
+
+# Coding Standards & Best Practices
+
+## 🎯 Error Handling
+
+### API Routes
+```typescript
+// PHẢI có try-catch cho mọi API route
+export async function handler(req, res) {
+  try {
+    // ... logic
+  } catch (error) {
+    console.error('[API_NAME]:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+}
+```
+
+### Frontend Components
+- Sử dụng Error Boundaries cho React components
+- Hiển thị user-friendly error messages
+- Log errors cho debugging
+
+---
+
+## 📝 Code Quality
+
+### Naming Conventions
+- **Files:** kebab-case (`user-profile.tsx`)
+- **Components:** PascalCase (`UserProfile`)
+- **Functions:** camelCase (`getUserById`)
+- **Constants:** UPPER_SNAKE_CASE (`MAX_RETRY_COUNT`)
+- **Types/Interfaces:** PascalCase (`UserProfile`, `IUserService`)
+
+### TypeScript
+- Luôn dùng TypeScript strict mode
+- Tránh `any` - dùng `unknown` nếu cần
+- Khai báo types cho function params và return values
+- Dùng `interface` cho object shapes, `type` cho unions/intersections
+
+### React Best Practices
+- Functional components + hooks (không dùng class components)
+- Memoize với `useMemo`, `useCallback` khi cần thiết
+- Tách logic phức tạp ra custom hooks
+- Đặt tên component files trùng tên component
+
+---
+
+## 🧪 Testing
+
+### Mỗi feature mới PHẢI có:
+- Unit tests cho business logic
+- Integration tests cho API endpoints
+- Manual testing checklist
+
+### Test File Naming:
+- `*.test.ts` hoặc `*.spec.ts`
+- Đặt cạnh file gốc hoặc trong `__tests__/`
+
+---
+
+## 🚀 Deployment
+
+### Environment Variables
+- KHÔNG hardcode secrets trong code
+- Sử dụng `.env.local` cho development
+- `.env.example` phải luôn up-to-date
+- Secrets trong Secret Manager (production)
+
+### Pre-deploy Checklist
+- [ ] Build thành công
+- [ ] Tests pass
+- [ ] Không có console.log debug
+- [ ] Environment variables đầy đủ
+- [ ] Database migrations applied
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── app/              # Next.js App Router pages
+├── components/       # Shared components
+│   ├── ui/          # Base UI components
+│   └── features/    # Feature-specific components
+├── hooks/           # Custom React hooks
+├── lib/             # Utilities, helpers
+├── types/           # TypeScript type definitions
+└── styles/          # Global styles
+```
+
+---
+
+## 🔐 Security
+
+- Validate input ở cả frontend VÀ backend
+- Sử dụng parameterized queries (Prisma)
+- CORS configured đúng
+- Rate limiting cho sensitive endpoints
+- HTTPS only trong production
+
+---
+
+## 📖 Documentation
+
+- JSDoc cho functions phức tạp
+- README.md up-to-date
+- CHANGELOG.md cho changes quan trọng
+- API documentation (docs/api/)
+
+---
+
+## 🌐 Vietnamese Language
+
+- LUÔN trả lời bằng tiếng Việt
+- Giải thích thuật ngữ kỹ thuật bằng ngôn ngữ đời thường
+- Xưng hô: Anh/Em (thân thiện)

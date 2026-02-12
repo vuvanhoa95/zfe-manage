@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { formatVND } from '@/lib/number-to-words-vn';
+import {
+    FolderOpen,
+    AlertTriangle,
+    TrendingUp,
+    DollarSign,
+    Calendar,
+    CheckCircle2,
+    XCircle,
+    PlayCircle,
+    Clock,
+} from 'lucide-react';
 
 type ReportQuotation = {
     id: string;
@@ -49,6 +60,50 @@ type SalesReportRow = {
     totalAccepted: number;
 };
 
+type ProjectStatusReport = {
+    summary: {
+        totalProjects: number;
+        statusBreakdown: {
+            PLANNING: number;
+            ACTIVE: number;
+            COMPLETED: number;
+            CANCELLED: number;
+        };
+        financialSummary: {
+            totalBudget: number;
+            totalRevenue: number;
+            totalCost: number;
+            totalProfit: number;
+            averageProfitMargin: number;
+        };
+    };
+    projectsWithIssues: Array<{
+        id: string;
+        projectNo: string;
+        name: string;
+        status: string;
+        totalProfit: number;
+        issues: string[];
+    }>;
+    customerSummary: Array<{
+        customerId: string;
+        customerName: string;
+        projectCount: number;
+        totalRevenue: number;
+        totalCost: number;
+        totalProfit: number;
+        profitMargin: number;
+    }>;
+    monthlyTrend: Array<{
+        month: string;
+        label: string;
+        projectCount: number;
+        totalRevenue: number;
+        totalCost: number;
+        totalProfit: number;
+    }>;
+};
+
 export default function ReportsPage() {
     const [quotations, setQuotations] = useState<ReportQuotation[]>([]);
     const [fetchState, setFetchState] = useState<FetchState<void>>({
@@ -56,6 +111,13 @@ export default function ReportsPage() {
         data: null,
         error: null,
     });
+    const [projectReport, setProjectReport] = useState<ProjectStatusReport | null>(null);
+    const [projectReportState, setProjectReportState] = useState<FetchState<ProjectStatusReport>>({
+        status: 'idle',
+        data: null,
+        error: null,
+    });
+    const [activeTab, setActiveTab] = useState<'quotations' | 'projects'>('quotations');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -109,6 +171,38 @@ export default function ReportsPage() {
         };
 
         void load();
+
+        return () => {
+            controller.abort();
+        };
+    }, []);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        const loadProjectReport = async () => {
+            setProjectReportState({ status: 'loading', data: null, error: null });
+            try {
+                const res = await fetch(`/api/projects/status-report`, {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+                const result = await res.json();
+
+                if (!res.ok || !result.success) {
+                    throw new Error(result.error || 'Không thể tải dữ liệu báo cáo dự án');
+                }
+
+                setProjectReport(result.data);
+                setProjectReportState({ status: 'success', data: result.data, error: null });
+            } catch (error) {
+                if ((error as any).name === 'AbortError') return;
+                const message =
+                    error instanceof Error ? error.message : 'Không thể tải dữ liệu báo cáo dự án';
+                setProjectReportState({ status: 'error', data: null, error: message });
+            }
+        };
+
+        void loadProjectReport();
 
         return () => {
             controller.abort();
@@ -210,9 +304,33 @@ export default function ReportsPage() {
         return rows.sort((a, b) => b.totalAccepted - a.totalAccepted);
     })();
 
+    const isLoadingProjectReport = projectReportState.status === 'loading';
+
     return (
         <div className="px-4 py-4 md:px-6 md:py-5 space-y-6">
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex items-center justify-between">
+                <div className="flex gap-2 border-b border-slate-200">
+                    <button
+                        onClick={() => setActiveTab('quotations')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            activeTab === 'quotations'
+                                ? 'border-b-2 border-blue-600 text-blue-600'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Báo cáo Báo giá
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('projects')}
+                        className={`px-4 py-2 text-sm font-medium transition-colors ${
+                            activeTab === 'projects'
+                                ? 'border-b-2 border-blue-600 text-blue-600'
+                                : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        Báo cáo Tình trạng Dự án
+                    </button>
+                </div>
                 <Link
                     href="/"
                     className="text-xs font-medium text-blue-600 hover:text-blue-700 underline"
@@ -221,13 +339,19 @@ export default function ReportsPage() {
                 </Link>
             </div>
 
-            {fetchState.status === 'error' && (
+            {fetchState.status === 'error' && activeTab === 'quotations' && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {fetchState.error}
                 </div>
             )}
 
-            {isLoading ? (
+            {projectReportState.status === 'error' && activeTab === 'projects' && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {projectReportState.error}
+                </div>
+            )}
+
+            {activeTab === 'quotations' && isLoading ? (
                 <div className="flex items-center justify-center py-16">
                     <div className="text-center">
                         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />

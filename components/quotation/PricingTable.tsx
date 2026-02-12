@@ -2,7 +2,7 @@
 
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { QuotationLineInput } from '@/types/quotation';
+import { QuotationLineInput, OutsourceLineInput, OutsourcingStaff, QuotationFormData } from '@/types/quotation';
 import { calculateQuotationTotals } from '@/lib/utils';
 import { formatVND, numberToVietnameseWords } from '@/lib/number-to-words-vn';
 
@@ -13,9 +13,47 @@ type PricingTableProps = {
     onVatRateChange: (rate: number) => void;
     profitRate?: number;
     onProfitRateChange?: (rate: number) => void;
+    outsourceCost?: number;
+    onOutsourceCostChange?: (cost: number) => void;
+    taxRate?: number;
+    onTaxRateChange?: (rate: number) => void;
+    onTaxCostChange?: (cost: number) => void;
+    commissionType?: 'direct' | 'percentage';
+    onCommissionTypeChange?: (type: 'direct' | 'percentage') => void;
+    commissionRate?: number;
+    onCommissionRateChange?: (rate: number) => void;
+    commissionCost?: number;
+    onCommissionCostChange?: (cost: number) => void;
+    outsourceLines?: OutsourceLineInput[];
+    onOutsourceLinesChange?: (lines: OutsourceLineInput[]) => void;
+    outsourceStaffList?: OutsourcingStaff[];
+    onUpdateFields?: (updates: Partial<QuotationFormData>) => void;
 };
 
-export default function PricingTable({ lines, onChange, vatRate, onVatRateChange, profitRate = 0, onProfitRateChange, totalArea = 0 }: PricingTableProps & { totalArea?: number }) {
+export default function PricingTable({
+    lines,
+    onChange,
+    vatRate,
+    onVatRateChange,
+    profitRate = 0,
+    onProfitRateChange,
+    outsourceCost = 0,
+    onOutsourceCostChange,
+    taxRate = 0,
+    onTaxRateChange,
+    onTaxCostChange,
+    commissionType = 'direct',
+    onCommissionTypeChange,
+    commissionRate = 0,
+    onCommissionRateChange,
+    commissionCost = 0,
+    onCommissionCostChange,
+    outsourceLines = [],
+    onOutsourceLinesChange,
+    outsourceStaffList = [],
+    onUpdateFields,
+    totalArea = 0
+}: PricingTableProps & { totalArea?: number }) {
     const [catalogItems, setCatalogItems] = useState<any[]>([]);
     const [isCatalogOpen, setIsCatalogOpen] = useState(false);
     const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
@@ -39,6 +77,15 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
         };
         fetchCatalog();
     }, []);
+
+    // Auto-size all textareas when component mounts or lines change
+    useEffect(() => {
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach((textarea) => {
+            textarea.style.height = 'auto';
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        });
+    }, [lines]);
 
     const toggleCatalogItemSelection = (itemId: string) => {
         setSelectedCatalogItems(prev => {
@@ -71,12 +118,12 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
         const selectedItems = catalogItems.filter(item => selectedCatalogItems.has(item.id));
         const groupHeaders = lines.filter(line => line.isGroupHeader);
         const existingItems = lines.filter(line => !line.isGroupHeader);
-        
+
         // Filter out items that already exist (by title)
         const newItems = selectedItems
             .filter(catalogItem => !existingItems.some(existing => existing.title === catalogItem.title))
             .map((item: any, index: number) => ({
-                section: selectedLineIndex !== null && lines[selectedLineIndex]?.isGroupHeader 
+                section: selectedLineIndex !== null && lines[selectedLineIndex]?.isGroupHeader
                     ? (lines[selectedLineIndex].section ?? lines[selectedLineIndex].title ?? 'B – BÁO GIÁ')
                     : 'B – BÁO GIÁ',
                 itemNo: (existingItems.length + index + 1).toString(),
@@ -102,7 +149,7 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
         if (selectedLineIndex !== null && !lines[selectedLineIndex]?.isGroupHeader && newItems.length > 0) {
             const updated = [...lines];
             const base = updated[selectedLineIndex] ?? {};
-            
+
             const firstItem = newItems[0];
             const updatedLine: QuotationLineInput = {
                 ...base,
@@ -120,18 +167,18 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
             };
 
             updated[selectedLineIndex] = updatedLine;
-            
+
             // Thêm các mục còn lại sau dòng đã cập nhật
             const remainingItems = newItems.slice(1).map((item, idx) => ({
                 ...item,
                 order: selectedLineIndex + idx + 1,
             }));
-            
+
             updated.splice(selectedLineIndex + 1, 0, ...remainingItems);
             updated.forEach((line, idx) => {
                 line.order = idx;
             });
-            
+
             const updatedWithNumbers = updateItemNumbers(updated);
             onChange(updatedWithNumbers);
         } else {
@@ -202,10 +249,10 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
             alert('Không có dữ liệu trong Master Data. Vui lòng thêm dữ liệu vào Master Data trước.');
             return;
         }
-        
+
         const groupHeaders = lines.filter(line => line.isGroupHeader);
         const existingItems = lines.filter(line => !line.isGroupHeader);
-        
+
         // Only add items that don't already exist
         const newItems = catalogItems
             .filter(catalogItem => !existingItems.some(existing => existing.title === catalogItem.title))
@@ -222,7 +269,7 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                 isGroupHeader: false,
                 isChargeable: true,
             }));
-        
+
         if (newItems.length > 0) {
             const updated = [...lines, ...newItems];
             updated.forEach((line, idx) => {
@@ -601,11 +648,11 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                     </p>
                                 )}
                             </div>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setIsCatalogOpen(false);
                                     setSelectedCatalogItems(new Set());
-                                }} 
+                                }}
                                 className="text-2xl text-zf-text-secondary hover:text-zf-error transition-colors"
                             >
                                 ×
@@ -650,26 +697,23 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                                     toggleCatalogItemSelection(item.id);
                                                 }
                                             }}
-                                            className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex justify-between items-center group ${
-                                                alreadyAdded
-                                                    ? 'bg-red-50 border-red-300 cursor-not-allowed opacity-75'
-                                                    : 'cursor-pointer'
-                                            } ${
-                                                !alreadyAdded && isSelected
+                                            className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex justify-between items-center group ${alreadyAdded
+                                                ? 'bg-red-50 border-red-300 cursor-not-allowed opacity-75'
+                                                : 'cursor-pointer'
+                                                } ${!alreadyAdded && isSelected
                                                     ? 'bg-zf-accent/10 border-zf-accent shadow-md'
                                                     : !alreadyAdded
-                                                    ? 'bg-zf-bg-secondary hover:bg-zf-accent/5 border-transparent hover:border-zf-accent/20'
-                                                    : ''
-                                            }`}
+                                                        ? 'bg-zf-bg-secondary hover:bg-zf-accent/5 border-transparent hover:border-zf-accent/20'
+                                                        : ''
+                                                }`}
                                         >
                                             <div className="flex items-center gap-3 flex-1">
-                                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                                                    alreadyAdded
-                                                        ? 'bg-red-200 border-red-400 cursor-not-allowed'
-                                                        : isSelected
+                                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${alreadyAdded
+                                                    ? 'bg-red-200 border-red-400 cursor-not-allowed'
+                                                    : isSelected
                                                         ? 'bg-zf-accent border-zf-accent'
                                                         : 'border-zf-text-secondary group-hover:border-zf-accent'
-                                                }`}>
+                                                    }`}>
                                                     {isSelected && !alreadyAdded && (
                                                         <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -682,13 +726,12 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                                     )}
                                                 </div>
                                                 <div className="flex-1">
-                                                    <div className={`font-bold transition-colors flex items-center gap-2 ${
-                                                        alreadyAdded
-                                                            ? 'text-red-700'
-                                                            : isSelected
+                                                    <div className={`font-bold transition-colors flex items-center gap-2 ${alreadyAdded
+                                                        ? 'text-red-700'
+                                                        : isSelected
                                                             ? 'text-zf-accent-dark'
                                                             : 'text-zf-primary group-hover:text-zf-accent-dark'
-                                                    }`}>
+                                                        }`}>
                                                         {item.title}
                                                         {alreadyAdded && (
                                                             <span className="text-xs font-normal bg-red-100 text-red-700 px-2 py-0.5 rounded-full border border-red-300">
@@ -696,9 +739,8 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className={`text-xs font-medium mt-1 ${
-                                                        alreadyAdded ? 'text-red-600' : 'text-zf-text-secondary'
-                                                    }`}>
+                                                    <div className={`text-xs font-medium mt-1 ${alreadyAdded ? 'text-red-600' : 'text-zf-text-secondary'
+                                                        }`}>
                                                         {item.unit} | {formatVND(item.defaultPrice || 0)} VNĐ
                                                     </div>
                                                 </div>
@@ -748,18 +790,124 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                 const isCollapsed = parentKey ? collapsedGroupKeys.has(parentKey) : false;
                                 if (isChild && isCollapsed) return null;
 
-                            let total = 0;
-                            if (line.priceType === 'area') {
-                                total = (totalArea || 0) * (line.unitPrice || 0);
-                            } else if (line.priceType !== 'none') {
-                                total = (line.qty || 1) * (line.unitPrice || 0);
-                            }
+                                let total = 0;
+                                if (line.priceType === 'area') {
+                                    total = (totalArea || 0) * (line.unitPrice || 0);
+                                } else if (line.priceType !== 'none') {
+                                    total = (line.qty || 1) * (line.unitPrice || 0);
+                                }
 
-                            if (line.isGroupHeader) {
-                                const groupKey = getGroupKey(line, index);
-                                const collapsed = collapsedGroupKeys.has(groupKey);
-                                const range = getGroupRange(index);
-                                const childrenCount = Math.max(0, range.endExclusive - range.start - 1);
+                                if (line.isGroupHeader) {
+                                    const groupKey = getGroupKey(line, index);
+                                    const collapsed = collapsedGroupKeys.has(groupKey);
+                                    const range = getGroupRange(index);
+                                    const childrenCount = Math.max(0, range.endExclusive - range.start - 1);
+                                    return (
+                                        <tr
+                                            key={index}
+                                            draggable
+                                            onDragStart={handleDragStart(index)}
+                                            onDragOver={handleDragOver(index)}
+                                            onDrop={handleDrop(index)}
+                                            onDragEnd={handleDragEnd}
+                                            className={[
+                                                'bg-slate-50/50',
+                                                draggingIndex === index ? 'opacity-60' : '',
+                                                dragOverIndex === index && draggingIndex !== null && draggingIndex !== index ? 'ring-2 ring-blue-200' : '',
+                                            ].join(' ')}
+                                        >
+                                            <td className="px-3 py-3" colSpan={2}>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleGroupCollapsed(groupKey)}
+                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                                        aria-label={collapsed ? 'Mở rộng hạng mục' : 'Thu gọn hạng mục'}
+                                                        title={collapsed ? 'Mở rộng' : 'Thu gọn'}
+                                                    >
+                                                        {collapsed ? '▸' : '▾'}
+                                                    </button>
+                                                    <input
+                                                        type="text"
+                                                        value={line.title}
+                                                        onChange={(e) => updateLine(index, 'title', e.target.value)}
+                                                        className="w-full px-3 py-1.5 border border-transparent hover:border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg font-bold text-slate-900 bg-transparent transition-all"
+                                                        placeholder="TÊN HẠNG MỤC"
+                                                    />
+                                                    {childrenCount > 0 ? (
+                                                        <span className="text-xs text-slate-500 whitespace-nowrap">
+                                                            ({childrenCount} mục con)
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-3" colSpan={5}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => addChildLine(index)}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-zf-accent bg-zf-bg-secondary rounded-lg hover:bg-zf-accent hover:text-white transition-colors border border-zf-accent/20"
+                                                    aria-label="Thêm công việc trong hạng mục này"
+                                                >
+                                                    + Thêm công việc trong hạng mục này
+                                                </button>
+                                            </td>
+                                            <td className="px-3 py-3 text-center">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openCatalogForGroup(index)}
+                                                        className="px-2 py-1 text-xs font-bold text-white bg-zf-accent rounded-md hover:bg-zf-accent-dark transition-colors"
+                                                        title="Chọn nhanh dịch vụ từ Master Data cho hạng mục này"
+                                                        aria-label="Chọn dịch vụ từ Master Data cho hạng mục này"
+                                                    >
+                                                        📋
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={importAllFromCatalog}
+                                                        className="px-2 py-1 text-xs font-bold text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                                                        title="Import tất cả dịch vụ từ Master Data vào bảng đơn giá"
+                                                        aria-label="Import tất cả dịch vụ từ Master Data"
+                                                    >
+                                                        ⚡
+                                                    </button>
+                                                    <div className="flex flex-col">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => moveLine(index, 'up')}
+                                                            disabled={!canMoveUp(index)}
+                                                            aria-label="Di chuyển lên"
+                                                            title="Di chuyển lên"
+                                                            className="px-2 py-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 rounded-md hover:bg-slate-100 transition-all"
+                                                        >
+                                                            ↑
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => moveLine(index, 'down')}
+                                                            disabled={!canMoveDown(index)}
+                                                            aria-label="Di chuyển xuống"
+                                                            title="Di chuyển xuống"
+                                                            className="px-2 py-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 rounded-md hover:bg-slate-100 transition-all"
+                                                        >
+                                                            ↓
+                                                        </button>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeLine(index)}
+                                                        aria-label="Xóa hạng mục"
+                                                        title="Xóa hạng mục"
+                                                        className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }
+
                                 return (
                                     <tr
                                         key={index}
@@ -769,65 +917,106 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                         onDrop={handleDrop(index)}
                                         onDragEnd={handleDragEnd}
                                         className={[
-                                            'bg-slate-50/50',
+                                            'group hover:bg-blue-50/30 transition-colors',
                                             draggingIndex === index ? 'opacity-60' : '',
                                             dragOverIndex === index && draggingIndex !== null && draggingIndex !== index ? 'ring-2 ring-blue-200' : '',
                                         ].join(' ')}
                                     >
-                                        <td className="px-3 py-3" colSpan={2}>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleGroupCollapsed(groupKey)}
-                                                    className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                                                    aria-label={collapsed ? 'Mở rộng hạng mục' : 'Thu gọn hạng mục'}
-                                                    title={collapsed ? 'Mở rộng' : 'Thu gọn'}
-                                                >
-                                                    {collapsed ? '▸' : '▾'}
-                                                </button>
-                                                <input
-                                                    type="text"
-                                                    value={line.title}
-                                                    onChange={(e) => updateLine(index, 'title', e.target.value)}
-                                                    className="w-full px-3 py-1.5 border border-transparent hover:border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 rounded-lg font-bold text-slate-900 bg-transparent transition-all"
-                                                    placeholder="TÊN HẠNG MỤC"
-                                                />
-                                                {childrenCount > 0 ? (
-                                                    <span className="text-xs text-slate-500 whitespace-nowrap">
-                                                        ({childrenCount} mục con)
-                                                    </span>
-                                                ) : null}
-                                            </div>
+                                        <td
+                                            className="px-3 py-3 align-top"
+                                            onClick={() => setSelectedLineIndex(index)}
+                                        >
+                                            <input
+                                                type="text"
+                                                value={line.itemNo || ''}
+                                                onChange={(e) => updateLine(index, 'itemNo', e.target.value)}
+                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none font-bold text-slate-900"
+                                                placeholder="1.1"
+                                            />
                                         </td>
-                                        <td className="px-3 py-3" colSpan={5}>
-                                            <button
-                                                type="button"
-                                                onClick={() => addChildLine(index)}
-                                                className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-zf-accent bg-zf-bg-secondary rounded-lg hover:bg-zf-accent hover:text-white transition-colors border border-zf-accent/20"
-                                                aria-label="Thêm công việc trong hạng mục này"
+                                        <td
+                                            className="px-3 py-3 align-top"
+                                            onClick={() => setSelectedLineIndex(index)}
+                                        >
+                                            <textarea
+                                                value={line.title}
+                                                onChange={handleTitleChange(index)}
+                                                rows={1}
+                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-slate-900 font-medium resize-none whitespace-pre-wrap min-h-[40px]"
+                                                placeholder="Nội dung công việc..."
+                                            />
+                                        </td>
+                                        <td
+                                            className="px-3 py-3"
+                                            onClick={() => setSelectedLineIndex(index)}
+                                        >
+                                            <select
+                                                value={line.priceType || 'fixed'}
+                                                onChange={(e) => updateLine(index, 'priceType', e.target.value)}
+                                                className="w-full px-2 py-1.5 bg-transparent border border-transparent border-b-slate-100 focus:border-b-blue-500 rounded transition-all outline-none text-xs font-semibold text-slate-600"
                                             >
-                                                + Thêm công việc trong hạng mục này
-                                            </button>
+                                                <option value="fixed">Đơn giá cố định</option>
+                                                <option value="area">Tính theo m²</option>
+                                                <option value="none">Không tính phí</option>
+                                            </select>
+                                        </td>
+                                        <td
+                                            className="px-3 py-3"
+                                            onClick={() => setSelectedLineIndex(index)}
+                                        >
+                                            {line.priceType === 'area' ? (
+                                                <div className="text-right px-2 py-1.5 text-slate-400 italic text-xs">{totalArea} m²</div>
+                                            ) : line.priceType === 'none' ? (
+                                                <div className="text-right px-2 py-1.5 text-slate-300">-</div>
+                                            ) : (
+                                                <input
+                                                    type="number"
+                                                    value={line.qty || ''}
+                                                    onChange={(e) => updateLine(index, 'qty', e.target.value ? parseFloat(e.target.value) : undefined)}
+                                                    className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-right text-slate-900 font-bold"
+                                                    placeholder="1"
+                                                />
+                                            )}
+                                        </td>
+                                        <td
+                                            className="px-3 py-3"
+                                            onClick={() => setSelectedLineIndex(index)}
+                                        >
+                                            <input
+                                                type="text"
+                                                value={line.unit || ''}
+                                                disabled={line.priceType === 'none'}
+                                                onChange={(e) => updateLine(index, 'unit', e.target.value)}
+                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-slate-900 font-medium"
+                                                placeholder="m²"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                value={line.priceType === 'none' ? '' : (line.unitPrice !== undefined ? formatVND(line.unitPrice) : '')}
+                                                disabled={line.priceType === 'none'}
+                                                onChange={(e) => updateLine(index, 'unitPrice', parseCurrencyInput(e.target.value))}
+                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-right font-bold text-slate-900"
+                                                placeholder="0"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-3 text-right font-bold text-slate-900">
+                                            {line.priceType === 'none' ? '-' : formatVND(total)}
                                         </td>
                                         <td className="px-3 py-3 text-center">
-                                            <div className="flex items-center justify-center gap-1">
+                                            <div className="flex items-center justify-center gap-1 transition-opacity">
                                                 <button
                                                     type="button"
-                                                    onClick={() => openCatalogForGroup(index)}
-                                                    className="px-2 py-1 text-xs font-bold text-white bg-zf-accent rounded-md hover:bg-zf-accent-dark transition-colors"
-                                                    title="Chọn nhanh dịch vụ từ Master Data cho hạng mục này"
-                                                    aria-label="Chọn dịch vụ từ Master Data cho hạng mục này"
+                                                    onMouseDown={() => setDragArmedIndex(index)}
+                                                    onMouseUp={() => setDragArmedIndex(null)}
+                                                    onMouseLeave={() => setDragArmedIndex(null)}
+                                                    title={dragHint}
+                                                    aria-label={dragHint}
+                                                    className="px-2 py-1 text-slate-500 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-all cursor-move select-none"
                                                 >
-                                                    📋
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={importAllFromCatalog}
-                                                    className="px-2 py-1 text-xs font-bold text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
-                                                    title="Import tất cả dịch vụ từ Master Data vào bảng đơn giá"
-                                                    aria-label="Import tất cả dịch vụ từ Master Data"
-                                                >
-                                                    ⚡
+                                                    ☰
                                                 </button>
                                                 <div className="flex flex-col">
                                                     <button
@@ -854,9 +1043,9 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                                 <button
                                                     type="button"
                                                     onClick={() => removeLine(index)}
-                                                    aria-label="Xóa hạng mục"
-                                                    title="Xóa hạng mục"
-                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                                                    aria-label="Xóa dòng"
+                                                    title="Xóa dòng"
+                                                    className="p-1.5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
                                                 >
                                                     ×
                                                 </button>
@@ -864,153 +1053,6 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                                         </td>
                                     </tr>
                                 );
-                            }
-
-                            return (
-                                <tr
-                                    key={index}
-                                    draggable
-                                    onDragStart={handleDragStart(index)}
-                                    onDragOver={handleDragOver(index)}
-                                    onDrop={handleDrop(index)}
-                                    onDragEnd={handleDragEnd}
-                                    className={[
-                                        'group hover:bg-blue-50/30 transition-colors',
-                                        draggingIndex === index ? 'opacity-60' : '',
-                                        dragOverIndex === index && draggingIndex !== null && draggingIndex !== index ? 'ring-2 ring-blue-200' : '',
-                                    ].join(' ')}
-                                >
-                                    <td
-                                        className="px-3 py-3 align-top"
-                                        onClick={() => setSelectedLineIndex(index)}
-                                    >
-                                        <input
-                                            type="text"
-                                            value={line.itemNo || ''}
-                                            onChange={(e) => updateLine(index, 'itemNo', e.target.value)}
-                                            className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none font-bold text-slate-900"
-                                            placeholder="1.1"
-                                        />
-                                    </td>
-                                    <td
-                                        className="px-3 py-3 align-top"
-                                        onClick={() => setSelectedLineIndex(index)}
-                                    >
-                                        <textarea
-                                            value={line.title}
-                                            onChange={handleTitleChange(index)}
-                                            rows={2}
-                                            className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-slate-900 font-medium resize-none whitespace-pre-wrap overflow-hidden min-h-[40px]"
-                                            placeholder="Nội dung công việc..."
-                                        />
-                                    </td>
-                                        <td
-                                            className="px-3 py-3"
-                                            onClick={() => setSelectedLineIndex(index)}
-                                        >
-                                        <select
-                                            value={line.priceType || 'fixed'}
-                                            onChange={(e) => updateLine(index, 'priceType', e.target.value)}
-                                            className="w-full px-2 py-1.5 bg-transparent border border-transparent border-b-slate-100 focus:border-b-blue-500 rounded transition-all outline-none text-xs font-semibold text-slate-600"
-                                        >
-                                            <option value="fixed">Đơn giá cố định</option>
-                                            <option value="area">Tính theo m²</option>
-                                            <option value="none">Không tính phí</option>
-                                        </select>
-                                    </td>
-                                        <td
-                                            className="px-3 py-3"
-                                            onClick={() => setSelectedLineIndex(index)}
-                                        >
-                                        {line.priceType === 'area' ? (
-                                            <div className="text-right px-2 py-1.5 text-slate-400 italic text-xs">{totalArea} m²</div>
-                                        ) : line.priceType === 'none' ? (
-                                            <div className="text-right px-2 py-1.5 text-slate-300">-</div>
-                                        ) : (
-                                            <input
-                                                type="number"
-                                                value={line.qty || ''}
-                                                onChange={(e) => updateLine(index, 'qty', e.target.value ? parseFloat(e.target.value) : undefined)}
-                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-right text-slate-900 font-bold"
-                                                placeholder="1"
-                                            />
-                                        )}
-                                    </td>
-                                        <td
-                                            className="px-3 py-3"
-                                            onClick={() => setSelectedLineIndex(index)}
-                                        >
-                                        <input
-                                            type="text"
-                                            value={line.unit || ''}
-                                            disabled={line.priceType === 'none'}
-                                            onChange={(e) => updateLine(index, 'unit', e.target.value)}
-                                            className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-slate-900 font-medium"
-                                            placeholder="m²"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <input
-                                            type="text"
-                                            inputMode="numeric"
-                                            value={line.priceType === 'none' ? '' : (line.unitPrice !== undefined ? formatVND(line.unitPrice) : '')}
-                                            disabled={line.priceType === 'none'}
-                                            onChange={(e) => updateLine(index, 'unitPrice', parseCurrencyInput(e.target.value))}
-                                            className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-right font-bold text-slate-900"
-                                            placeholder="0"
-                                        />
-                                    </td>
-                                    <td className="px-3 py-3 text-right font-bold text-slate-900">
-                                        {line.priceType === 'none' ? '-' : formatVND(total)}
-                                    </td>
-                                    <td className="px-3 py-3 text-center">
-                                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                type="button"
-                                                onMouseDown={() => setDragArmedIndex(index)}
-                                                onMouseUp={() => setDragArmedIndex(null)}
-                                                onMouseLeave={() => setDragArmedIndex(null)}
-                                                title={dragHint}
-                                                aria-label={dragHint}
-                                                className="px-2 py-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-all cursor-move select-none"
-                                            >
-                                                ⠿
-                                            </button>
-                                            <div className="flex flex-col">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => moveLine(index, 'up')}
-                                                    disabled={!canMoveUp(index)}
-                                                    aria-label="Di chuyển lên"
-                                                    title="Di chuyển lên"
-                                                    className="px-2 py-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 rounded-md hover:bg-slate-100 transition-all"
-                                                >
-                                                    ↑
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => moveLine(index, 'down')}
-                                                    disabled={!canMoveDown(index)}
-                                                    aria-label="Di chuyển xuống"
-                                                    title="Di chuyển xuống"
-                                                    className="px-2 py-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 disabled:hover:text-slate-400 rounded-md hover:bg-slate-100 transition-all"
-                                                >
-                                                    ↓
-                                                </button>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeLine(index)}
-                                                aria-label="Xóa dòng"
-                                                title="Xóa dòng"
-                                                className="p-1.5 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
                             });
                         })()}
                     </tbody>
@@ -1042,25 +1084,274 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
 
                 {/* Profit calculation - chỉ hiển thị trong DataTab, không hiển thị trong Preview */}
                 {onProfitRateChange && (
-                    <div className="flex justify-between items-center gap-4 text-zf-text-secondary bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium">Lợi nhuận:</span>
-                            <input
-                                type="number"
-                                value={profitRate ? (profitRate * 100).toFixed(2) : ''}
-                                onChange={(e) => {
-                                    const value = e.target.value ? parseFloat(e.target.value) / 100 : 0;
-                                    onProfitRateChange(value);
-                                }}
-                                className="px-3 py-1 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold w-24"
-                                placeholder="0"
-                                step="0.01"
-                                min="0"
-                                max="100"
-                            />
-                            <span className="text-sm">%</span>
+                    <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* Chi phí Outsource */}
+                            <div className="col-span-1 md:col-span-2 lg:col-span-4 space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-yellow-800 uppercase">Chi phí Outsource (Chi tiết)</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const newLines = [
+                                                ...outsourceLines,
+                                                { staffName: '', totalAmount: 0, order: outsourceLines.length }
+                                            ];
+                                            onOutsourceLinesChange?.(newLines);
+                                        }}
+                                        className="text-[10px] bg-yellow-200 hover:bg-yellow-300 text-yellow-900 px-2 py-1 rounded font-bold transition-colors"
+                                    >
+                                        + Thêm nhân sự/đơn vị
+                                    </button>
+                                </div>
+
+                                {outsourceLines.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {outsourceLines.map((line, idx) => (
+                                            <div key={idx} className="flex gap-2 items-start bg-white/50 p-2 rounded-lg border border-yellow-200/50 shadow-sm transition-all hover:bg-white hover:shadow-md">
+                                                <div className="flex-[3] space-y-1">
+                                                    <select
+                                                        value={line.staffName || ''}
+                                                        onChange={(e) => {
+                                                            const selectedName = e.target.value;
+                                                            const staff = outsourceStaffList.find(s => s.name === selectedName);
+                                                            const newLines = [...outsourceLines];
+                                                            newLines[idx] = {
+                                                                ...newLines[idx],
+                                                                staffName: selectedName,
+                                                                discipline: staff?.discipline || ''
+                                                            };
+                                                            onOutsourceLinesChange?.(newLines);
+                                                        }}
+                                                        className="w-full px-3 py-1.5 border border-yellow-300 rounded-lg bg-white text-zf-text-primary text-sm font-medium focus:ring-2 focus:ring-yellow-400/20 outline-none"
+                                                    >
+                                                        <option value="">-- Chọn nhân sự --</option>
+                                                        {outsourceStaffList.map(staff => (
+                                                            <option key={staff.id} value={staff.name}>
+                                                                {staff.name} {staff.discipline ? `(${staff.discipline})` : ''}
+                                                            </option>
+                                                        ))}
+                                                        {line.staffName && !outsourceStaffList.some(s => s.name === line.staffName) && (
+                                                            <option value={line.staffName}>{line.staffName}</option>
+                                                        )}
+                                                    </select>
+                                                    {line.discipline && (
+                                                        <div className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded border border-blue-100 inline-block">
+                                                            Bộ môn: {line.discipline}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="relative flex-1">
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        value={line.totalAmount !== undefined && line.totalAmount !== null ? formatVND(line.totalAmount) : ''}
+                                                        onChange={(e) => {
+                                                            const val = parseCurrencyInput(e.target.value) || 0;
+                                                            const newLines = [...outsourceLines];
+                                                            newLines[idx] = { ...newLines[idx], totalAmount: val };
+                                                            onOutsourceLinesChange?.(newLines);
+
+                                                            // Also update the aggregated total for legacy compatibility/logic
+                                                            const total = newLines.reduce((sum, l) => sum + (l.totalAmount || 0), 0);
+                                                            onOutsourceCostChange?.(total);
+                                                        }}
+                                                        className="w-full px-3 py-1.5 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold text-sm text-right pr-10"
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="absolute right-3 top-1.5 text-[10px] text-gray-400 font-bold">VNĐ</span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newLines = outsourceLines.filter((_, i) => i !== idx);
+                                                        onOutsourceLinesChange?.(newLines);
+                                                        const total = newLines.reduce((sum, l) => sum + (l.totalAmount || 0), 0);
+                                                        onOutsourceCostChange?.(total);
+                                                    }}
+                                                    className="p-1.5 text-yellow-600 hover:text-red-500 hover:bg-red-50 rounded-md transition-all self-center"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div className="flex justify-end pt-1 border-t border-yellow-200/50">
+                                            <div className="text-xs font-bold text-yellow-800">
+                                                TỔNG OUTSOURCE: <span className="text-sm ml-2 text-zf-text-primary">{formatVND(outsourceLines.reduce((sum, l) => sum + (l.totalAmount || 0), 0))} VNĐ</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={outsourceCost !== undefined && outsourceCost !== null ? formatVND(outsourceCost) : ''}
+                                            onChange={(e) => onOutsourceCostChange?.(parseCurrencyInput(e.target.value) || 0)}
+                                            className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold text-sm"
+                                            placeholder="Nhập tổng phí hoặc thêm chi tiết ở trên"
+                                        />
+                                        <span className="absolute right-3 top-2 text-xs text-gray-400 font-bold">VNĐ</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Thuế */}
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold text-yellow-800 uppercase">Thuế (Tạm tính)</label>
+                                <div className="relative flex-1">
+                                    <input
+                                        type="number"
+                                        value={taxRate !== undefined && taxRate !== null ? Number((taxRate * 100).toFixed(2)) : ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const rate = val ? parseFloat(val) / 100 : 0;
+                                            const cost = totalBeforeVat * rate;
+
+                                            if (onUpdateFields) {
+                                                onUpdateFields({ taxRate: rate, taxCost: cost });
+                                            } else {
+                                                onTaxRateChange?.(rate);
+                                                onTaxCostChange?.(cost);
+                                            }
+                                        }}
+                                        className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold text-sm"
+                                        placeholder="0"
+                                        step="any"
+                                    />
+                                    <span className="absolute right-3 top-2 text-xs text-gray-400 font-bold">%</span>
+                                </div>
+                                <div className="flex-1 flex items-center justify-end px-2 py-2 bg-yellow-100/50 rounded-lg border border-yellow-200">
+                                    <span className="text-sm font-bold text-zf-text-primary">
+                                        {formatVND(totalBeforeVat * (taxRate || 0))}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <span className="text-xl font-bold text-green-600">{formatVND(profitAmount)} VNĐ</span>
+
+                        {/* Hoa hồng */}
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center">
+                                <label className="text-xs font-bold text-yellow-800 uppercase">Hoa hồng</label>
+                                <select
+                                    value={commissionType}
+                                    onChange={(e) => onCommissionTypeChange?.(e.target.value as 'direct' | 'percentage')}
+                                    className="text-[10px] bg-yellow-100 border-none rounded px-1 font-bold text-yellow-800"
+                                >
+                                    <option value="percentage">%</option>
+                                    <option value="direct">VNĐ</option>
+                                </select>
+                            </div>
+                            <div className="flex gap-2">
+                                {commissionType === 'percentage' ? (
+                                    <>
+                                        <div className="relative flex-1">
+                                            <input
+                                                type="number"
+                                                value={commissionRate !== undefined && commissionRate !== null ? Number((commissionRate * 100).toFixed(2)) : ''}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    const rate = val ? parseFloat(val) / 100 : 0;
+                                                    const cost = totalBeforeVat * rate;
+
+                                                    if (onUpdateFields) {
+                                                        onUpdateFields({ commissionRate: rate, commissionCost: cost });
+                                                    } else {
+                                                        onCommissionRateChange?.(rate);
+                                                        onCommissionCostChange?.(cost);
+                                                    }
+                                                }}
+                                                className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold text-sm"
+                                                placeholder="0"
+                                                step="any"
+                                            />
+                                            <span className="absolute right-3 top-2 text-xs text-gray-400 font-bold">%</span>
+                                        </div>
+                                        <div className="flex-1 flex items-center justify-end px-2 py-2 bg-yellow-100/50 rounded-lg border border-yellow-200">
+                                            <span className="text-sm font-bold text-zf-text-primary">
+                                                {formatVND(totalBeforeVat * (commissionRate || 0))}
+                                            </span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={commissionCost !== undefined && commissionCost !== 0 ? formatVND(commissionCost) : ''}
+                                            onChange={(e) => onCommissionCostChange?.(parseCurrencyInput(e.target.value) || 0)}
+                                            className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold text-sm"
+                                            placeholder="0"
+                                        />
+                                        <span className="absolute right-3 top-2 text-xs text-gray-400 font-bold">VNĐ</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Lợi nhuận (Profit Rate) */}
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-yellow-800 uppercase">Lợi nhuận mong muốn</label>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="number"
+                                        value={profitRate !== undefined && profitRate !== null ? Number((profitRate * 100).toFixed(2)) : ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            const rate = val ? parseFloat(val) / 100 : 0;
+                                            onProfitRateChange?.(rate);
+                                        }}
+                                        className="w-full px-3 py-2 border border-yellow-300 rounded-lg bg-white text-zf-text-primary font-bold text-sm"
+                                        placeholder="0"
+                                        step="any"
+                                    />
+                                    <span className="absolute right-3 top-2 text-xs text-gray-400 font-bold">%</span>
+                                </div>
+
+                                <div className="flex-1 flex items-center justify-end px-2 py-2 bg-yellow-100/50 rounded-lg border border-yellow-200">
+                                    <span className="text-sm font-bold text-zf-text-primary">
+                                        {formatVND(totalBeforeVat * (profitRate || 0))}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Summary Profit */}
+                        <div className="pt-3 border-t border-yellow-200 flex flex-wrap justify-between items-center gap-4">
+                            <div className="flex items-center gap-6">
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-yellow-700 font-bold uppercase">Tổng Chi phí</span>
+                                    <span className="text-sm font-bold text-zf-error">
+                                        {formatVND(
+                                            (outsourceCost || 0) +
+                                            (totalBeforeVat * (taxRate || 0)) +
+                                            (commissionType === 'percentage' ? (totalBeforeVat * (commissionRate || 0)) : (commissionCost || 0))
+                                        )} VNĐ
+                                    </span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-yellow-700 font-bold uppercase">Lợi nhuận ròng (Tạm tính)</span>
+                                    <span className="text-lg font-black text-green-600">
+                                        {formatVND(
+                                            totalAfterVat -
+                                            ((outsourceCost || 0) +
+                                                (totalBeforeVat * (taxRate || 0)) +
+                                                (commissionType === 'percentage' ? (totalBeforeVat * (commissionRate || 0)) : (commissionCost || 0)))
+                                        )} VNĐ
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-sm">
+                                <span className="text-[10px] font-bold block uppercase opacity-80">Tỷ suất lợi nhuận ròng</span>
+                                <span className="text-xl font-black">
+                                    {totalAfterVat > 0
+                                        ? ((totalAfterVat - ((outsourceCost || 0) + (totalBeforeVat * (taxRate || 0)) + (commissionType === 'percentage' ? (totalBeforeVat * (commissionRate || 0)) : (commissionCost || 0)))) / totalAfterVat * 100).toFixed(1)
+                                        : '0'}%
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1073,6 +1364,6 @@ export default function PricingTable({ lines, onChange, vatRate, onVatRateChange
                     Bằng chữ: <span className="font-bold text-zf-text-primary underline decoration-zf-warning decoration-2 underline-offset-4">{totalInWords}</span>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

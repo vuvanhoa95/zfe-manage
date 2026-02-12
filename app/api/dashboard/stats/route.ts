@@ -21,74 +21,79 @@ export async function GET(request: NextRequest) {
             where.status = statusFilter;
         }
 
-        // Financials must come from FINAL quotations only (Project.finalQuotationId)
-        // Optimize: Only select needed fields and limit to recent projects
-        const projects = await prisma.project.findMany({
+        // Step 1: Aggregate totals from FINAL quotations of ACTIVE/COMPLETED projects
+        const totals = await prisma.quotation.aggregate({
             where: {
-                // Chỉ tính các dự án có báo giá chốt
-                finalQuotationId: { not: null },
-                // Và chỉ lấy các dự án đang thực hiện hoặc đã hoàn thành
-                status: {
-                    in: ['ACTIVE', 'COMPLETED'],
-                },
+                finalForProject: {
+                    status: { in: ['ACTIVE', 'COMPLETED'] }
+                }
+            },
+            _sum: {
+                totalBeforeVat: true,
+                totalAfterVat: true,
+                vatAmount: true,
+                outsourceCost: true,
+                taxCost: true,
+                commissionCost: true,
+            },
+            _count: {
+                id: true
+            }
+        });
+
+        // Step 2: Group by status for final quotations
+        const statusGroups = await prisma.quotation.groupBy({
+            by: ['status'],
+            where: {
+                finalForProject: {
+                    status: { in: ['ACTIVE', 'COMPLETED'] }
+                }
+            },
+            _count: {
+                id: true
+            }
+        });
+
+        const quotationsByStatus = { draft: 0, sent: 0, accepted: 0, rejected: 0 };
+        statusGroups.forEach(g => {
+            if (g.status === 'DRAFT') quotationsByStatus.draft = g._count.id;
+            else if (g.status === 'SENT') quotationsByStatus.sent = g._count.id;
+            else if (g.status === 'ACCEPTED') quotationsByStatus.accepted = g._count.id;
+            else if (g.status === 'REJECTED') quotationsByStatus.rejected = g._count.id;
+        });
+
+        const totalQuotations = totals._count.id;
+        const totalRevenueBeforeVat = totals._sum.totalBeforeVat ?? 0;
+        const totalRevenueAfterVat = totals._sum.totalAfterVat ?? 0;
+        const totalOutsourceCost = totals._sum.outsourceCost ?? 0;
+        const totalTaxCost = totals._sum.taxCost ?? 0;
+        const totalCommissionCost = totals._sum.commissionCost ?? 0;
+
+        const totalCosts = totalOutsourceCost + totalTaxCost + totalCommissionCost;
+        const totalProfit = totalRevenueAfterVat - totalCosts;
+        const profitMargin = totalRevenueAfterVat > 0 ? (totalProfit / totalRevenueAfterVat) * 100 : 0;
+
+        // Step 3: Recent FINAL quotations (last 10)
+        const recentQuotationsRaw = await prisma.quotation.findMany({
+            where: {
+                finalForProject: {
+                    status: { in: ['ACTIVE', 'COMPLETED'] }
+                }
             },
             select: {
                 id: true,
+                quotationNo: true,
+                projectName: true,
+                totalAfterVat: true,
+                status: true,
+                date: true,
                 customer: { select: { name: true } },
-                finalQuotation: {
-                    select: {
-                        id: true,
-                        quotationNo: true,
-                        projectName: true,
-                        date: true,
-                        status: true,
-                        totalBeforeVat: true,
-                        vatAmount: true,
-                        totalAfterVat: true,
-                        outsourceCost: true,
-                        taxCost: true,
-                        commissionCost: true,
-                        customer: { select: { name: true } },
-                        createdAt: true,
-                    },
-                },
             },
             orderBy: { createdAt: 'desc' },
+            take: 10,
         });
 
-        const finalQuotations = projects
-            .map((p) => p.finalQuotation)
-            .filter((q): q is NonNullable<typeof q> => Boolean(q));
-
-        const finalQuotationIds = finalQuotations.map((q) => q.id);
-
-        // Still keep status breakdown for all quotations if filter provided (optional), but default to final quotations only
-        const quotationsByStatus = finalQuotations.reduce(
-            (acc, q) => {
-                if (q.status === 'DRAFT') acc.draft += 1;
-                else if (q.status === 'SENT') acc.sent += 1;
-                else if (q.status === 'ACCEPTED') acc.accepted += 1;
-                else if (q.status === 'REJECTED') acc.rejected += 1;
-                return acc;
-            },
-            { draft: 0, sent: 0, accepted: 0, rejected: 0 }
-        );
-
-        const totalQuotations = finalQuotations.length;
-
-        const totalRevenueBeforeVat = finalQuotations.reduce((sum, q) => sum + (q.totalBeforeVat ?? 0), 0);
-        const totalRevenueAfterVat = finalQuotations.reduce((sum, q) => sum + (q.totalAfterVat ?? 0), 0);
-        const totalVatAmount = finalQuotations.reduce((sum, q) => sum + (q.vatAmount ?? 0), 0);
-        const totalOutsourceCost = finalQuotations.reduce((sum, q) => sum + (q.outsourceCost ?? 0), 0);
-        const totalTaxCost = finalQuotations.reduce((sum, q) => sum + (q.taxCost ?? 0), 0);
-        const totalCommissionCost = finalQuotations.reduce((sum, q) => sum + (q.commissionCost ?? 0), 0);
-
-        const totalCosts = totalOutsourceCost + totalTaxCost + totalCommissionCost;
-        const totalProfit = totalRevenueBeforeVat - totalCosts;
-        const profitMargin = totalRevenueBeforeVat > 0 ? (totalProfit / totalRevenueBeforeVat) * 100 : 0;
-
-        // Recent FINAL quotations (last 10)
-        const recentQuotations = finalQuotations.slice(0, 10).map((q) => ({
+        const recentQuotations = recentQuotationsRaw.map((q) => ({
             id: q.id,
             quotationNo: q.quotationNo,
             customerName: q.customer?.name || 'N/A',
@@ -98,32 +103,39 @@ export async function GET(request: NextRequest) {
             date: q.date.toISOString(),
         }));
 
-        // Aggregate payment milestones from FINAL quotations
+        // Step 4: Get final quotation IDs for payment milestones
+        const finalProjQuotes = await prisma.project.findMany({
+            where: {
+                finalQuotationId: { not: null },
+                status: { in: ['ACTIVE', 'COMPLETED'] },
+            },
+            select: { finalQuotationId: true }
+        });
+        const finalQuotationIds = finalProjQuotes.map(p => p.finalQuotationId as string);
+
+        // Aggregate payment milestones
         const paymentMilestones = finalQuotationIds.length
             ? await prisma.paymentMilestone.findMany({
-                  where: {
-                      quotationId: {
-                          in: finalQuotationIds,
-                      },
-                  },
-                  include: {
-                      quotation: {
-                          select: {
-                              id: true,
-                              quotationNo: true,
-                              projectName: true,
-                              totalAfterVat: true,
-                              customer: {
-                                  select: { name: true },
-                              },
-                          },
-                      },
-                  },
-                  orderBy: [
-                      { quotationId: 'asc' },
-                      { order: 'asc' },
-                  ],
-              })
+                where: {
+                    quotationId: { in: finalQuotationIds },
+                },
+                include: {
+                    quotation: {
+                        select: {
+                            id: true,
+                            quotationNo: true,
+                            projectName: true,
+                            totalAfterVat: true,
+                            customer: { select: { name: true } },
+                        },
+                    },
+                },
+                orderBy: [
+                    { quotationId: 'asc' },
+                    { order: 'asc' },
+                ],
+                take: 50, // Limit to prevent massive payload
+            })
             : [];
 
         const paymentMilestonesSummary = paymentMilestones.map((m) => {
@@ -145,28 +157,40 @@ export async function GET(request: NextRequest) {
             };
         });
 
-        // Prepare monthly data for charts (last 12 months)
-        const monthlyData: { [key: string]: { revenue: number; costs: number; profit: number; count: number } } = {};
+        // Step 5: Monthly data for charts (last 12 months)
         const now = new Date();
+        const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
 
-        // Initialize last 12 months
+        const monthlyDataRaw = await prisma.quotation.findMany({
+            where: {
+                finalForProject: {
+                    status: { in: ['ACTIVE', 'COMPLETED'] }
+                },
+                createdAt: { gte: twelveMonthsAgo }
+            },
+            select: {
+                createdAt: true,
+                totalBeforeVat: true,
+                totalAfterVat: true,
+                outsourceCost: true,
+                taxCost: true,
+                commissionCost: true
+            }
+        });
+
+        const monthlyData: { [key: string]: { revenue: number; costs: number; profit: number; count: number } } = {};
         for (let i = 11; i >= 0; i--) {
             const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             monthlyData[key] = { revenue: 0, costs: 0, profit: 0, count: 0 };
         }
 
-        // Aggregate data by month
-        finalQuotations.forEach((q) => {
+        monthlyDataRaw.forEach((q) => {
             const date = new Date(q.createdAt);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             if (monthlyData[key]) {
-                const revenue = q.totalBeforeVat || 0;
-                const outsource = q.outsourceCost || 0;
-                const tax = q.taxCost || 0;
-                const commission = q.commissionCost || 0;
-                const costs = outsource + tax + commission;
-
+                const revenue = q.totalAfterVat || 0;
+                const costs = (q.outsourceCost || 0) + (q.taxCost || 0) + (q.commissionCost || 0);
                 monthlyData[key].revenue += revenue;
                 monthlyData[key].costs += costs;
                 monthlyData[key].profit += revenue - costs;
@@ -174,7 +198,6 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        // Convert to array format for charts
         const monthlyChartData = Object.entries(monthlyData).map(([month, data]) => ({
             month: month,
             label: new Date(month + '-01').toLocaleDateString('vi-VN', { month: 'short', year: 'numeric' }),
@@ -185,25 +208,25 @@ export async function GET(request: NextRequest) {
         }));
 
         const result = {
-                totalQuotations,
-                quotationsByStatus,
-                projectedRevenue: {
-                    beforeVat: totalRevenueBeforeVat,
-                    afterVat: totalRevenueAfterVat,
-                },
-                costs: {
-                    outsource: totalOutsourceCost,
-                    tax: totalTaxCost,
-                    commission: totalCommissionCost,
-                    total: totalCosts,
-                },
-                profit: {
-                    amount: totalProfit,
-                    margin: profitMargin,
-                },
-                monthlyChartData,
-                recentQuotations,
-                paymentMilestones: paymentMilestonesSummary,
+            totalQuotations,
+            quotationsByStatus,
+            projectedRevenue: {
+                beforeVat: totalRevenueBeforeVat,
+                afterVat: totalRevenueAfterVat,
+            },
+            costs: {
+                outsource: totalOutsourceCost,
+                tax: totalTaxCost,
+                commission: totalCommissionCost,
+                total: totalCosts,
+            },
+            profit: {
+                amount: totalProfit,
+                margin: profitMargin,
+            },
+            monthlyChartData,
+            recentQuotations,
+            paymentMilestones: paymentMilestonesSummary,
         };
 
         // Cache for 30 seconds

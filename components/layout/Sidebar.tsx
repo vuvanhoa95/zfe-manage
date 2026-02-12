@@ -42,28 +42,11 @@ export default function Sidebar() {
                 {/* Logo */}
                 <div className="p-6 border-b border-zf-primary-light/40">
                     <div className="flex items-center justify-between">
-                        {!collapsed ? (
-                            <div className="flex items-center gap-3">
-                                <img
-                                    src="/logo-trans.png"
-                                    alt="ZFENIX Logo"
-                                    className="h-12 w-auto object-contain drop-shadow-lg"
-                                    onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        if (target.src !== '/logo.png') {
-                                            target.src = '/logo.png';
-                                        }
-                                    }}
-                                />
-                                <div>
-                                    <p className="text-xs text-zf-text-inverse/85 mt-1">Zfenix Manage</p>
-                                </div>
-                            </div>
-                        ) : (
+                        <div className={`${collapsed ? 'mx-auto' : 'flex-1'}`}>
                             <img
-                                src="/logo-trans.png"
-                                alt="ZFENIX"
-                                className="h-10 w-auto object-contain mx-auto drop-shadow-lg"
+                                src="/logo-white.png"
+                                alt="ZFENIX Logo"
+                                className="h-10 w-auto object-contain drop-shadow-lg"
                                 onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     if (target.src !== '/logo.png') {
@@ -71,15 +54,26 @@ export default function Sidebar() {
                                     }
                                 }}
                             />
+                        </div>
+                        {!collapsed && (
+                            <button
+                                onClick={() => setCollapsed(!collapsed)}
+                                className="rounded-lg p-2 text-zf-text-inverse transition-colors hover:bg-zf-primary-light/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                title="Thu gọn"
+                            >
+                                ←
+                            </button>
                         )}
+                    </div>
+                    {collapsed && (
                         <button
                             onClick={() => setCollapsed(!collapsed)}
-                            className="rounded-lg p-2 text-zf-text-inverse transition-colors hover:bg-zf-primary-light/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
-                            title={collapsed ? 'Expand' : 'Collapse'}
+                            className="w-full mt-3 rounded-lg p-2 text-zf-text-inverse transition-colors hover:bg-zf-primary-light/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                            title="Mở rộng"
                         >
-                            {collapsed ? '→' : '←'}
+                            →
                         </button>
-                    </div>
+                    )}
                 </div>
 
                 {/* Navigation */}

@@ -17,7 +17,7 @@ function prefersReducedMotion(): boolean {
     return window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
 }
 
-export function PageTransition({ children, className, enterMs = 360, exitMs = 220 }: PageTransitionProps) {
+export function PageTransition({ children, className, enterMs = 200, exitMs = 120 }: PageTransitionProps) {
     const pathname = usePathname();
     const reducedMotion = prefersReducedMotion();
 

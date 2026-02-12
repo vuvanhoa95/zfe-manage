@@ -2,6 +2,8 @@
 
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import CardScanner from '@/components/customer/CardScanner';
+import { CreditCard } from 'lucide-react';
 
 type Customer = {
     id: string;
@@ -41,6 +43,21 @@ export default function CustomerListPage() {
     const [showModal, setShowModal] = useState(false);
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [formState, setFormState] = useState<CustomerFormState>(emptyCustomerForm);
+    const [showScanner, setShowScanner] = useState(false);
+
+    const handleScanComplete = (data: any) => {
+        setFormState({
+            name: data.company || data.name || '',
+            taxCode: data.taxCode || '',
+            address: data.address || '',
+            location: '',
+            contactName: data.name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+        });
+        setShowScanner(false);
+        setShowModal(true);
+    };
 
     useEffect(() => {
         void fetchCustomers();
@@ -130,7 +147,14 @@ export default function CustomerListPage() {
 
     return (
         <div className="px-4 py-4 md:px-6 md:py-5 space-y-4">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-3">
+                <button
+                    onClick={() => setShowScanner(true)}
+                    className="px-4 py-2 bg-zf-accent text-white rounded-lg hover:bg-zf-accent/90 transition-colors font-medium flex items-center gap-2"
+                    aria-label="Quét danh thiếp"
+                >
+                    <CreditCard size={18} /> Quét danh thiếp
+                </button>
                 <button
                     onClick={openCreateModal}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
@@ -335,6 +359,16 @@ export default function CustomerListPage() {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+
+            {/* AI Card Scanner Modal */}
+            {showScanner && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[60] backdrop-blur-sm animate-in fade-in duration-300">
+                    <CardScanner 
+                        onScanComplete={handleScanComplete} 
+                        onClose={() => setShowScanner(false)} 
+                    />
                 </div>
             )}
         </div>

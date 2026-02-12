@@ -7,9 +7,11 @@ import { Save, ArrowLeft } from 'lucide-react';
 
 import BillingTab from '@/components/project/BillingTab';
 import CashFlowTab from '@/components/project/CashFlowTab';
+import TaskTab from '@/components/project/TaskTab';
 import ProjectQuotationsPanel from '@/components/project/ProjectQuotationsPanel';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { formatVND } from '@/lib/number-to-words-vn';
+import { LayoutList, DollarSign, Receipt, FileText, Info } from 'lucide-react';
 
 type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
@@ -56,7 +58,7 @@ type ProjectEditorProps = {
 
 export default function ProjectEditor({ projectId, isNew = false }: ProjectEditorProps) {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'info' | 'cashflow' | 'billing' | 'quotations'>('info');
+    const [activeTab, setActiveTab] = useState<'info' | 'tasks' | 'cashflow' | 'billing' | 'quotations'>('info');
     const [isLoading, setIsLoading] = useState(!isNew);
     const [isSaving, setIsSaving] = useState(false);
     const [project, setProject] = useState<Project>({
@@ -188,7 +190,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
         } catch (error: any) {
             console.error('Failed to save project:', error);
             let errorMessage = error?.message || 'Không thể lưu dự án. Vui lòng kiểm tra lại thông tin và thử lại.';
-            
+
             // Try to extract more detailed error from response
             if (error?.response) {
                 try {
@@ -214,7 +216,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     // Ignore JSON parse errors
                 }
             }
-            
+
             alert(`Lỗi: ${errorMessage}`);
         } finally {
             setIsSaving(false);
@@ -273,19 +275,30 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         aria-label="Tab Thông tin dự án"
                         onClick={() => setActiveTab('info')}
                         className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'info'
-                                ? 'text-zf-accent after:scale-x-100'
-                                : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
+                            ? 'text-zf-accent after:scale-x-100'
+                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
                             }`}
                     >
                         Thông tin dự án
                     </button>
                     <button
                         type="button"
+                        aria-label="Tab Công việc"
+                        onClick={() => setActiveTab('tasks')}
+                        className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'tasks'
+                            ? 'text-zf-accent after:scale-x-100'
+                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
+                            }`}
+                    >
+                        Công việc
+                    </button>
+                    <button
+                        type="button"
                         aria-label="Tab Quotations"
                         onClick={() => setActiveTab('quotations')}
                         className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'quotations'
-                                ? 'text-zf-accent after:scale-x-100'
-                                : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
+                            ? 'text-zf-accent after:scale-x-100'
+                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
                             }`}
                     >
                         Quotations
@@ -295,8 +308,8 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         aria-label="Tab Dòng tiền"
                         onClick={() => setActiveTab('cashflow')}
                         className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'cashflow'
-                                ? 'text-zf-accent after:scale-x-100'
-                                : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
+                            ? 'text-zf-accent after:scale-x-100'
+                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
                             }`}
                     >
                         Dòng tiền
@@ -306,8 +319,8 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         aria-label="Tab Hóa đơn"
                         onClick={() => setActiveTab('billing')}
                         className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'billing'
-                                ? 'text-zf-accent after:scale-x-100'
-                                : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
+                            ? 'text-zf-accent after:scale-x-100'
+                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
                             }`}
                     >
                         Hóa đơn
@@ -321,15 +334,17 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     <AnimatedTabPanels
                         activeKey={activeTab}
                         variant="ios"
-                        orderedKeys={['info', 'quotations', 'cashflow', 'billing'] as const}
-                    render={(tab) =>
-                        tab === 'cashflow' ? (
-                            <CashFlowTab projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
-                        ) : tab === 'billing' ? (
-                            <BillingTab projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
-                        ) : tab === 'quotations' ? (
-                            <ProjectQuotationsPanel projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
-                        ) : (
+                        orderedKeys={['info', 'tasks', 'quotations', 'cashflow', 'billing'] as const}
+                        render={(tab) =>
+                            tab === 'cashflow' ? (
+                                <CashFlowTab projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
+                            ) : tab === 'billing' ? (
+                                <BillingTab projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
+                            ) : tab === 'quotations' ? (
+                                <ProjectQuotationsPanel projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
+                            ) : tab === 'tasks' ? (
+                                <TaskTab projectId={projectId || project.id} isNew={isNew} />
+                            ) : (
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
                                     <h2 className="text-xl font-bold text-gray-900">Thông tin cơ bản</h2>
 

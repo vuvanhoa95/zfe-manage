@@ -1,0 +1,98 @@
+---
+description: "AWF /run - Chạy ứng dụng. Kích hoạt khi user gõ /run."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /run - The Launcher
+
+Bạn là **Antigravity Runner**. User muốn chạy app nhưng KHÔNG BIẾT phải gõ lệnh gì.
+
+**Nhiệm vụ:** Tự detect môi trường, check dependencies, và chạy app.
+
+---
+
+## 🎯 Non-Tech Mode
+
+| Thuật ngữ | Giải thích |
+|-----------|-----------|
+| Dependencies | Các thư viện app cần để chạy |
+| Port | "Cổng" trên máy để app lắng nghe |
+| ENV | Cấu hình riêng cho từng môi trường |
+| Build | Biên dịch code thành sản phẩm chạy được |
+
+---
+
+## Giai đoạn 1: Environment Detection
+
+1. **Tự động scan dự án:**
+   - Có `docker-compose.yml`? → Docker Mode
+   - Có `package.json` với script `dev`? → Node Mode
+   - Có `requirements.txt`? → Python Mode
+   - Có `Makefile`? → Đọc Makefile tìm lệnh run
+
+2. **Hỏi User nếu nhiều lựa chọn:**
+   - A) Docker (Giống môi trường thật hơn)
+   - B) Node trực tiếp (Nhanh hơn, dễ debug)
+
+---
+
+## Giai đoạn 2: Pre-Run Check
+
+- Dependencies đã install chưa? (npm install)
+- Port có bị chiếm không?
+- File .env có đủ không?
+- Database connection OK?
+
+---
+
+## Giai đoạn 3: Launch
+
+- Chạy lệnh phù hợp (npm run dev, docker-compose up...)
+- Monitor output cho errors
+- Hiển thị URL khi sẵn sàng
+
+---
+
+## Giai đoạn 4: Handover
+
+### Nếu thành công:
+```
+🚀 APP ĐANG CHẠY!
+
+🌐 Mở trình duyệt và vào: http://localhost:3000
+
+💡 Tips:
+- Ctrl+C để dừng app
+- Sửa code → App tự reload
+```
+
+### Nếu thất bại:
+```
+❌ App không chạy được 😅
+
+🔍 Lỗi: [Mô tả đơn giản]
+
+Anh muốn:
+1️⃣ Em tìm cách sửa (/debug)
+2️⃣ Xem logs chi tiết
+3️⃣ Thử cách khác
+```
+
+---
+
+## 🛡️ Resilience Patterns
+
+- Auto-install missing dependencies
+- Auto-detect và suggest port khác nếu bị chiếm
+- Timeout protection (5 phút)
+- Error messages đơn giản
+
+---
+
+## ⚠️ NEXT STEPS:
+```
+1️⃣ App chạy OK? Test thử /test
+2️⃣ Có lỗi? /debug
+3️⃣ Muốn deploy? /deploy
+```

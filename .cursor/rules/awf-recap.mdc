@@ -1,0 +1,86 @@
+---
+description: "AWF /recap - Tóm tắt & khôi phục ngữ cảnh dự án. Kích hoạt khi user gõ /recap."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /recap - The Memory Retriever
+
+Bạn là **Antigravity Historian**. User vừa quay lại sau một thời gian và quên mất đang làm gì.
+
+**Nhiệm vụ:** Giúp họ "Nhớ lại tất cả" trong 2 phút.
+
+**Nguyên tắc:** "Read Everything, Summarize Simply"
+
+---
+
+## Giai đoạn 1: Fast Context Load
+
+### Load Order (Ưu tiên):
+1. Load Preferences (.brain/preferences.json)
+2. Load Handover (.brain/handover.md) - Nếu có → Skip các bước sau
+3. Load Project Knowledge (.brain/brain.json)
+4. Load Session State (.brain/session.json + session_log.txt 20 dòng cuối)
+5. Generate Summary
+
+### Fallback: Deep Context Scan
+- Quét docs/specs/, package.json
+- Phân tích Git (git log -10, git status)
+- Gợi ý tạo brain: "Sau khi xong, chạy /save-brain để tạo nhé!"
+
+---
+
+## Giai đoạn 2: Executive Summary
+
+### Nếu có brain.json + session.json (Fast Mode):
+```
+📋 {project.name} | {project.type} | {project.status}
+
+🛠️ Tech: {tech_stack}
+📊 Stats: X tables | Y APIs | Z features
+
+📍 Đang làm: {working_on.feature}
+   └─ Task: {working_on.task}
+   └─ Files: {working_on.files}
+
+⏭️ Pending: {pending_tasks}
+⚠️ Gotchas: {knowledge_items.gotchas}
+❌ Skipped Tests: {skipped_tests}
+🕐 Last saved: {updated_at}
+```
+
+### Nếu không có brain.json (Legacy Mode):
+```
+📋 TÓM TẮT DỰ ÁN: [Tên]
+
+🎯 Dự án này làm gì: [1-2 câu]
+📍 Lần cuối đang làm: [Feature/Task]
+📂 Files quan trọng: [Danh sách]
+⏭️ Việc cần làm: [Tasks]
+⚠️ Lưu ý: [Bugs/Deadlines]
+```
+
+---
+
+## Giai đoạn 3: Confirmation & Direction
+
+```
+Anh muốn làm gì tiếp?
+A) Tiếp tục việc dang dở → /code hoặc /debug
+B) Làm tính năng mới → /plan
+C) Kiểm tra tổng thể → /audit
+```
+
+---
+
+## 🛡️ Resilience Patterns
+
+- brain.json corrupted → Fallback to Deep Context Scan
+- git log fail → Dùng file timestamps
+- Error messages đơn giản
+
+---
+
+## 💡 TIPS:
+- Dùng /recap mỗi sáng trước khi làm việc
+- /save-brain cuối ngày để mai recap dễ hơn

@@ -6,11 +6,24 @@ import { QuotationFormData } from '@/types/quotation';
 import { formatVND, numberToVietnameseWords } from '@/lib/number-to-words-vn';
 import { calculateQuotationTotals, formatVietnameseDate } from '@/lib/utils';
 import ExportPdfModal from './ExportPdfModal';
+import InlineEditor from './preview/InlineEditor';
+import ExportWordButton from './preview/ExportWordButton';
+import PreviewModeToggle, { PreviewMode, getPreviewWrapperClass } from './preview/PreviewModeToggle';
+import QuickCopyButtons from './preview/QuickCopyButtons';
+import ThemePicker from './preview/ThemePicker';
+import TemplateSelector from './preview/TemplateSelector';
+import MediaUploader from './preview/MediaUploader';
+import AIReviewer from './preview/AIReviewer';
+import ExportExcelButton from './preview/ExportExcelButton';
+import { getThemeColors } from '@/lib/themes/quotation-themes';
+import StandardTemplate from '../templates/StandardTemplate';
+import MinimalistTemplate from '../templates/MinimalistTemplate';
 
 type PreviewTabProps = {
     data: QuotationFormData;
     quotationId?: string;
     quotationNo?: string;
+    onDataChange?: (field: keyof QuotationFormData, value: any) => Promise<void>;
 };
 
 type CompanyProfile = {
@@ -49,7 +62,7 @@ const COMPANY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const customerCache = new Map<string, { data: Customer | null; timestamp: number }>();
 const CUSTOMER_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
 
-export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTabProps) {
+export default function PreviewTab({ data, quotationId, quotationNo, onDataChange }: PreviewTabProps) {
     const [company, setCompany] = useState<CompanyProfile | null>(companyProfileCache?.data || null);
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(!companyProfileCache); // Only show loading if no cache
@@ -58,6 +71,7 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
     const [summaryText, setSummaryText] = useState('');
     const [emailText, setEmailText] = useState('');
     const [showExportModal, setShowExportModal] = useState(false);
+    const [previewMode, setPreviewMode] = useState<PreviewMode>('desktop');
 
     const dateInfo = formatVietnameseDate(data.date);
     const { totalBeforeVat, vatAmount, totalAfterVat } = calculateQuotationTotals(data.lines, data.vatRate, data.totalArea);
@@ -251,6 +265,36 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                         </svg>
                         Xuất PDF
                     </button>
+                    <ExportWordButton
+                        quotationNo={quotationNo}
+                        date={data.date}
+                        className="bg-green-600 hover:bg-green-700"
+                    />
+                    <ExportExcelButton
+                        data={data}
+                        quotationNo={quotationNo}
+                    />
+                    <PreviewModeToggle
+                        defaultMode="desktop"
+                        onModeChange={setPreviewMode}
+                        className="ml-auto"
+                    />
+                    <ThemePicker
+                        currentTheme={data.theme || 'blue'}
+                        onThemeChange={async (newTheme) => {
+                            if (onDataChange) {
+                                await onDataChange('theme', newTheme);
+                            }
+                        }}
+                    />
+                    <TemplateSelector
+                        currentTemplate={data.templateId || 'standard'}
+                        onTemplateChange={async (newTemplate) => {
+                            if (onDataChange) {
+                                await onDataChange('templateId', newTemplate);
+                            }
+                        }}
+                    />
                     <div className="flex flex-col md:flex-row gap-2 md:items-center">
                         <button
                             type="button"
@@ -260,6 +304,10 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                         >
                             {summaryLoading ? 'Đang tạo tóm tắt...' : '✨ Tạo tóm tắt báo giá (AI)'}
                         </button>
+                        <AIReviewer
+                            data={data}
+                            quotationId={quotationId}
+                        />
                         <button
                             type="button"
                             onClick={handleGenerateEmail}
@@ -271,12 +319,23 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                     </div>
                 </div>
 
+                <MediaUploader
+                    media={data.media}
+                    onMediaChange={async (newMedia) => {
+                        if (onDataChange) {
+                            await onDataChange('media', newMedia);
+                        }
+                    }}
+                    className="p-4 bg-white rounded-lg shadow-sm border border-gray-100"
+                />
+
                 {(summaryText || emailText) && (
                     <div className="grid gap-4 md:grid-cols-2">
                         {summaryText && (
                             <div className="bg-white rounded-lg shadow border border-indigo-100 p-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-semibold text-indigo-700">Tóm tắt báo giá (AI)</h3>
+                                    <QuickCopyButtons summaryText={summaryText} className="ml-2" />
                                 </div>
                                 <textarea
                                     className="w-full border border-gray-200 rounded-md p-2 text-sm min-h-[160px] resize-vertical"
@@ -294,6 +353,7 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                             <div className="bg-white rounded-lg shadow border border-emerald-100 p-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-semibold text-emerald-700">Email gửi khách hàng (AI)</h3>
+                                    <QuickCopyButtons emailText={emailText} className="ml-2" />
                                 </div>
                                 <textarea
                                     className="w-full border border-gray-200 rounded-md p-2 text-sm min-h-[160px] resize-vertical"
@@ -309,182 +369,50 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                         )}
                     </div>
                 )}
-                <style>{`@media print { body * { visibility: hidden; } #printArea, #printArea * { visibility: visible; } #printArea { position: absolute; left: 0; top: 0; width: 100%; } .no-print { display: none !important; } }`}</style>
-                <div id="printArea" className="bg-white p-8">
-                    {/* Header with Logo */}
-                    <div className="mb-8 pb-6 border-b border-gray-200">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="relative w-48 h-24">
-                                <Image
-                                    src="/logo.png"
-                                    alt="ZFENIX Logo"
-                                    fill
-                                    className="object-contain"
-                                    priority
-                                    quality={100}
-                                />
-                            </div>
-                            <div className="text-right text-sm italic text-gray-600">
-                                {data.location}, {dateInfo.full}
-                            </div>
-                        </div>
-                        <h1 className="text-center text-2xl font-bold text-zf-primary">{data.title || 'BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM'}</h1>
-                    </div>
-                    <div className="mb-6 text-sm">Chúng tôi xin trân trọng cảm ơn Quý Công ty đã tin tưởng và mời chúng tôi tham gia chào giá dịch vụ tư vấn tạo lập mô hình BIM.</div>
-                    <div className="mb-6">
-                        <h3 className="font-bold mb-2 text-zf-primary">I. THÔNG TIN DỰ ÁN</h3>
-                        <div className="ml-4 text-sm">
-                            <p>- Dự án: {data.projectName}</p>
-                            {data.projectItem && <p>- Hạng mục: {data.projectItem}</p>}
-                        </div>
-                    </div>
-                    {data.scopeText && (
-                        <div className="mb-6">
-                            <h3 className="font-bold mb-2 text-zf-primary">II. PHẠM VI CÔNG VIỆC</h3>
-                            <div className="ml-4 text-sm whitespace-pre-line">{data.scopeText}</div>
-                        </div>
-                    )}
-                    {data.deliverablesText && (
-                        <div className="mb-6">
-                            <h3 className="font-bold mb-2 text-zf-primary">III. SẢN PHẨM BÀN GIAO</h3>
-                            <ul className="ml-8 text-sm list-disc" dangerouslySetInnerHTML={{ __html: data.deliverablesText }}></ul>
-                        </div>
-                    )}
-                    <div className="mb-6">
-                        <h3 className="font-bold mb-2 text-zf-primary">IV. CHI TIẾT ĐƠN GIÁ</h3>
-                        <table className="w-full text-sm border">
-                            <thead>
-                                <tr className="bg-gray-200">
-                                    <th className="py-2 px-2 border">TT</th>
-                                    <th className="py-2 px-2 border">NỘI DUNG</th>
-                                    <th className="py-2 px-2 border">KL</th>
-                                    <th className="py-2 px-2 border">ĐƠN GIÁ</th>
-                                    <th className="py-2 px-2 border">THÀNH TIỀN</th>
-                                    <th className="py-2 px-2 border">GHI CHÚ</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.lines.map((line, index) => {
-                                    let lineTotal = 0;
-                                    let qtyLabel = '-';
-
-                                    if (line.priceType === 'area') {
-                                        lineTotal = (data.totalArea || 0) * (line.unitPrice || 0);
-                                        qtyLabel = `${data.totalArea || 0}`;
-                                    } else if (line.priceType === 'none') {
-                                        lineTotal = 0;
-                                        qtyLabel = '-';
-                                    } else {
-                                        lineTotal = (line.qty || 1) * (line.unitPrice || 0);
-                                        qtyLabel = `${line.qty || 1}`;
-                                    }
-
-                                    if (line.isGroupHeader) {
-                                        return (
-                                            <tr key={index} className="font-bold bg-gray-100">
-                                                <td className="py-2 px-2 border text-sm">{line.itemNo}</td>
-                                                <td className="py-2 px-2 border text-sm" colSpan={5}>{line.title}</td>
-                                            </tr>
-                                        );
-                                    }
-
-                                    return (
-                                        <tr key={index}>
-                                            <td className="py-2 px-2 border text-xs">{line.itemNo}</td>
-                                            <td className="py-2 px-2 border text-xs">{line.title}</td>
-                                            <td className="py-2 px-2 border text-xs text-center">{line.priceType === 'none' ? '-' : qtyLabel}</td>
-                                            <td className="py-2 px-2 border text-xs text-right">{line.priceType === 'none' ? '-' : formatVND(line.unitPrice || 0)}</td>
-                                            <td className="py-2 px-2 border text-xs text-right">{line.priceType === 'none' ? '-' : formatVND(lineTotal)}</td>
-                                            <td className="py-2 px-2 border text-xs">{line.note || ''}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="mb-6">
-                        <h3 className="font-bold mb-2 text-zf-primary">B. BÁO GIÁ</h3>
-                        <table className="w-full text-sm border">
-                            <tbody>
-                                <tr>
-                                    <td className="py-2 px-3 border font-bold">TỔNG CỘNG (CHƯA VAT)</td>
-                                    <td className="py-2 px-3 border text-right font-bold">{formatVND(totalBeforeVat)}</td>
-                                </tr>
-                                <tr>
-                                    <td className="py-2 px-3 border">VAT ({(data.vatRate * 100).toFixed(0)}%)</td>
-                                    <td className="py-2 px-3 border text-right">{formatVND(vatAmount)}</td>
-                                </tr>
-                                <tr className="bg-gray-100">
-                                    <td className="py-2 px-3 border font-bold">TỔNG CỘNG (ĐÃ VAT)</td>
-                                    <td className="py-2 px-3 border text-right font-bold">{formatVND(totalAfterVat)}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    {data.scheduleText && (
-                        <div className="mb-6">
-                            <h3 className="font-bold mb-2 text-zf-primary">VI. TIẾN ĐỘ THỰC HIỆN</h3>
-                            <div className="ml-4 text-sm">{data.scheduleText}</div>
-                        </div>
-                    )}
-                    {data.paymentMilestones && data.paymentMilestones.length > 0 && (
-                        <div className="mb-6">
-                            <h3 className="font-bold mb-2 text-zf-primary">VII. TIẾN ĐỘ THANH TOÁN</h3>
-                            <table className="w-full text-sm border">
-                                <thead>
-                                    <tr className="bg-gray-200">
-                                        <th className="py-2 px-3 border">STT</th>
-                                        <th className="py-2 px-3 border">Nội dung</th>
-                                        <th className="py-2 px-3 border">Tỉ lệ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.paymentMilestones
-                                        .sort((a, b) => a.order - b.order)
-                                        .map((milestone) => (
-                                            <tr key={milestone.no}>
-                                                <td className="py-2 px-3 border text-center">{milestone.no}</td>
-                                                <td className="py-2 px-3 border">{milestone.title}</td>
-                                                <td className="py-2 px-3 border text-right">{milestone.percent}%</td>
-                                            </tr>
-                                        ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                    <div className="mt-12 mb-6">
-                        <div className="text-center text-sm italic mb-8">
-                            {data.introText || 'Thay mặt đơn vị triển khai xin trân trọng cảm ơn và mong muốn có cơ hội hợp tác với Quý Công ty.'}
-                        </div>
-                        {company && (
-                            <div className="mt-8 pt-6 border-t border-gray-300">
-                                <div className="grid grid-cols-2 gap-8">
-                                    <div>
-                                        <h4 className="font-bold mb-2 text-zf-primary">ĐƠN VỊ TRIỂN KHAI</h4>
-                                        <div className="text-sm space-y-1">
-                                            <p className="font-semibold">{company.name}</p>
-                                            <p>Địa chỉ: {company.address}</p>
-                                            <p>Mã số thuế: {company.taxCode}</p>
-                                            {company.email && <p>Email: {company.email}</p>}
-                                            {company.website && <p>Website: {company.website}</p>}
-                                            {company.phone && <p>Điện thoại: {company.phone}</p>}
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-sm space-y-8">
-                                            <div>
-                                                <p className="font-semibold mb-2">Người đại diện</p>
-                                                <div className="mt-16">
-                                                    <p className="font-bold">{company.signerName}</p>
-                                                    <p className="text-xs italic">{company.signerTitle}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                <style>{`
+                    @media print { 
+                        body * { visibility: hidden; } 
+                        #printArea, #printArea * { visibility: visible; } 
+                        #printArea { position: absolute; left: 0; top: 0; width: 100%; } 
+                        .no-print { display: none !important; } 
+                    }
+                    :root {
+                        --theme-primary: ${getThemeColors(data.theme || 'blue').primary};
+                        --theme-accent: ${getThemeColors(data.theme || 'blue').accent};
+                        --theme-secondary: ${getThemeColors(data.theme || 'blue').secondary};
+                    }
+                    .text-theme-primary { color: var(--theme-primary); }
+                    .bg-theme-primary { background-color: var(--theme-primary); }
+                    .border-theme-primary { border-color: var(--theme-primary) !important; }
+                    .bg-theme-secondary { background-color: var(--theme-secondary); }
+                `}</style>
+                <div className="flex justify-center transition-all duration-300">
+                    <div className={`transition-all duration-300 shadow-sm ${getPreviewWrapperClass(previewMode)}`}>
+                        {data.templateId === 'minimalist' ? (
+                            <MinimalistTemplate
+                                data={data}
+                                company={company}
+                                customer={customer}
+                                dateInfo={dateInfo}
+                                totalBeforeVat={totalBeforeVat}
+                                vatAmount={vatAmount}
+                                totalAfterVat={totalAfterVat}
+                                totalInWords={totalInWords}
+                                onDataChange={onDataChange}
+                            />
+                        ) : (
+                            <StandardTemplate
+                                data={data}
+                                company={company}
+                                customer={customer}
+                                dateInfo={dateInfo}
+                                totalBeforeVat={totalBeforeVat}
+                                vatAmount={vatAmount}
+                                totalAfterVat={totalAfterVat}
+                                totalInWords={totalInWords}
+                                onDataChange={onDataChange}
+                            />
                         )}
-                    </div>
                 </div>
             </div>
 
@@ -498,5 +426,6 @@ export default function PreviewTab({ data, quotationId, quotationNo }: PreviewTa
                 />
             )}
         </div>
-    );
+    </div>
+);
 }

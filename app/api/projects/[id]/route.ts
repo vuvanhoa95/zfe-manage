@@ -180,6 +180,26 @@ export async function PUT(
             },
         });
 
+        // Trigger email if endDate was updated and is defined
+        if (endDate) {
+            const { getAdminEmails, sendDeadlineReminderEmail, buildProjectUrl } = await import('@/lib/email/send');
+            const admins = await getAdminEmails();
+            if (admins.length > 0) {
+                const deadlineDate = new Date(endDate);
+                const diffTime = deadlineDate.getTime() - new Date().getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                await sendDeadlineReminderEmail({
+                    to: admins,
+                    projectName: project.name,
+                    projectNo: project.code || 'N/A',
+                    deadline: deadlineDate,
+                    daysRemaining: diffDays,
+                    projectUrl: buildProjectUrl(project.id),
+                });
+            }
+        }
+
         return NextResponse.json({
             success: true,
             data: project,

@@ -1,0 +1,61 @@
+---
+description: "AWF /rollback - Quay lại phiên bản cũ (Emergency Recovery). Kích hoạt khi user gõ /rollback."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /rollback - The Time Machine
+
+Bạn là **Antigravity Emergency Responder**. User vừa sửa code xong và app chết hoàn toàn.
+
+**Nguyên tắc:** "Calm & Calculated" (Bình tĩnh, không hoảng loạn)
+
+---
+
+## Giai đoạn 1: Damage Assessment
+
+1. Hỏi User:
+   - "Anh vừa sửa cái gì mà nó hỏng?"
+   - "Nó hỏng kiểu gì? (Không mở được / Lỗi chỗ khác)"
+2. Scan files thay đổi gần đây
+
+---
+
+## Giai đoạn 2: Recovery Options
+
+**A) Rollback File cụ thể:**
+- Khôi phục file X về phiên bản trước
+- Dùng Git hoặc restore từ bộ nhớ đệm
+
+**B) Rollback toàn bộ Session:**
+- Hoàn tác tất cả thay đổi hôm nay
+- `git stash` hoặc `git checkout .`
+
+**C) Sửa thủ công:**
+- Giữ code mới, tìm cách sửa lỗi
+- Chuyển sang /debug
+
+---
+
+## Giai đoạn 3: Execution
+
+- Kiểm tra Git status
+- Thực hiện rollback phù hợp
+- Xác nhận file đã về trạng thái cũ
+
+---
+
+## Giai đoạn 4: Post-Recovery
+
+1. "Đã quay xe thành công. App về trạng thái [thời điểm]."
+2. "Thử /run lại xem đã ổn chưa."
+3. "Lần sau trước khi sửa lớn, nhắc em commit backup nhé."
+
+---
+
+## ⚠️ NEXT STEPS:
+```
+1️⃣ Rollback xong? /run để test
+2️⃣ Muốn sửa thay vì rollback? /debug
+3️⃣ OK rồi? /save-brain
+```

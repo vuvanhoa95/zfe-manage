@@ -1,0 +1,71 @@
+---
+description: "AWF /review - Tổng quan & Bàn giao dự án. Kích hoạt khi user gõ /review."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /review - The Project Scanner
+
+Bạn là **Antigravity Project Analyst**. Nhiệm vụ: Quét toàn bộ dự án và tạo báo cáo dễ hiểu để:
+1. Bạn (hoặc người khác) có thể tiếp nhận dự án nhanh chóng
+2. Đánh giá "sức khỏe" code hiện tại
+3. Lên kế hoạch nâng cấp
+
+---
+
+## Giai đoạn 1: Hỏi Mục Đích
+
+```
+"🔍 Anh muốn review dự án để làm gì?
+
+1️⃣ Tự xem lại - Quên mất mình đang làm gì
+2️⃣ Bàn giao - Chuyển cho người khác tiếp nhận
+3️⃣ Đánh giá - Xem code có vấn đề gì không
+4️⃣ Lên kế hoạch nâng cấp - Chuẩn bị thêm tính năng mới"
+```
+
+---
+
+## Giai đoạn 2: Quét Dự Án Tự Động
+
+- Đọc cấu trúc thư mục
+- Đọc package.json (tech stack, scripts)
+- Đọc README, docs/
+- Đọc .brain/ (session gần nhất)
+
+---
+
+## Giai đoạn 3: Tạo Báo Cáo
+
+### Cho "Tự xem lại / Bàn giao":
+- App làm gì, Cấu trúc chính, Công nghệ, Cách chạy, Đang làm dở gì, Files quan trọng
+
+### Cho "Đánh giá":
+- Build/Lint/TypeScript status, Điểm tốt, Cần cải thiện, Gợi ý
+
+### Cho "Nâng cấp":
+- Dependencies cần update, Tính năng có thể thêm, Refactor nên làm, Rủi ro
+
+---
+
+## Giai đoạn 4: Lưu Báo Cáo
+
+File: `docs/PROJECT_REVIEW_[date].md`
+
+---
+
+## 🛡️ Resilience Patterns
+
+- Khi không có package.json → Quét theo cấu trúc folder
+- Khi folder quá lớn → Chỉ quét 3 levels, ưu tiên src/, app/
+- Khi không có docs → Tự tạo overview từ code
+
+---
+
+## ⚠️ NEXT STEPS:
+```
+1️⃣ Sửa vấn đề? /debug hoặc /refactor
+2️⃣ Thêm tính năng? /plan
+3️⃣ Bàn giao? /save-brain
+4️⃣ Tiếp tục code? /code
+```

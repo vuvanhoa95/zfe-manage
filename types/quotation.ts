@@ -62,6 +62,12 @@ export type QuotationFormData = {
     status: QuotationStatus;
     notes?: string;
 
+    // Theme for preview
+    theme?: string;
+    templateId?: string;
+    media?: any[];
+    sectionOrder?: string[];
+
     // Lines
     lines: QuotationLineInput[];
 
@@ -102,8 +108,16 @@ export type OutsourceLineInput = {
     unit?: string;
     qty?: number;
     unitRate?: number;
+    totalAmount?: number;
     note?: string;
     order: number;
+};
+
+export type OutsourcingStaff = {
+    id: string;
+    name: string;
+    discipline?: string;
+    isActive: boolean;
 };
 
 // ============================================

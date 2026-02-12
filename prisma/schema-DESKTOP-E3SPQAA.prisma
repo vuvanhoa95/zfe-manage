@@ -1,0 +1,387 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Database configuration
+/// Local development: SQLite (file:./dev.db)
+/// Production: PostgreSQL (Neon)
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String              @id @default(uuid())
+  email              String              @unique
+  password           String
+  name               String
+  role               String              @default("USER")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  cashFlows          CashFlow[]
+  projects           Project[]
+  quotationRevisions QuotationRevision[]
+  quotations         Quotation[]
+
+  @@map("users")
+}
+
+model CompanyProfile {
+  id            Int      @id @default(1)
+  name          String
+  taxCode       String
+  address       String
+  email         String
+  website       String?
+  phone         String
+  logoUrl       String?
+  projectSlogan String?
+  signerName    String
+  signerTitle   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("company_profile")
+}
+
+model Customer {
+  id          String      @id @default(uuid())
+  name        String
+  taxCode     String?
+  address     String?
+  /// Địa điểm chính của khách hàng (thành phố/tỉnh)
+  location    String?
+  contactName String?
+  email       String?
+  phone       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  projects    Project[]
+  quotations  Quotation[]
+
+  @@map("customers")
+}
+
+model Project {
+  id               String      @id @default(uuid())
+  projectNo        String      @unique
+  name             String
+  code             String?
+  description      String?
+  customerId       String?
+  location         String      @default("Hà Nội")
+  startDate        DateTime?
+  endDate          DateTime?
+  totalArea        Float?
+  totalBudget      Float       @default(0)
+  totalRevenue     Float       @default(0)
+  totalCost        Float       @default(0)
+  totalProfit      Float       @default(0)
+  status           String      @default("PLANNING")
+  notes            String?
+  imageUrl         String?
+  createdById      String
+  finalQuotationId String?     @unique
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  cashFlows        CashFlow[]
+  createdBy        User        @relation(fields: [createdById], references: [id])
+  customer         Customer?   @relation(fields: [customerId], references: [id])
+  finalQuotation   Quotation?  @relation("FinalQuotation", fields: [finalQuotationId], references: [id])
+  quotations       Quotation[]
+  tasks            ProjectTask[]
+
+  @@index([customerId])
+  @@index([createdById])
+  @@index([status])
+  @@index([projectNo])
+  @@map("projects")
+}
+
+model CashFlow {
+  id                      String            @id @default(uuid())
+  projectId               String
+  type                    String
+  category                String?
+  description             String
+  amount                  Float
+  date                    DateTime
+  quotationId             String?
+  paymentMilestoneNo      Int?
+  paymentMilestonePercent Float?
+  paymentMilestoneTitle   String?
+  outsourcingStaffId      String?
+  counterpartyName        String?
+  notes                   String?
+  /// Tình trạng hồ sơ thanh toán cho đợt thu/chi này
+  /// Giá trị gợi ý: NONE | SUBMITTED | APPROVED | REJECTED
+  documentStatus          String?
+  /// Ghi chú chi tiết về hồ sơ (số hóa đơn, nội dung bổ sung...)
+  documentNote            String?
+  createdById             String
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  createdBy               User              @relation(fields: [createdById], references: [id])
+  outsourcingStaff        OutsourcingStaff? @relation(fields: [outsourcingStaffId], references: [id])
+  project                 Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  quotation               Quotation?        @relation(fields: [quotationId], references: [id])
+
+  @@index([projectId])
+  @@index([date])
+  @@index([type])
+  @@index([quotationId])
+  @@index([outsourcingStaffId])
+  @@map("cash_flows")
+}
+
+model ProjectTask {
+  id          String   @id @default(uuid())
+  projectId   String
+  title       String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   @default("TODO")
+  priority    String   @default("MEDIUM")
+  progress    Int      @default(0)
+  assignedTo  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_tasks")
+}
+
+model Quotation {
+  id                  String                   @id @default(uuid())
+  quotationNo         String                   @unique
+  projectId           String
+  date                DateTime
+  location            String                   @default("Hà Nội")
+  customerId          String
+  projectName         String
+  projectItem         String?
+  projectNotes        String?
+  totalArea           Float?
+  title               String                   @default("BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM")
+  introText           String?
+  scopeText           String?
+  deliverablesText    String                   @default("")
+  scheduleText        String?
+  currency            String                   @default("VND")
+  vatRate             Float                    @default(0.08)
+  totalBeforeVat      Float                    @default(0)
+  vatAmount           Float                    @default(0)
+  totalAfterVat       Float                    @default(0)
+  totalInWords        String?
+  outsourceCost       Float?
+  outsourceStaff      String?
+  outsourceDiscipline String?
+  outsourceRate       Float?
+  outsourceNote       String?
+  taxRate             Float?
+  taxCost             Float?
+  commissionType      String?
+  commissionRate      Float?
+  commissionCost      Float?
+  profitRate          Float?                   @default(0)
+  status              String                   @default("DRAFT")
+  notes               String?
+  createdById         String
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  shareToken          String?                  @unique
+  shareExpiresAt      DateTime?
+  viewCount           Int                      @default(0)
+  lastViewedAt        DateTime?
+  comments            QuotationComment[]
+  cashFlows           CashFlow[]
+  paymentMilestones   PaymentMilestone[]
+  finalForProject     Project?                 @relation("FinalQuotation")
+  lines               QuotationLine[]
+  outsourceLines      QuotationOutsourceLine[]
+  revisions           QuotationRevision[]
+  createdBy           User                     @relation(fields: [createdById], references: [id])
+  customer            Customer                 @relation(fields: [customerId], references: [id])
+  project             Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([customerId])
+  @@index([createdById])
+  @@index([status])
+  @@index([quotationNo])
+  @@map("quotations")
+}
+
+model QuotationOutsourceLine {
+  id                 String            @id @default(uuid())
+  quotationId        String
+  staffId            String?
+  staffName          String?
+  discipline         String?
+  unit               String?
+  qty                Float?
+  unitRate           Float?
+  amount             Float             @default(0)
+  note               String?
+  order              Int
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  quotation          Quotation         @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  outsourcingStaff   OutsourcingStaff? @relation(fields: [staffId], references: [id])
+
+  @@index([quotationId])
+  @@index([staffId])
+  @@map("quotation_outsource_lines")
+}
+
+model QuotationLine {
+  id            String    @id @default(uuid())
+  quotationId   String
+  section       String?
+  itemNo        String?
+  title         String
+  qty           Float?
+  unit          String?
+  unitPrice     Float?
+  total         Float     @default(0)
+  note          String?
+  order         Int
+  isGroupHeader Boolean   @default(false)
+  isChargeable  Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@map("quotation_lines")
+}
+
+model PaymentMilestone {
+  id           String    @id @default(uuid())
+  quotationId  String
+  no           Int
+  title        String
+  percent      Float
+  description  String?
+  /// Ngày dự kiến thanh toán (dùng cho timeline / thời gian biểu)
+  expectedDate DateTime?
+  order        Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@index([expectedDate])
+  @@map("payment_milestones")
+}
+
+model QuotationRevision {
+  id              String    @id @default(uuid())
+  quotationId     String
+  revisionNo      Int
+  revisionDate    DateTime
+  note            String?
+  snapshotJson    String
+  totalBeforeVat  Float
+  vatAmount       Float
+  totalAfterVat   Float
+  exportedDocxUrl String?
+  exportedPdfUrl  String?
+  createdById     String
+  createdAt       DateTime  @default(now())
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@unique([quotationId, revisionNo])
+  @@index([quotationId])
+  @@index([revisionDate])
+  @@map("quotation_revisions")
+}
+
+model CatalogItem {
+  id           String   @id @default(uuid())
+  category     String
+  title        String
+  unit         String?
+  defaultPrice Float?
+  description  String?
+  group        String?
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([group])
+  @@map("catalog_items")
+}
+
+model Unit {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  symbol      String?
+  description String?
+  category    String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("units")
+}
+
+model OutsourcingStaff {
+  id              String     @id @default(uuid())
+  name            String
+  code            String?
+  position        String?
+  department      String?
+  discipline      String?
+  avatarUrl       String?
+  email           String?
+  phone           String?
+  address         String?
+  companyName     String?
+  companyTaxCode  String?
+  personalTaxCode String?
+  bankAccount     String?
+  bankName        String?
+  skills          String?
+  experience      String?
+  certifications  String?
+  hourlyRate      Float?
+  dailyRate       Float?
+  monthlyRate     Float?
+  rateType        String?
+  isActive        Boolean    @default(true)
+  notes           String?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  cashFlows                CashFlow[]
+  quotationOutsourceLines  QuotationOutsourceLine[]
+
+  @@index([isActive])
+  @@index([code])
+  @@map("outsourcing_staff")
+}
+
+model QuotationComment {
+  id          String    @id @default(uuid())
+  quotationId String
+  sectionId   String?
+  content     String
+  authorName  String?
+  authorEmail String?
+  isResolved  Boolean   @default(false)
+  isClient    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@map("quotation_comments")
+}

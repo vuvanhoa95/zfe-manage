@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { formatVND } from '@/lib/number-to-words-vn';
@@ -21,6 +21,11 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
+import RevenueChart from '@/components/charts/RevenueChart';
+import QuotationChart from '@/components/charts/QuotationChart';
+import CostChart from '@/components/charts/CostChart';
+import GrowthChart from '@/components/charts/GrowthChart';
+import AlertsWidget from '@/components/dashboard/AlertsWidget';
 
 type DashboardStats = {
     totalQuotations: number;
@@ -142,7 +147,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const fetchProjectStatus = async () => {
-            if (projectsLoaded || activeTab !== 'status') return;
+            if (projectsLoaded) return; // Tải dữ liệu dự án ngay khi component mount để sẵn sàng khi chuyển tab
             setLoadingProjects(true);
             setProjectError(null);
             try {
@@ -181,7 +186,68 @@ export default function DashboardPage() {
         };
 
         fetchProjectStatus();
-    }, [activeTab, projectsLoaded]);
+    }, [projectsLoaded]); // Bỏ activeTab khỏi dependency để không fetch lại khi đổi tab, chỉ fetch 1 lần khi mount
+
+    // ✅ PERFORMANCE: Memoize chart data transformations
+    const revenueChartData = useMemo(() => {
+        if (!stats) return [];
+        return stats.monthlyChartData.map((item) => ({
+            month: item.label,
+            revenue: item.revenue,
+            profit: item.profit,
+        }));
+    }, [stats]);
+
+    const quotationChartData = useMemo(() => {
+        if (!stats) return [];
+        return stats.monthlyChartData.map((item) => ({
+            month: item.label,
+            count: item.count,
+        }));
+    }, [stats]);
+
+    const costChartData = useMemo(() => {
+        if (!stats || stats.costs.total === 0) return [];
+        return [
+            {
+                name: 'Outsource',
+                value: Math.round((stats.costs.outsource / stats.costs.total) * 100),
+            },
+            {
+                name: 'Hoa hồng',
+                value: Math.round((stats.costs.commission / stats.costs.total) * 100),
+            },
+            {
+                name: 'Thuế',
+                value: Math.round((stats.costs.tax / stats.costs.total) * 100),
+            },
+        ].filter((item) => item.value > 0);
+    }, [stats]);
+
+    const growthChartData = useMemo(() => {
+        if (!stats || stats.monthlyChartData.length === 0) {
+            return [
+                { month: 'T1', value: 75 },
+                { month: 'T2', value: 95 },
+                { month: 'T3', value: 110 },
+                { month: 'T4', value: 150 },
+            ];
+        }
+        // Use last 4 months for growth chart
+        const last4Months = stats.monthlyChartData.slice(-4);
+        return last4Months.map((item) => ({
+            month: item.label,
+            value: item.revenue > 0 ? Math.round((item.profit / item.revenue) * 100) : 0,
+        }));
+    }, [stats]);
+
+    const growthPercentage = useMemo(() => {
+        if (!stats || stats.monthlyChartData.length < 2) return 120;
+        const lastMonth = stats.monthlyChartData[stats.monthlyChartData.length - 1];
+        const prevMonth = stats.monthlyChartData[stats.monthlyChartData.length - 2];
+        if (!lastMonth || !prevMonth || prevMonth.revenue === 0) return 120;
+        return Math.round(((lastMonth.revenue - prevMonth.revenue) / prevMonth.revenue) * 100);
+    }, [stats]);
 
     if (loading) {
         return (
@@ -205,23 +271,33 @@ export default function DashboardPage() {
 
     return (
         <div className="p-8 space-y-8">
-            {/* Page Header */}
-            <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 flex items-center justify-between gap-6 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="relative w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center overflow-hidden">
-                        <Image
-                            src="/window.svg"
-                            alt="ZFENIX Logo"
-                            width={48}
-                            height={48}
-                            className="w-10 h-10"
-                        />
+            {/* Page Header - Premium Glassmorphism */}
+            <div className="glass-card rounded-3xl px-8 py-6 flex items-center justify-between gap-6 shadow-lg border border-white/40 bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl">
+                <div className="flex items-center gap-5">
+                    <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-zf-accent to-zf-accent-light flex items-center justify-center overflow-hidden shadow-lg animate-pulse-glow">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="40"
+                            height="40"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="drop-shadow-md"
+                        >
+                            <rect width="7" height="9" x="3" y="3" rx="1" />
+                            <rect width="7" height="5" x="14" y="3" rx="1" />
+                            <rect width="7" height="9" x="14" y="12" rx="1" />
+                            <rect width="7" height="5" x="3" y="16" rx="1" />
+                        </svg>
                     </div>
                     <div>
-                        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
+                        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-zf-primary via-zf-primary-light to-zf-accent bg-clip-text text-transparent">
                             Zfenix Manage
                         </h1>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-gray-600 mt-1.5 font-medium">
                             Chào mừng bạn trở lại 👋&nbsp; Chúc bạn luôn nhiều năng lượng tích cực, làm việc vui như đi chơi,
                             mỗi ngày đều có thêm một deal đẹp và vài điều khiến bạn mỉm cười.
                         </p>
@@ -298,68 +374,69 @@ export default function DashboardPage() {
                 render={(tab) =>
                     tab === 'overview' ? (
                         <>
-                            {/* Stats Cards */}
+                            {/* Stats Cards - Premium Glassmorphism */}
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 {/* Total Quotations */}
-                                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                                <div className="stat-card group cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm text-gray-600">Tổng số Báo giá</p>
-                                            <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalQuotations}</p>
+                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Tổng số Báo giá</p>
+                                            <p className="text-4xl font-extrabold text-gray-900 mt-3">{stats.totalQuotations}</p>
+                                            <p className="text-xs text-zf-accent mt-2 font-medium">Yêu cầu</p>
                                         </div>
-                                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-2xl">
+                                        <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                                             📊
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Revenue Before VAT */}
-                                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                                <div className="stat-card group cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm text-gray-600">Tổng Doanh thu (trước VAT)</p>
-                                            <p className="text-xl font-bold text-gray-900 mt-2">
+                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Doanh thu</p>
+                                            <p className="text-2xl font-extrabold text-gray-900 mt-3">
                                                 {formatVND(stats.projectedRevenue.beforeVat)}
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-1">VNĐ</p>
+                                            <p className="text-xs text-emerald-600 mt-2 font-medium">Trước VAT</p>
                                         </div>
-                                        <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-2xl">
+                                        <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                                             💰
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Total Costs */}
-                                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                                <div className="stat-card group cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm text-gray-600">Tổng Chi phí</p>
-                                            <p className="text-xl font-bold text-red-600 mt-2">{formatVND(stats.costs.total)}</p>
-                                            <p className="text-xs text-gray-500 mt-1">VNĐ</p>
+                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Chi phí</p>
+                                            <p className="text-2xl font-extrabold text-red-600 mt-3">{formatVND(stats.costs.total)}</p>
+                                            <p className="text-xs text-gray-500 mt-2 font-medium">Tổng chi</p>
                                         </div>
-                                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center text-2xl">
+                                        <div className="w-14 h-14 bg-gradient-to-br from-red-400 to-red-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300">
                                             💸
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Profit */}
-                                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 hover:shadow-md transition-shadow">
+                                <div className="stat-card group cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm text-gray-600">Lợi nhuận</p>
+                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Lợi nhuận</p>
                                             <p
-                                                className={`text-xl font-bold mt-2 ${stats.profit.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                                                className={`text-2xl font-extrabold mt-3 ${stats.profit.amount >= 0 ? 'text-emerald-600' : 'text-red-600'
                                                     }`}
                                             >
                                                 {formatVND(stats.profit.amount)}
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-xs text-gray-500 mt-2 font-medium">
                                                 {stats.profit.margin.toFixed(2)}% tỷ suất
                                             </p>
                                         </div>
                                         <div
-                                            className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${stats.profit.amount >= 0 ? 'bg-green-100' : 'bg-red-100'
+                                            className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300 ${stats.profit.amount >= 0 ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-red-400 to-red-600'
                                                 }`}
                                         >
                                             {stats.profit.amount >= 0 ? '📈' : '📉'}
@@ -368,137 +445,54 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* Quick Actions */}
+                            {/* Quick Actions - Premium Gradient */}
                             <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="max-w-xl bg-gradient-to-br from-zf-primary to-zf-primary-dark rounded-xl shadow-sm p-3 text-white">
-                                    <h2 className="mb-2 text-base font-bold">Thao tác nhanh</h2>
-                                    <div className="space-y-2">
+                                <div className="max-w-xl bg-gradient-ocean rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
+                                    {/* Decorative gradient overlay */}
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-3xl"></div>
+
+                                    <h2 className="mb-4 text-xl font-bold relative z-10">⚡ Thao tác nhanh</h2>
+                                    <div className="space-y-3 relative z-10">
                                         <Link
                                             href="/quotations/new"
-                                            className="block w-full rounded-md bg-white px-3 py-1.5 text-center text-sm font-semibold text-zf-primary transition-colors hover:bg-zf-bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                            className="block w-full rounded-xl bg-white px-4 py-3 text-center text-sm font-semibold text-zf-primary transition-all hover:bg-white/95 hover:shadow-lg hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                         >
                                             ➕ Tạo Báo giá mới
                                         </Link>
                                         <Link
                                             href="/customers/new"
-                                            className="block w-full rounded-md bg-zf-accent px-3 py-1.5 text-center text-sm font-semibold text-zf-text-inverse transition-colors hover:bg-zf-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                            className="block w-full rounded-xl bg-white/20 backdrop-blur-sm px-4 py-3 text-center text-sm font-semibold text-white border border-white/30 transition-all hover:bg-white/30 hover:shadow-lg hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                         >
                                             👥 Thêm Khách hàng mới
                                         </Link>
                                         <Link
                                             href="/quotations"
-                                            className="block w-full rounded-md bg-zf-accent px-3 py-1.5 text-center text-sm font-semibold text-zf-text-inverse transition-colors hover:bg-zf-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                            className="block w-full rounded-xl bg-white/20 backdrop-blur-sm px-4 py-3 text-center text-sm font-semibold text-white border border-white/30 transition-all hover:bg-white/30 hover:shadow-lg hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                         >
                                             📄 Xem tất cả Báo giá
                                         </Link>
                                     </div>
+                                </div>
+
+                                {/* Alerts Widget */}
+                                <div className="lg:col-span-1">
+                                    <AlertsWidget />
                                 </div>
                             </div>
                         </>
                     ) : tab === 'charts' ? (
                         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
                             {/* Revenue & Profit Chart */}
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                                <h2 className="text-xl font-bold text-gray-900 mb-4">📈 Doanh thu & Lợi nhuận theo tháng</h2>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={stats.monthlyChartData || []}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis
-                                            dataKey="label"
-                                            tick={{ fontSize: 12 }}
-                                            angle={-45}
-                                            textAnchor="end"
-                                            height={80}
-                                        />
-                                        <YAxis
-                                            tick={{ fontSize: 12 }}
-                                            tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-                                        />
-                                        <Tooltip
-                                            formatter={(value: any) => formatVND(Number(value || 0))}
-                                            labelStyle={{ color: 'var(--zf-primary)', fontWeight: 'bold' }}
-                                        />
-                                        <Legend />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="revenue"
-                                            stroke="var(--zf-accent)"
-                                            strokeWidth={2}
-                                            name="Doanh thu"
-                                            dot={{ r: 4 }}
-                                        />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="profit"
-                                            stroke="var(--zf-success)"
-                                            strokeWidth={2}
-                                            name="Lợi nhuận"
-                                            dot={{ r: 4 }}
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
+                            <RevenueChart data={revenueChartData} />
 
-                            {/* Monthly Quotation Count */}
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                                <h2 className="text-xl font-bold text-gray-900 mb-4">📅 Số lượng Báo giá theo tháng</h2>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <BarChart data={stats.monthlyChartData || []}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis
-                                            dataKey="label"
-                                            tick={{ fontSize: 12 }}
-                                            angle={-45}
-                                            textAnchor="end"
-                                            height={80}
-                                        />
-                                        <YAxis tick={{ fontSize: 12 }} />
-                                        <Tooltip />
-                                        <Bar dataKey="count" fill="var(--zf-primary)" radius={[8, 8, 0, 0]} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                            {/* Quotation Count Chart */}
+                            <QuotationChart data={quotationChartData} />
 
-                            {/* Cost Distribution Pie Chart */}
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 lg:col-span-2">
-                                <h2 className="text-xl font-bold text-gray-900 mb-4">🥧 Phân bố Chi phí</h2>
-                                {stats.costs.total > 0 ? (
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <PieChart>
-                                            <Pie
-                                                data={[
-                                                    { name: 'Outsource', value: stats.costs.outsource, color: 'var(--zf-warning)' },
-                                                    { name: 'Thuế', value: stats.costs.tax, color: 'var(--zf-error)' },
-                                                    { name: 'Hoa hồng', value: stats.costs.commission, color: 'var(--zf-info)' },
-                                                ].filter((item) => item.value > 0)}
-                                                cx="50%"
-                                                cy="50%"
-                                                labelLine={false}
-                                                label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(1)}%`}
-                                                outerRadius={80}
-                                                fill="var(--zf-accent)"
-                                                dataKey="value"
-                                            >
-                                                {[
-                                                    { name: 'Outsource', value: stats.costs.outsource, color: 'var(--zf-warning)' },
-                                                    { name: 'Thuế', value: stats.costs.tax, color: 'var(--zf-error)' },
-                                                    { name: 'Hoa hồng', value: stats.costs.commission, color: 'var(--zf-info)' },
-                                                ]
-                                                    .filter((item) => item.value > 0)
-                                                    .map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                            </Pie>
-                                            <Tooltip formatter={(value: any) => formatVND(Number(value || 0))} />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="flex items-center justify-center h-[300px] text-gray-400">
-                                        <p>Chưa có dữ liệu chi phí</p>
-                                    </div>
-                                )}
-                            </div>
+                            {/* Cost Breakdown Chart */}
+                            <CostChart data={costChartData} />
+
+                            {/* Growth Chart */}
+                            <GrowthChart data={growthChartData} growthPercentage={growthPercentage} />
                         </div>
                     ) : tab === 'status' ? (
                         <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

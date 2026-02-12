@@ -90,6 +90,7 @@ export const cacheKeys = {
     dashboardStats: (statusFilter?: string) => `dashboard:stats:${statusFilter || 'all'}`,
     projectList: (params: string) => `projects:list:${params}`,
     projectDetail: (id: string) => `project:${id}`,
+    projectStatusReport: (year?: string) => `projects:status-report:${year || 'all'}`,
     quotationList: (params: string) => `quotations:list:${params}`,
     quotationDetail: (id: string) => `quotation:${id}`,
 };

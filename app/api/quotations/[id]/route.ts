@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/auth';
 import { createQuotationSchema, type CreateQuotationInput } from '@/lib/validation/quotation';
 import { assertCanEditQuotation } from '@/lib/permissions';
 import { type AuthenticatedUser } from '@/types/auth';
+import { sendQuotationAcceptedEmail, buildQuotationUrl, getAdminEmails } from '@/lib/email/send';
 
 function formatSafeDateTimeForName(date: Date) {
     const pad2 = (n: number) => n.toString().padStart(2, '0');
@@ -90,7 +91,7 @@ export async function PUT(
         // Kiểm tra quyền trên báo giá hiện tại
         const existing = await prisma.quotation.findUnique({
             where: { id: resolvedParams.id },
-            select: { id: true, createdById: true },
+            select: { id: true, createdById: true, status: true },
         });
 
         if (!existing) {
@@ -287,6 +288,22 @@ export async function PUT(
                     totalAfterVat,
                     createdById: user.id,
                 },
+            });
+        }
+
+        // If status changed to ACCEPTED, send notification
+        if (body.status === 'ACCEPTED' && existing.status !== 'ACCEPTED') {
+            getAdminEmails().then(admins => {
+                if (admins.length > 0) {
+                    sendQuotationAcceptedEmail({
+                        to: admins,
+                        quotationNo: (quotation as any).quotationNo,
+                        projectName: (quotation as any).projectName,
+                        customerName: (quotation as any).customer?.name || 'Khách hàng',
+                        totalAfterVat: (quotation as any).totalAfterVat,
+                        quotationUrl: buildQuotationUrl((quotation as any).id),
+                    });
+                }
             });
         }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { QuotationFormData } from '@/types/quotation';
+import type { QuotationFormData, OutsourcingStaff } from '@/types/quotation';
 import PricingTable from './PricingTable';
 import PaymentMilestones from './PaymentMilestones';
 import ProjectSelector from './ProjectSelector';
@@ -33,7 +33,7 @@ type CatalogItem = {
 
 type DataTabProps = {
     data: QuotationFormData;
-    onChange: (data: QuotationFormData) => void;
+    onChange: (data: QuotationFormData | ((prev: QuotationFormData) => QuotationFormData)) => void;
     lockProject?: boolean;
 };
 
@@ -81,6 +81,8 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
     const [aiLoadingScope, setAiLoadingScope] = useState(false);
     const [aiLoadingDeliverables, setAiLoadingDeliverables] = useState(false);
     const [aiLoadingSchedule, setAiLoadingSchedule] = useState(false);
+    const [outsourceStaffList, setOutsourceStaffList] = useState<OutsourcingStaff[]>([]);
+    const [isLoadingOutsourceStaff, setIsLoadingOutsourceStaff] = useState(true);
 
     const [activeSectionId, setActiveSectionId] = useState<string>('quotation-step-1');
 
@@ -118,6 +120,24 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
         };
 
         void fetchProjects();
+    }, []);
+
+    useEffect(() => {
+        const fetchOutsourceStaff = async () => {
+            try {
+                const res = await fetch('/api/outsourcing-staff?isActive=true');
+                const result = await res.json();
+                if (result.success) {
+                    setOutsourceStaffList(result.data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch outsource staff:', err);
+            } finally {
+                setIsLoadingOutsourceStaff(false);
+            }
+        };
+
+        void fetchOutsourceStaff();
     }, []);
 
     useEffect(() => {
@@ -182,7 +202,12 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
     }, [isLoadingProjects, projects, data.projectId]);
 
     const updateField = <K extends keyof QuotationFormData>(field: K, value: QuotationFormData[K]) => {
-        onChange({ ...data, [field]: value });
+        // Use functional update to avoid race conditions when multiple fields are updated synchronously
+        onChange((prev: QuotationFormData) => ({ ...prev, [field]: value }) as any);
+    };
+
+    const updateFields = (updates: Partial<QuotationFormData>) => {
+        onChange((prev: QuotationFormData) => ({ ...prev, ...updates }) as any);
     };
 
     const formatCurrency = (amount: number) => numberFormatter.format(Math.round(amount));
@@ -196,52 +221,52 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
     // Helper function to remove project-related information from imported text
     const removeProjectInfoFromText = (text: string): string => {
         if (!text) return text;
-        
+
         // Get project info to filter out
         const projectName = data.projectName || '';
         const customerName = customers.find(c => c.id === data.customerId)?.name || '';
         const location = data.location || '';
         const totalArea = data.totalArea ? `${data.totalArea} m²` : '';
         const projectItem = data.projectItem || '';
-        
+
         let cleaned = text;
-        
+
         // Remove project name mentions (case insensitive, whole word or partial)
         if (projectName) {
             const projectNameRegex = new RegExp(projectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             cleaned = cleaned.replace(projectNameRegex, '').trim();
         }
-        
+
         // Remove customer name mentions
         if (customerName) {
             const customerRegex = new RegExp(customerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             cleaned = cleaned.replace(customerRegex, '').trim();
         }
-        
+
         // Remove location mentions (only if it's a specific location, not generic words)
         if (location && location.length > 2) {
             const locationRegex = new RegExp(`\\b${location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
             cleaned = cleaned.replace(locationRegex, '').trim();
         }
-        
+
         // Remove area mentions (e.g., "87750 m²", "87750m²")
         if (totalArea) {
             const areaRegex = new RegExp(`\\b${data.totalArea}\\s*m²?\\b`, 'gi');
             cleaned = cleaned.replace(areaRegex, '').trim();
         }
-        
+
         // Remove project item/hạng mục mentions
         if (projectItem) {
             const itemRegex = new RegExp(projectItem.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             cleaned = cleaned.replace(itemRegex, '').trim();
         }
-        
+
         // Clean up multiple spaces, empty lines
         cleaned = cleaned
             .replace(/\n{3,}/g, '\n\n') // Max 2 consecutive newlines
             .replace(/[ \t]{2,}/g, ' ') // Multiple spaces to single space
             .trim();
-        
+
         return cleaned;
     };
 
@@ -282,8 +307,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
             console.error('Failed to fetch catalog:', err);
             // eslint-disable-next-line no-alert
             alert(
-                `Lỗi khi import dữ liệu: ${
-                    err instanceof Error ? err.message : 'Không thể kết nối đến server'
+                `Lỗi khi import dữ liệu: ${err instanceof Error ? err.message : 'Không thể kết nối đến server'
                 }`,
             );
         } finally {
@@ -355,8 +379,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
         } catch (error: unknown) {
             // eslint-disable-next-line no-alert
             alert(
-                `Lỗi khi gọi AI gợi ý phạm vi công việc: ${
-                    error instanceof Error ? error.message : 'Không thể kết nối máy chủ AI'
+                `Lỗi khi gọi AI gợi ý phạm vi công việc: ${error instanceof Error ? error.message : 'Không thể kết nối máy chủ AI'
                 }`,
             );
         } finally {
@@ -395,8 +418,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
         } catch (error: unknown) {
             // eslint-disable-next-line no-alert
             alert(
-                `Lỗi khi gọi AI gợi ý sản phẩm bàn giao: ${
-                    error instanceof Error ? error.message : 'Không thể kết nối máy chủ AI'
+                `Lỗi khi gọi AI gợi ý sản phẩm bàn giao: ${error instanceof Error ? error.message : 'Không thể kết nối máy chủ AI'
                 }`,
             );
         } finally {
@@ -436,8 +458,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
         } catch (error: unknown) {
             // eslint-disable-next-line no-alert
             alert(
-                `Lỗi khi gọi AI gợi ý tiến độ thực hiện: ${
-                    error instanceof Error ? error.message : 'Không thể kết nối máy chủ AI'
+                `Lỗi khi gọi AI gợi ý tiến độ thực hiện: ${error instanceof Error ? error.message : 'Không thể kết nối máy chủ AI'
                 }`,
             );
         } finally {
@@ -475,8 +496,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
             console.error('Failed to fetch catalog:', err);
             // eslint-disable-next-line no-alert
             alert(
-                `Lỗi khi import dữ liệu: ${
-                    err instanceof Error ? err.message : 'Không thể kết nối đến server'
+                `Lỗi khi import dữ liệu: ${err instanceof Error ? err.message : 'Không thể kết nối đến server'
                 }`,
             );
         } finally {
@@ -771,6 +791,21 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
                             onVatRateChange={(rate) => updateField('vatRate', rate)}
                             profitRate={data.profitRate}
                             onProfitRateChange={(rate) => updateField('profitRate', rate)}
+                            outsourceCost={data.outsourceCost}
+                            onOutsourceCostChange={(cost) => updateField('outsourceCost', cost)}
+                            taxRate={data.taxRate}
+                            onTaxRateChange={(rate) => updateField('taxRate', rate)}
+                            onTaxCostChange={(cost) => updateField('taxCost', cost)}
+                            commissionType={data.commissionType}
+                            onCommissionTypeChange={(type) => updateField('commissionType', type)}
+                            commissionRate={data.commissionRate}
+                            onCommissionRateChange={(rate) => updateField('commissionRate', rate)}
+                            commissionCost={data.commissionCost}
+                            onCommissionCostChange={(cost) => updateField('commissionCost', cost)}
+                            outsourceLines={data.outsourceLines}
+                            onOutsourceLinesChange={(lines) => updateField('outsourceLines', lines)}
+                            onUpdateFields={updateFields}
+                            outsourceStaffList={outsourceStaffList}
                             totalArea={data.totalArea}
                         />
                     </section>
@@ -876,11 +911,10 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
                                     key={item.id}
                                     type="button"
                                     onClick={() => scrollToSection(item.id)}
-                                    className={`w-full text-left px-2 py-1 rounded transition-colors ${
-                                        isActive
-                                            ? 'bg-blue-50 text-blue-700 font-semibold'
-                                            : 'text-gray-700 hover:bg-gray-100'
-                                    }`}
+                                    className={`w-full text-left px-2 py-1 rounded transition-colors ${isActive
+                                        ? 'bg-blue-50 text-blue-700 font-semibold'
+                                        : 'text-gray-700 hover:bg-gray-100'
+                                        }`}
                                 >
                                     {item.label}
                                 </button>

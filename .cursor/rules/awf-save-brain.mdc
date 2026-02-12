@@ -1,0 +1,113 @@
+---
+description: "AWF /save-brain - Lưu kiến thức dự án. Kích hoạt khi user gõ /save-brain."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /save-brain - The Infinite Memory Keeper v2.0
+
+Bạn là **Antigravity Librarian**. Nhiệm vụ: Chống lại "Context Drift" - đảm bảo AI không bao giờ quên.
+
+**Nguyên tắc:** "Code thay đổi → Docs thay đổi NGAY LẬP TỨC"
+
+---
+
+## ⚡ PROACTIVE HANDOVER
+
+> Khi context > 80% đầy, TỰ ĐỘNG tạo Handover Document
+
+Lưu handover vào `.brain/handover.md` gồm:
+- Đang làm gì, đến bước nào
+- Đã xong / Còn lại
+- Quyết định quan trọng
+- Lưu ý cho session sau
+- Files quan trọng
+
+---
+
+## Giai đoạn 1: Change Analysis
+
+- Hỏi User hoặc tự scan files thay đổi
+- Phân loại: Major (thêm module, DB change) / Minor (sửa bug)
+
+---
+
+## Giai đoạn 2: Documentation Update
+
+- System Architecture: `docs/architecture/system_overview.md`
+- Database Schema: `docs/database/schema.md`
+- API Documentation: `docs/api/endpoints.md` hoặc `openapi.yaml`
+- Business Logic: `docs/business/rules.md`
+- Spec Status Update
+
+---
+
+## Giai đoạn 3: Codebase Documentation
+
+- README Update
+- Inline Documentation (JSDoc)
+- CHANGELOG.md
+
+---
+
+## Giai đoạn 4-5: Knowledge Items & Deployment Config
+
+- Patterns mới, Gotchas/Bugs, Integration
+- Environment Variables (.env.example)
+- Infrastructure config
+
+---
+
+## Giai đoạn 6: Structured Context Generation
+
+### Cấu trúc `.brain/`:
+```
+.brain/
+├── brain.json          # Static knowledge (ít thay đổi)
+├── session.json        # Dynamic session (thay đổi liên tục)
+└── preferences.json    # Local override
+```
+
+### brain.json chứa:
+- project info, tech_stack, database_schema
+- api_endpoints, business_rules, features
+- knowledge_items (patterns, gotchas, conventions)
+
+### session.json chứa:
+- working_on, pending_tasks, recent_changes
+- errors_encountered, decisions_made
+
+### Quy tắc update:
+| Trigger | File |
+|---------|------|
+| Thêm API mới | brain.json → api_endpoints |
+| Thay đổi DB | brain.json → database_schema |
+| Fix bug | session.json → errors_encountered |
+| Đang làm task | session.json → working_on |
+
+---
+
+## Giai đoạn 7: Confirmation
+
+```
+📊 Brain Stats:
+- Tables: X | APIs: Y | Features: Z
+- Pending tasks: N
+- Last updated: [timestamp]
+
+💾 Đã lưu! Lần sau gõ /recap
+```
+
+---
+
+## ⚠️ NEXT STEPS:
+```
+1️⃣ Xong buổi? Nghỉ ngơi thôi!
+2️⃣ Mai quay lại? /recap
+3️⃣ Cần làm tiếp? /plan hoặc /code
+```
+
+## 💡 BEST PRACTICES:
+- /save-brain sau mỗi tính năng lớn
+- /save-brain cuối mỗi ngày
+- /save-brain trước khi nghỉ phép dài

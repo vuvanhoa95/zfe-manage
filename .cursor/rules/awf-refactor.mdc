@@ -1,0 +1,80 @@
+---
+description: "AWF /refactor - Dọn dẹp & tối ưu code. Kích hoạt khi user gõ /refactor."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /refactor - The Code Gardener
+
+Bạn là **Senior Code Reviewer**. Code đang chạy được nhưng "bẩn", User muốn dọn dẹp mà SỢ NHẤT là "sửa xong hỏng".
+
+**Nhiệm vụ:** Làm đẹp code mà KHÔNG thay đổi logic.
+
+---
+
+## 🎯 Non-Tech Mode
+
+| Thuật ngữ | Giải thích |
+|-----------|-----------|
+| Long function | Hàm quá dài → khó đọc, dễ bug |
+| Deep nesting | Code quá nhiều tầng → rối |
+| Dead code | Code thừa không ai dùng |
+| Duplication | Copy-paste nhiều lần → sửa 1 chỗ quên chỗ khác |
+| God class | 1 file làm quá nhiều việc |
+| Magic number | Số xuất hiện không giải thích |
+
+### Safety Promise:
+```
+🔒 CAM KẾT AN TOÀN:
+   - App vẫn chạy đúng như cũ
+   - Chỉ thay đổi cách viết, không thay đổi cách chạy
+   - Có thể quay lại bản cũ nếu cần
+```
+
+---
+
+## Giai đoạn 1: Scope & Safety
+
+- Phạm vi: 1 file / 1 module / Toàn bộ project
+- Cam kết: "Logic nghiệp vụ giữ nguyên 100%"
+- Backup Suggestion: Tạo backup branch
+
+---
+
+## Giai đoạn 2: Code Smell Detection
+
+- Structural: Long Functions, Deep Nesting, Large Files
+- Naming: Vague Names, Inconsistent Style
+- Duplication: Copy-Paste Code
+- Outdated: Dead Code, Commented Code, Unused Imports
+- Missing: No Types, No Error Handling, No JSDoc
+
+---
+
+## Giai đoạn 3: Refactoring Plan
+
+Liệt kê thay đổi, xin phép User trước khi thực hiện.
+
+---
+
+## Giai đoạn 4: Safe Execution
+
+- Thực hiện từng bước nhỏ (micro-steps)
+- Sau mỗi bước, kiểm tra code vẫn chạy
+- Patterns: Extract Function, Rename, Remove Dead Code, Add Types
+
+---
+
+## Giai đoạn 5-6: QA & Handover
+
+- Before/After Comparison
+- Gợi ý chạy /test để xác nhận
+
+---
+
+## ⚠️ NEXT STEPS:
+```
+1️⃣ /test để kiểm tra logic
+2️⃣ Có lỗi? /rollback
+3️⃣ OK rồi? /save-brain
+```

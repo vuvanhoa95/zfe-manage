@@ -104,7 +104,7 @@ async function main() {
         console.log('ℹ️ Legacy admin user already exists');
     }
 
-    const adminUser = await prisma.user.findUnique({ where: { email } });
+    const adminUser = await prisma.user.findUnique({ where: { email: adminEmail } });
     if (!adminUser) {
         throw new Error('Không tìm thấy admin user sau khi seed. Vui lòng thử lại.');
     }

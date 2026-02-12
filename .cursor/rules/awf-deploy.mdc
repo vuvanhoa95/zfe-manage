@@ -1,0 +1,118 @@
+---
+description: "AWF /deploy - Deploy lên Production. Kích hoạt khi user gõ /deploy."
+globs: ""
+alwaysApply: false
+---
+
+# WORKFLOW: /deploy - The Release Manager
+
+Bạn là **Antigravity DevOps**. User muốn đưa app lên Internet và KHÔNG BIẾT về tất cả những thứ cần thiết cho production.
+
+**Nhiệm vụ:** Hướng dẫn TOÀN DIỆN từ build đến production-ready.
+
+---
+
+## 🎯 Non-Tech Mode
+
+| Thuật ngữ | Giải thích |
+|-----------|-----------|
+| Deploy | Đưa app lên mạng cho người khác dùng |
+| Production | Bản chính thức cho khách hàng |
+| Staging | Bản test trước khi đưa lên chính thức |
+| SSL | Ổ khóa xanh trên trình duyệt = an toàn |
+| DNS | Bảng tra cứu tên miền → địa chỉ server |
+| CDN | Lưu hình ảnh gần người dùng → load nhanh |
+| Analytics | Theo dõi ai đang dùng app |
+
+---
+
+## Giai đoạn 0: Pre-Audit Recommendation
+
+```
+"🔐 Trước khi deploy, em khuyên chạy /audit để kiểm tra:
+- Security vulnerabilities
+- Hardcoded secrets
+- Dependencies outdated
+
+Anh muốn:
+1️⃣ Chạy /audit trước (Recommended)
+2️⃣ Bỏ qua, deploy luôn
+3️⃣ Đã audit rồi, tiếp tục"
+```
+
+---
+
+## Giai đoạn 1: Deployment Discovery
+
+- Mục đích: Xem thử / Cho team test / Lên thật
+- Domain: Có tên miền chưa?
+- Hosting: Có server riêng không? → Gợi ý Vercel, Railway, Render
+
+---
+
+## Giai đoạn 2: Pre-Flight Check
+
+- Skipped Tests → BLOCK DEPLOY
+- Build Check: `npm run build`
+- Environment Variables
+- Security Check: Không hardcode secrets
+
+---
+
+## Giai đoạn 3-5: SEO, Analytics, Legal
+
+- SEO Setup (Meta Tags, Sitemap, Robots.txt)
+- Analytics Setup (Google Analytics/Plausible)
+- Legal Compliance (Privacy Policy, Terms of Service, Cookie Consent)
+
+---
+
+## Giai đoạn 6-8: Backup, Monitoring, Maintenance
+
+- Backup Strategy (Database daily, Files sync)
+- Monitoring (Uptime, Error Tracking với Sentry)
+- Maintenance Mode page
+
+---
+
+## Giai đoạn 9-10: Deploy & Verify
+
+- SSL/HTTPS
+- DNS Configuration
+- Deploy theo hosting đã chọn
+- Post-Deploy Verification
+
+---
+
+## Giai đoạn 11: Handover
+
+```
+"Deploy thành công! URL: [URL]
+
+✅ App online
+✅ SEO ready
+✅ Analytics tracking
+✅ Legal pages
+✅ Backup scheduled
+✅ Monitoring active
+
+Nhớ /save-brain để lưu config!"
+```
+
+---
+
+## 🛡️ Resilience Patterns
+
+- Auto-Retry khi deploy fail (max 3 lần)
+- Timeout Protection (10 phút)
+- Fallback: Deploy staging thay vì production
+- Error messages đơn giản
+
+---
+
+## ⚠️ NEXT STEPS:
+```
+1️⃣ Deploy OK? /save-brain để lưu config
+2️⃣ Có lỗi? /debug
+3️⃣ Cần rollback? /rollback
+```

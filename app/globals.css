@@ -1,34 +1,75 @@
 @import "tailwindcss";
 
 :root {
-  /* ZFENIX Brand Colors */
-  --zf-primary: #053663; /* ZFENIX Navy */
+  /* ========================================
+     ZFENIX BRAND COLORS (Core Identity)
+     ======================================== */
+  --zf-primary: #053663;
+  /* ZFENIX Navy */
   --zf-primary-light: #0B4A80;
   --zf-primary-dark: #042A4C;
 
-  --zf-accent: #178AF3; /* ZFENIX Blue */
+  --zf-accent: #178AF3;
+  /* ZFENIX Blue */
   --zf-accent-light: #4DA3F6;
   --zf-accent-dark: #0F6FC9;
 
-  --zf-graphite: #2F343A; /* Graphite */
+  --zf-graphite: #2F343A;
+  /* Graphite */
 
-  /* Semantic Colors */
+  /* ========================================
+     GRADIENTS (Tech Premium)
+     ======================================== */
+  --zf-gradient-ocean: linear-gradient(135deg, #053663 0%, #0B4A80 50%, #178AF3 100%);
+  --zf-gradient-sky: linear-gradient(135deg, #178AF3 0%, #4DA3F6 100%);
+  --zf-gradient-midnight: linear-gradient(180deg, #042A4C 0%, #053663 100%);
+  --zf-gradient-glass: linear-gradient(135deg, rgba(23, 138, 243, 0.1) 0%, rgba(77, 163, 246, 0.05) 100%);
+
+  /* ========================================
+     SEMANTIC COLORS
+     ======================================== */
   --zf-success: #10B981;
   --zf-warning: #F59E0B;
   --zf-error: #EF4444;
   --zf-info: #3B82F6;
 
-  /* Backgrounds */
+  /* ========================================
+     BACKGROUNDS
+     ======================================== */
   --zf-bg-default: #FFFFFF;
-  --zf-bg-secondary: #F1F5F9;
-  --zf-bg-tertiary: #E2E8F0;
+  --zf-bg-secondary: #F9FAFB;
+  --zf-bg-tertiary: #F3F4F6;
 
-  /* Texts */
+  /* ========================================
+     TEXT COLORS
+     ======================================== */
   --zf-text-primary: var(--zf-graphite);
-  --zf-text-secondary: #5B6470;
+  --zf-text-secondary: #6B7280;
+  --zf-text-muted: #9CA3AF;
   --zf-text-inverse: #FFFFFF;
 
-  /* Tailwind CSS compatibility variables */
+  /* ========================================
+     SHADOWS & ELEVATION
+     ======================================== */
+  --zf-shadow-xs: 0 1px 2px rgba(5, 54, 99, 0.05);
+  --zf-shadow-sm: 0 1px 3px rgba(5, 54, 99, 0.1), 0 1px 2px rgba(5, 54, 99, 0.06);
+  --zf-shadow-md: 0 4px 6px rgba(5, 54, 99, 0.07), 0 2px 4px rgba(5, 54, 99, 0.06);
+  --zf-shadow-lg: 0 10px 15px rgba(5, 54, 99, 0.1), 0 4px 6px rgba(5, 54, 99, 0.05);
+  --zf-shadow-xl: 0 20px 25px rgba(5, 54, 99, 0.1), 0 10px 10px rgba(5, 54, 99, 0.04);
+  --zf-shadow-2xl: 0 25px 50px rgba(5, 54, 99, 0.15);
+
+  /* Colored Glows */
+  --zf-shadow-blue-glow: 0 8px 32px rgba(23, 138, 243, 0.25);
+  --zf-shadow-success-glow: 0 8px 32px rgba(16, 185, 129, 0.25);
+
+  /* ========================================
+     ANIMATIONS
+     ======================================== */
+  --zf-ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --zf-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --zf-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* Tailwind CSS compatibility */
   --background: var(--zf-bg-default);
   --foreground: var(--zf-text-primary);
 }
@@ -135,6 +176,7 @@ body {
     transform: translate3d(0, 8px, 0) scale(0.995);
     filter: blur(0.8px);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
@@ -148,6 +190,7 @@ body {
     transform: translate3d(0, 0, 0) scale(1);
     filter: blur(0);
   }
+
   to {
     opacity: 0;
     transform: translate3d(0, -4px, 0) scale(0.998);
@@ -160,6 +203,7 @@ body {
     opacity: 0;
     transform: translate3d(24px, 0, 0);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -171,6 +215,7 @@ body {
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
+
   to {
     opacity: 0;
     transform: translate3d(-24px, 0, 0);
@@ -182,6 +227,7 @@ body {
     opacity: 0;
     transform: translate3d(-24px, 0, 0);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -193,6 +239,7 @@ body {
     opacity: 1;
     transform: translate3d(0, 0, 0);
   }
+
   to {
     opacity: 0;
     transform: translate3d(24px, 0, 0);
@@ -200,6 +247,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .zf-tabpanel-enter,
   .zf-tabpanel-exit {
     animation: none !important;
@@ -213,11 +261,11 @@ body {
 }
 
 .zf-page-enter {
-  animation: zf-page-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: zf-page-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .zf-page-exit {
-  animation: zf-page-exit 220ms cubic-bezier(0.4, 0, 1, 1) both;
+  animation: zf-page-exit 120ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
 @keyframes zf-page-enter {
@@ -226,6 +274,7 @@ body {
     transform: translateY(14px) scale(0.99);
     filter: blur(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -239,6 +288,7 @@ body {
     transform: translateY(0);
     filter: blur(0);
   }
+
   to {
     opacity: 0;
     transform: translateY(-10px) scale(0.995);
@@ -247,6 +297,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .zf-page-enter,
   .zf-page-exit {
     animation: none !important;
@@ -264,5 +315,246 @@ button {
 @supports (font-variant-east-asian: normal) {
   * {
     font-variant-east-asian: normal;
+  }
+}
+
+/* ========================================
+   GLASSMORPHISM EFFECTS (Tech Premium)
+   ======================================== */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--zf-shadow-lg);
+}
+
+.glass-card-dark {
+  background: rgba(5, 54, 99, 0.15);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(23, 138, 243, 0.2);
+  box-shadow: var(--zf-shadow-xl);
+}
+
+/* ========================================
+   PREMIUM CARD STYLES
+   ======================================== */
+.card-premium {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: var(--zf-shadow-md);
+  border: 1px solid rgba(5, 54, 99, 0.05);
+  transition: all 300ms var(--zf-ease-smooth);
+}
+
+.card-premium:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--zf-shadow-xl);
+  border-color: rgba(23, 138, 243, 0.2);
+}
+
+/* Dashboard Stat Cards with Gradient Accent */
+.stat-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.85) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 28px;
+  border: 1px solid rgba(23, 138, 243, 0.1);
+  position: relative;
+  overflow: hidden;
+  transition: all 300ms var(--zf-ease-smooth);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(23, 138, 243, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--zf-shadow-blue-glow);
+  border-color: rgba(23, 138, 243, 0.3);
+}
+
+/* ========================================
+   GRADIENT BACKGROUNDS
+   ======================================== */
+.bg-gradient-ocean {
+  background: var(--zf-gradient-ocean);
+}
+
+.bg-gradient-sky {
+  background: var(--zf-gradient-sky);
+}
+
+.bg-gradient-midnight {
+  background: var(--zf-gradient-midnight);
+}
+
+/* ========================================
+   BUTTON ENHANCEMENTS
+   ======================================== */
+.btn-premium {
+  background: var(--zf-gradient-sky);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: var(--zf-shadow-blue-glow);
+  transition: all 200ms var(--zf-ease-smooth);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(23, 138, 243, 0.35);
+}
+
+.btn-premium:active {
+  transform: translateY(0);
+  box-shadow: var(--zf-shadow-md);
+}
+
+/* ========================================
+   MICRO-ANIMATIONS
+   ======================================== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes pulseGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(23, 138, 243, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(23, 138, 243, 0.6);
+  }
+}
+
+/* Animation Utilities */
+.animate-fade-in-up {
+  animation: fadeInUp 500ms var(--zf-ease-smooth) both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 300ms var(--zf-ease-bounce) both;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.2) 20%,
+      rgba(255, 255, 255, 0.5) 60%,
+      rgba(255, 255, 255, 0));
+  background-size: 1000px 100%;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* ========================================
+   ENHANCED FOCUS STATES
+   ======================================== */
+.focus-premium:focus-visible {
+  outline: 2px solid var(--zf-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 4px rgba(23, 138, 243, 0.1);
+}
+
+/* ========================================
+   LOADING STATES
+   ======================================== */
+.skeleton {
+  background: linear-gradient(90deg,
+      #f0f0f0 0%,
+      #e0e0e0 50%,
+      #f0f0f0 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ========================================
+   CHART CARDS
+   ======================================== */
+.chart-card {
+  position: relative;
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0.7) 100%);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(5, 54, 99, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(5, 54, 99, 0.15);
+}
+
+/* ========================================
+   RESPONSIVE UTILITIES
+   ======================================== */
+@media (max-width: 768px) {
+  .stat-card {
+    padding: 20px;
+  }
+
+  .card-premium {
+    padding: 16px;
+  }
+
+  .chart-card {
+    padding: 16px;
+    border-radius: 16px;
   }
 }

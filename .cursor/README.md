@@ -1,96 +1,124 @@
-# Cursor AI Configuration
+# Cursor Configuration - WebZfenix
 
-## 📋 Rules Reference
+Cấu hình Cursor IDE cho dự án WebZfenix - Website về BIM Services, Projects và Solutions.
 
-Khi làm việc với code trong `ZfeManage`, AI sẽ tự động đọc và áp dụng rules từ:
+## 📁 Cấu trúc
 
-**`../quotation-app/.cursorrules`**
+```
+.cursor/
+├── README.md                    # File này
+├── QUICK_COMMANDS.md           # Quick reference commands
+└── commands/                    # Chi tiết các commands
+    ├── README.md
+    ├── setup-database.md
+    ├── generate-prisma-client.md
+    ├── run-migrations.md
+    ├── start-development.md
+    ├── build-production.md
+    ├── lint-code.md
+    ├── open-prisma-studio.md
+    ├── reset-database.md
+    ├── export-docx-template.md
+    └── deployment-checklist.md
+```
 
-File này chứa tất cả:
-- Coding conventions
-- TypeScript rules
-- API patterns
-- Database guidelines
-- UI/UX standards
-- Brand guidelines (ZFENIX)
+## 🎯 Mục đích
+
+Thư mục này chứa:
+1. **Cursor Rules** (`.cursorrules` ở root): Quy tắc coding và best practices
+2. **Commands**: Các commands hữu ích cho development và deployment
+3. **Quick Reference**: Tổng hợp commands thường dùng
+
+## 📖 Cách sử dụng
+
+### 1. Cursor Rules (`.cursorrules`)
+
+File `.cursorrules` ở root của workspace chứa các quy tắc mà Cursor AI sẽ follow khi:
+- Generate code
+- Suggest code changes
+- Refactor code
+- Answer questions về codebase
+
+**Lưu ý**: Cursor sẽ tự động đọc file này, không cần cấu hình thêm.
+
+### 2. Commands
+
+Các file trong `.cursor/commands/` chứa hướng dẫn chi tiết về:
+- Database operations
+- Development workflows
+- Deployment procedures
+- Troubleshooting
+
+**Cách sử dụng**:
+- Đọc file `.md` để xem chi tiết
+- Copy commands vào terminal
+- Hoặc sử dụng Cursor Command Palette để tìm kiếm
+
+### 3. Quick Commands
+
+File `QUICK_COMMANDS.md` chứa tổng hợp các commands thường dùng nhất:
+- Development commands
+- Database commands
+- Git commands
+- Troubleshooting
+
+## 🔧 Customization
+
+### Thêm Rules mới
+
+Chỉnh sửa file `.cursorrules` ở root để thêm:
+- Coding conventions mới
 - Best practices
+- Project-specific rules
 
-## 🎮 Custom Commands
+### Thêm Commands mới
 
-Folder `.cursor/commands/` chứa các custom commands có thể chạy qua Cursor Chat.
+1. Tạo file `.md` mới trong `.cursor/commands/`
+2. Format theo template:
+   ```markdown
+   # Command Name
+   
+   ## Mô tả
+   Mô tả ngắn gọn về command
+   
+   ## Command
+   ```bash
+   command here
+   ```
+   
+   ## Lưu ý
+   Các lưu ý quan trọng
+   ```
+3. Update `commands/README.md` để thêm vào danh sách
 
-### 📁 Commands Location:
-- `.cursor/commands/*.md` - Mỗi file `.md` là một command
+## 📚 Tài liệu liên quan
 
-### 🚀 Cách sử dụng Commands:
+- **Project README**: `README.md`
+- **GitHub Repository**: `https://github.com/vuvanhoa95/WebZfenix.git`
 
-**Cách 1: Dùng slash commands**
-Trong Cursor Chat, gõ `/` và chọn command:
-- `/quick-commit` - Commit với message tự động
-- `/quick-commit-push` - Commit và push
-- `/deploy-production` - Deploy lên Vercel
-- `/build` - Build project
-- `/git-status` - Xem trạng thái Git
+## 🆘 Troubleshooting
 
-**Cách 2: Yêu cầu AI chạy**
-Bạn có thể yêu cầu AI chạy commands:
-- "Chạy quick commit"
-- "Deploy production"
-- "Build project"
-- "Kiểm tra git status"
+### Cursor không nhận rules
 
-### 📝 Available Commands:
+1. Đảm bảo file `.cursorrules` ở root của workspace
+2. Restart Cursor IDE
+3. Check Cursor settings để đảm bảo rules được enable
 
-#### Git Commands:
-- **Quick Commit** - Commit với message tự động
-- **Quick Commit & Push** - Commit và push (trigger auto-deploy)
-- **Commit với message** - Commit với message tùy chỉnh
-- **Git Status** - Xem trạng thái Git
-- **Git Pull** - Pull code từ remote
-- **Git Log** - Xem lịch sử commits
+### Commands không hoạt động
 
-#### Deploy Commands:
-- **Deploy Production** - Deploy lên Vercel production
-- **Deploy Production (Skip Build)** - Deploy bỏ qua build test
-- **Check Vercel Status** - Kiểm tra trạng thái Vercel
-- **Pull Env Variables** - Pull environment variables từ Vercel
-
-#### Build & Development:
-- **Build Project** - Build project để test
-- **Start Dev Server** - Chạy development server
-- **Run Linter** - Chạy ESLint
-
-#### Database:
-- **Generate Prisma Client** - Generate Prisma Client
-- **Run Migrations** - Chạy database migrations
-
-## 🔄 Workflow
-
-1. AI đọc `.cursorrules` từ `quotation-app` khi được yêu cầu code
-2. Áp dụng tất cả rules vào code trong `ZfeManage`
-3. Đảm bảo code tuân thủ conventions và có thể build/deploy
-4. Sử dụng commands để tự động hóa các tác vụ thường dùng
-
-## 📁 Structure
-
-```
-ZfeManage/              ← CODE CHÍNH (Production)
-├── .cursor/
-│   ├── README.md       ← File này
-│   └── commands.json   ← Custom commands
-├── .cursorrules        ← Reference đến quotation-app rules
-└── ...
-
-quotation-app/          ← RULES & DOCS (Reference only)
-├── .cursorrules        ← ĐỌC FILE NÀY
-├── ARCHITECTURE.md
-├── PROJECT_PLAN.md
-└── ...
-```
+1. Đảm bảo đang ở đúng directory (root của project `web/`)
+2. Check Node.js và npm đã được cài đặt
+3. Verify dependencies đã được install (`npm install`)
 
 ## 💡 Tips
 
-- Sử dụng commands qua chat để tăng tốc workflow
-- Commands tự động hóa các tác vụ lặp lại
-- Kết hợp với quick-commit.ps1 để commit nhanh
-- Auto-deploy sẽ trigger khi push lên main branch
+1. **Sử dụng Cursor AI**: Nhờ Cursor AI giúp generate code theo rules đã định nghĩa
+2. **Quick Commands**: Giữ `QUICK_COMMANDS.md` mở để copy commands nhanh
+3. **Command Palette**: Sử dụng `Ctrl+Shift+P` để tìm commands trong Cursor
+4. **Auto-complete**: Cursor sẽ suggest commands dựa trên context
+
+---
+
+**Version**: 1.0.0  
+**Last Updated**: 2026-01-28  
+**Maintained by**: Development Team
