@@ -1,3 +1,6 @@
+'use client';
+
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import AiAssistant from '@/components/ai/AiAssistant';
@@ -8,6 +11,14 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const pathname = usePathname();
+    
+    // Ẩn chatbot global khi đang ở trang quotation editor (có chatbot riêng)
+    // Hiển thị chatbot global ở: /quotations (list), /quotations/new, /quotations/quick-form
+    // Ẩn chatbot global ở: /quotations/[id]/edit, /quotations/[id]/versions (có chatbot riêng)
+    const isQuotationEditorPage = pathname?.match(/^\/quotations\/[^/]+\/(edit|versions)/);
+    const shouldShowGlobalChatbot = !isQuotationEditorPage;
+    
     return (
         <div className="h-screen flex overflow-hidden bg-gray-100">
             {/* Sidebar */}
@@ -24,7 +35,7 @@ export default function DashboardLayout({
                 </main>
             </div>
 
-            <AiAssistant />
+            {shouldShowGlobalChatbot && <AiAssistant />}
         </div>
     );
 }
