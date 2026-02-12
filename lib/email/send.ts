@@ -3,7 +3,7 @@ import { QuotationCreatedEmail } from './templates/quotation-created';
 import { QuotationAcceptedEmail } from './templates/quotation-accepted';
 import { DeadlineReminderEmail } from './templates/deadline-reminder';
 import { WeeklyReportEmail } from './templates/weekly-report';
-import { render } from '@react-email/components';
+import { render } from 'react-email';
 
 // Email sending functions
 
