@@ -5,9 +5,9 @@ let resendClient: Resend | null = null;
 function getResendClient(): Resend {
   if (!resendClient) {
     if (!process.env.RESEND_API_KEY) {
-      console.warn('RESEND_API_KEY is not defined. Email sending will fail at runtime.');
-      // Create a dummy client that will fail when actually used
-      resendClient = new Resend('dummy_key');
+      // For build time, create a dummy client that won't throw
+      // This allows the build to succeed even without API key
+      resendClient = new Resend(process.env.RESEND_API_KEY || 'dummy_key_for_build');
     } else {
       resendClient = new Resend(process.env.RESEND_API_KEY);
     }
