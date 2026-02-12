@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import { Mic } from 'lucide-react';
 import { QuotationFormData } from '@/types/quotation';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { QuotationDataProvider } from '@/lib/contexts/QuotationDataContext';
 import DataTab from './DataTab';
 import PreviewTab from './PreviewTab';
 import CatalogTab from './CatalogTab';
-import VoiceInput from './VoiceInput';
+import VoiceInputModal from './VoiceInputModal';
 import AIAssistant from './AIAssistant';
 
 type WizardStep = 1 | 2 | 3 | 4;
@@ -170,6 +171,7 @@ export default function QuotationEditor({
     const [statusError, setStatusError] = useState<string | null>(null);
     const [stepErrors, setStepErrors] = useState<Partial<Record<WizardStep, string[]>>>({});
     const [completedSteps, setCompletedSteps] = useState<Partial<Record<WizardStep, boolean>>>({});
+    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
     // Load existing quotation by id (ProjectEditor passes only id, not full quotation data)
     useEffect(() => {
@@ -687,9 +689,18 @@ export default function QuotationEditor({
 
                 {/* Second Row: Voice Input + Action Buttons - Compact */}
                 <div className="px-3 py-2 flex flex-wrap items-center gap-2 border-b border-gray-200">
-                    {/* Voice Input - Compact */}
+                    {/* Voice Input - chỉ là nút nhỏ, mở modal khi cần */}
                     <div className="flex-1 min-w-[200px] max-w-md">
-                        <VoiceInput onApply={handleVoiceApply} />
+                        <button
+                            type="button"
+                            onClick={() => setIsVoiceModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 bg-gray-50 text-xs text-gray-700 hover:bg-gray-100 hover:border-zf-accent transition-colors"
+                        >
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zf-accent text-white">
+                                <Mic className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="truncate">Nhấn để nhập liệu bằng giọng nói</span>
+                        </button>
                     </div>
 
                     {/* Action Buttons - Compact */}
@@ -814,6 +825,14 @@ export default function QuotationEditor({
                     <CatalogTab />
                 </div>
             </div>
+
+            {/* Voice Input Modal */}
+            <VoiceInputModal
+                isOpen={isVoiceModalOpen}
+                onClose={() => setIsVoiceModalOpen(false)}
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onApply={(data: any) => handleVoiceApply(data)}
+            />
 
             {/* AI Assistant Chatbot */}
             <AIAssistant
