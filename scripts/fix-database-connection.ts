@@ -79,17 +79,57 @@ if (databaseUrl.startsWith('file:')) {
   }
 }
 
-// 3. Kiểm tra Prisma Client
-console.log('\n📋 Đang kiểm tra Prisma Client...');
-try {
-  execSync('npx prisma generate', { stdio: 'inherit', cwd: process.cwd() });
-  console.log('✅ Prisma Client đã được generate');
-} catch (error) {
-  console.error('❌ Lỗi khi generate Prisma Client:', error);
-  process.exit(1);
+// 3. Kiểm tra và fix Prisma Client
+async function checkAndGeneratePrismaClient() {
+  console.log('\n📋 Đang kiểm tra Prisma Client...');
+
+  // Xóa .prisma folder nếu có lỗi EPERM
+  const prismaClientPath = join(process.cwd(), 'node_modules', '.prisma');
+  
+  try {
+    // Thử generate trước
+    execSync('npx prisma generate', { stdio: 'inherit', cwd: process.cwd() });
+    console.log('✅ Prisma Client đã được generate');
+  } catch (error: any) {
+    if (error.message?.includes('EPERM') || error.message?.includes('operation not permitted')) {
+      console.log('⚠️  Lỗi EPERM khi generate Prisma Client (file đang được sử dụng)');
+      console.log('📋 Đang thử xóa và generate lại...');
+      
+      try {
+        // Xóa .prisma folder
+        if (existsSync(prismaClientPath)) {
+          require('fs').rmSync(prismaClientPath, { recursive: true, force: true });
+          console.log('✅ Đã xóa .prisma folder cũ');
+        }
+        
+        // Đợi một chút
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Generate lại
+        execSync('npx prisma generate', { stdio: 'inherit', cwd: process.cwd() });
+        console.log('✅ Prisma Client đã được generate thành công');
+      } catch (retryError: any) {
+        console.error('❌ Vẫn lỗi khi generate Prisma Client:', retryError.message);
+        console.log('\n📋 Hướng dẫn khắc phục:');
+        console.log('   1. Đóng tất cả editor/IDE (kể cả Cursor)');
+        console.log('   2. Đóng tất cả terminal/command prompt');
+        console.log('   3. Chạy lại: npx prisma generate');
+        console.log('   4. Nếu vẫn lỗi, restart máy và thử lại');
+        process.exit(1);
+      }
+    } else {
+      console.error('❌ Lỗi khi generate Prisma Client:', error.message);
+      process.exit(1);
+    }
+  }
 }
 
 // 4. Test connection
+async function main() {
+  await checkAndGeneratePrismaClient();
+  await testConnection();
+}
+
 async function testConnection() {
   console.log('\n📋 Đang test kết nối database...');
   try {
@@ -119,4 +159,4 @@ async function testConnection() {
   }
 }
 
-testConnection();
+main();

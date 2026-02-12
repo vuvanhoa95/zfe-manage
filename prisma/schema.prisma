@@ -6,10 +6,6 @@ generator client {
 }
 
 datasource db {
-  /// Sử dụng SQLite cho local development, Postgres cho production
-  /// Giá trị thực của DATABASE_URL được cấu hình qua biến môi trường
-  /// Local: file:./prisma/dev.db
-  /// Production: postgresql://...
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }

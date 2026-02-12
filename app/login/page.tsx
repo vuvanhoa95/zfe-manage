@@ -100,15 +100,14 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen relative flex items-center justify-start bg-gradient-to-br from-white via-zf-bg-secondary to-zf-bg-tertiary p-4 overflow-visible">
             {/* 4D Timeline Background */}
-            <div className="absolute inset-0 overflow-visible pointer-events-none" style={{ zIndex: 0 }}>
+            <div className="absolute inset-0 overflow-visible pointer-events-none building-background">
                 {/* Building Wireframe - Detailed Structural View: Basement + Podium + 2 Towers */}
                 <div className="absolute top-1/2 right-[2%] -translate-y-1/2 building-container">
                     <svg 
                         width="800" 
                         height="800" 
                         viewBox="0 -100 800 800" 
-                        className="building-wireframe"
-                        style={{ opacity: 0.7 }}
+                        className="building-wireframe building-svg-opacity"
                         preserveAspectRatio="xMidYMid meet"
                     >
                         {/* Basement - Hầm */}
@@ -669,6 +668,15 @@ export default function LoginPage() {
                 </div>
 
             <style jsx>{`
+        /* Building background and SVG styles */
+        .building-background {
+          z-index: 0;
+        }
+        
+        .building-svg-opacity {
+          opacity: 0.7;
+        }
+        
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           25% { transform: translateX(-4px); }

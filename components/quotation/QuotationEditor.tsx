@@ -8,6 +8,8 @@ import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import DataTab from './DataTab';
 import PreviewTab from './PreviewTab';
 import CatalogTab from './CatalogTab';
+import VoiceInput from './VoiceInput';
+import AIAssistant from './AIAssistant';
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -267,11 +269,13 @@ export default function QuotationEditor({
                     outsourceNote: q.outsourceNote ?? undefined,
                     outsourceLines: Array.isArray(q.outsourceLines)
                         ? q.outsourceLines.map((l: any, idx: number) => ({
+                              id: l.id ?? undefined,
                               staffName: l.staffName ?? undefined,
                               discipline: l.discipline ?? undefined,
                               unit: l.unit ?? undefined,
                               qty: l.qty ?? undefined,
                               unitRate: l.unitRate ?? undefined,
+                              totalAmount: l.amount ?? undefined,
                               note: l.note ?? undefined,
                               order: typeof l.order === 'number' ? l.order : idx,
                           }))
@@ -362,6 +366,38 @@ export default function QuotationEditor({
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleVoiceApply = (data: any) => {
+        setFormData((prev) => {
+            const next = { ...prev };
+            if (data.projectName) next.projectName = data.projectName;
+            if (data.location) next.location = data.location;
+            if (data.projectNotes) next.projectNotes = data.projectNotes;
+            
+            if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+                // Keep group headers
+                const groupHeaders = prev.lines.filter(l => l.isGroupHeader);
+                const pricingHeader = groupHeaders.find(h => h.section === 'B – BÁO GIÁ');
+                
+                const newLines = data.items.map((item: any, idx: number) => ({
+                    section: 'B – BÁO GIÁ',
+                    itemNo: `${idx + 1}`,
+                    title: item.title || 'Hạng mục mới',
+                    qty: item.qty || 1,
+                    unit: item.unit || 'm²',
+                    unitPrice: 0,
+                    priceType: (item.unit === 'm²' ? 'area' : 'fixed') as 'fixed' | 'area' | 'none',
+                    order: (pricingHeader?.order ?? 1) + idx + 1,
+                    isGroupHeader: false,
+                    isChargeable: true,
+                }));
+
+                next.lines = [...groupHeaders, ...newLines];
+            }
+            
+            return next;
+        });
     };
 
     const validateStep = (step: WizardStep): boolean => {
@@ -538,6 +574,10 @@ export default function QuotationEditor({
                                 ) : null}
                             </div>
                             <p className="text-gray-600 text-xs hidden sm:block">Hệ thống Báo giá BIM</p>
+                        </div>
+
+                        <div className="flex-1 max-w-sm">
+                            <VoiceInput onApply={handleVoiceApply} />
                         </div>
 
                         <div className="flex gap-2 justify-start lg:justify-end flex-1">
@@ -748,9 +788,16 @@ export default function QuotationEditor({
                             />
                         ) : tab === 'preview' ? (
                             <PreviewTab 
-                                data={formData} 
+                                data={formData}
                                 quotationId={id}
                                 quotationNo={quotationNo}
+                                onDataChange={async (field, value) => {
+                                    setFormData((prev) => ({ ...prev, [field]: value }));
+                                    // Auto-save after inline edit
+                                    if (!isNew && id) {
+                                        await handleSave(true);
+                                    }
+                                }}
                             />
                         ) : (
                             <CatalogTab />
@@ -758,6 +805,20 @@ export default function QuotationEditor({
                     }
                 />
             </div>
+
+            {/* AI Assistant Chatbot */}
+            <AIAssistant
+                quotationContext={{
+                    customerName: formData.customerId ? 'Customer' : undefined,
+                    projectName: formData.projectName || undefined,
+                    totalArea: formData.totalArea,
+                    lineItems: formData.lines.filter(l => l.isChargeable).map(l => ({
+                        title: l.title,
+                        unit: l.unit,
+                        unitPrice: l.unitPrice,
+                    })),
+                }}
+            />
         </div>
     );
 }

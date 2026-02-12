@@ -6,65 +6,41 @@ import {
     enrichQuotationLinesWithProjectContext,
 } from '@/lib/utils';
 import { numberToVietnameseWords } from '@/lib/number-to-words-vn';
-import { type QuotationFormData } from '@/types/quotation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { createQuotationSchema, type CreateQuotationInput } from '@/lib/validation/quotation';
+import { createQuotationSchema } from '@/lib/validation/quotation';
+import { generateUniqueQuotationNumber } from '@/lib/quotation-number';
+import { sendQuotationCreatedEmail, buildQuotationUrl, getAdminEmails } from '@/lib/email/send';
 
-// GET /api/quotations - List quotations with filters
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const status = searchParams.get('status');
-        const customerId = searchParams.get('customerId');
         const search = searchParams.get('search');
         const page = parseInt(searchParams.get('page') || '1');
         const pageSize = parseInt(searchParams.get('pageSize') || '20');
 
         const where: any = {};
-
-        if (status) {
-            where.status = status;
-        }
-
-        if (customerId) {
-            where.customerId = customerId;
-        }
-
+        if (status && status !== 'ALL') where.status = status;
         if (search) {
             where.OR = [
-                { quotationNo: { contains: search, mode: 'insensitive' } },
-                { projectName: { contains: search, mode: 'insensitive' } },
-                { customer: { name: { contains: search, mode: 'insensitive' } } },
+                { quotationNo: { contains: search } },
+                { projectName: { contains: search } },
             ];
         }
 
-        const [quotations, total] = await Promise.all([
-            prisma.quotation.findMany({
-                where,
-                include: {
-                    customer: {
-                        select: {
-                            id: true,
-                            name: true,
-                        },
-                    },
-                    createdBy: {
-                        select: {
-                            id: true,
-                            name: true,
-                            email: true,
-                        },
-                    },
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-                skip: (page - 1) * pageSize,
-                take: pageSize,
-            }),
-            prisma.quotation.count({ where }),
-        ]);
+        const quotations = await prisma.quotation.findMany({
+            where,
+            include: {
+                customer: { select: { id: true, name: true } },
+                createdBy: { select: { id: true, name: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+        });
+
+        const total = await prisma.quotation.count({ where });
 
         return NextResponse.json({
             success: true,
@@ -76,16 +52,12 @@ export async function GET(request: NextRequest) {
                 totalPages: Math.ceil(total / pageSize),
             },
         });
-    } catch (error) {
-        console.error('Error fetching quotations:', error);
-        return NextResponse.json(
-            { success: false, error: 'Failed to fetch quotations' },
-            { status: 500 }
-        );
+    } catch (error: any) {
+        console.error('API Error:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
 
-// POST /api/quotations - Create new quotation
 export async function POST(request: NextRequest) {
     try {
         const json = await request.json();
@@ -102,8 +74,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const body: CreateQuotationInput = parsed.data;
-
+        const body: any = parsed.data;
         const session = await getServerSession(authOptions);
 
         if (!session?.user || !(session.user as any).id) {
@@ -111,25 +82,18 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session.user as any).id;
+        const userName = session.user.name || 'Admin';
 
-        // Generate quotation number
-        const lastQuotation = await prisma.quotation.findFirst({
-            orderBy: { quotationNo: 'desc' },
-            select: { quotationNo: true },
-        });
+        // Generate unique quotation number
+        const quotationNo = await generateUniqueQuotationNumber();
 
-        const quotationNo = generateQuotationNumber(
-            lastQuotation?.quotationNo || null,
-            new Date(body.date).getFullYear()
-        );
-
-        const enrichedLines = enrichQuotationLinesWithProjectContext(body.lines, {
+        // Calculate and enrich lines
+        const enrichedLines = enrichQuotationLinesWithProjectContext(body.lines || [], {
             projectName: body.projectName,
             projectItem: body.projectItem,
             totalArea: body.totalArea,
         });
 
-        // Calculate totals
         const { totalBeforeVat, vatAmount, totalAfterVat } = calculateQuotationTotals(
             enrichedLines,
             body.vatRate,
@@ -139,7 +103,7 @@ export async function POST(request: NextRequest) {
         const totalInWords = numberToVietnameseWords(totalAfterVat);
 
         // Create quotation with lines and milestones
-        const quotation = await prisma.quotation.create({
+        const quotation: any = await prisma.quotation.create({
             data: {
                 quotationNo,
                 projectId: body.projectId,
@@ -175,7 +139,7 @@ export async function POST(request: NextRequest) {
                 notes: body.notes,
                 createdById: userId,
                 lines: {
-                    create: enrichedLines.map((line) => ({
+                    create: enrichedLines.map((line: any) => ({
                         section: line.section,
                         itemNo: line.itemNo,
                         title: line.title,
@@ -191,7 +155,7 @@ export async function POST(request: NextRequest) {
                 },
                 outsourceLines: body.outsourceLines?.length
                     ? {
-                        create: body.outsourceLines.map((l, idx) => ({
+                        create: body.outsourceLines.map((l: any, idx: number) => ({
                             staffName: l.staffName ?? null,
                             discipline: l.discipline ?? null,
                             unit: l.unit ?? null,
@@ -204,7 +168,7 @@ export async function POST(request: NextRequest) {
                     }
                     : undefined,
                 paymentMilestones: {
-                    create: body.paymentMilestones.map((milestone) => ({
+                    create: (body.paymentMilestones || []).map((milestone: any) => ({
                         no: milestone.no,
                         title: milestone.title,
                         percent: milestone.percent,
@@ -213,31 +177,41 @@ export async function POST(request: NextRequest) {
                         order: milestone.order,
                     })),
                 },
-            },
+            } as any,
             include: {
                 customer: true,
                 lines: true,
                 outsourceLines: { orderBy: { order: 'asc' } },
                 paymentMilestones: true,
-                createdBy: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
             },
         });
+
+        // Fire and forget email notification to admins
+        if (quotation.customer) {
+            getAdminEmails().then(admins => {
+                if (admins.length > 0) {
+                    sendQuotationCreatedEmail({
+                        to: admins,
+                        quotationNo: quotation.quotationNo,
+                        projectName: quotation.projectName,
+                        customerName: quotation.customer?.name || 'Khách hàng',
+                        totalAfterVat: quotation.totalAfterVat,
+                        quotationUrl: buildQuotationUrl(quotation.id),
+                        createdByName: userName,
+                    });
+                }
+            });
+        }
 
         return NextResponse.json({
             success: true,
             data: quotation,
             message: 'Quotation created successfully',
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error creating quotation:', error);
         return NextResponse.json(
-            { success: false, error: 'Failed to create quotation' },
+            { success: false, error: 'Failed' },
             { status: 500 }
         );
     }
