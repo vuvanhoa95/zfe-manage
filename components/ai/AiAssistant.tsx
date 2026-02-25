@@ -40,7 +40,8 @@ function pickDailyGreeting(): string {
   return BOSS_GREETINGS[idx] ?? BOSS_GREETINGS[0]!;
 }
 
-function trimMessage(input: string) {
+// Chỉ dùng để chuẩn hoá input của user (loại bỏ khoảng trắng thừa).
+function normalizeUserInput(input: string) {
   return input.replace(/\s+/g, ' ').trim();
 }
 
@@ -107,7 +108,7 @@ export default function AiAssistant() {
   );
 
   async function send() {
-    const text = trimMessage(input);
+    const text = normalizeUserInput(input);
     if (!text || loading) return;
 
     setError(null);
@@ -130,7 +131,9 @@ export default function AiAssistant() {
         throw new Error(msg);
       }
 
-      const assistantText = trimMessage(json.data.message) || 'Mình chưa nhận được nội dung trả lời.';
+      // Giữ nguyên xuống dòng / bullet mà AI trả về để hiển thị đẹp cho Sếp
+      const raw = json.data.message ?? '';
+      const assistantText = raw.trim() || 'Mình chưa nhận được nội dung trả lời.';
       setMessages((prev) => [...prev, { id: nowId(), role: 'assistant', content: assistantText }]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Có lỗi khi gọi AI';
@@ -244,7 +247,7 @@ export default function AiAssistant() {
               <button
                 type="submit"
                 aria-label="Gửi câu hỏi"
-                disabled={loading || trimMessage(input).length === 0}
+                disabled={loading || normalizeUserInput(input).length === 0}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Send className="h-4 w-4" aria-hidden="true" />

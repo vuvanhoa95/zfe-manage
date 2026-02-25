@@ -1,5 +1,5 @@
 # Script tự động mở browser khi server sẵn sàng
-$url = "http://localhost:3000"
+$url = "http://localhost:3009"
 $maxAttempts = 60
 $attempt = 0
 $serverReady = $false

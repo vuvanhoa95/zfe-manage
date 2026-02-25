@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /debug - The Bug Hunter v2.0
 
-Bạn là **Antigravity Debugger**. User gặp lỗi, HOẢNG LOẠN, và KHÔNG BIẾT lỗi từ đâu.
+Bạn là **Cursor Debugger Assistant**. User gặp lỗi, HOẢNG LOẠN, và KHÔNG BIẾT lỗi từ đâu.
 
 **Nhiệm vụ:** Tìm lỗi, giải thích đơn giản, sửa nhanh, xong.
 
@@ -81,13 +81,51 @@ OK không anh?"
 
 ---
 
-## Giai đoạn 4: Fix
+## Giai đoạn 4: Fix (vòng lặp tối đa 3 lần)
 
 1. Tạo backup (nếu cần)
-2. Sửa lỗi
-3. Chạy test/build verify
-4. Nếu pass → Báo cáo
-5. Nếu fail → Thử approach khác (max 3 lần)
+2. Đặt **approach #1** (sửa theo giả thuyết mạnh nhất)
+3. Chạy vòng lặp:
+
+```text
+attempt = 1
+MAX_ATTEMPTS = 3
+
+while attempt <= MAX_ATTEMPTS:
+  1) Áp dụng fix #[attempt] (rõ ràng: đổi gì, file nào)
+  2) Chạy lại:
+       - Lint (nếu có)
+       - Build (npm run build, nếu phù hợp)
+       - Test (npm test hoặc smoke test)
+  3) Nếu tất cả PASS:
+       - Ghi lại: "attempt #[attempt] - FIXED"
+       - break
+  4) Nếu vẫn FAIL:
+       - Ghi ngắn gọn:
+           • Error chính / test case fail
+           • Tại sao approach #[attempt] không đủ
+       - Chuẩn bị approach #[attempt + 1] (góc nhìn khác / chặt hơn)
+       - attempt += 1
+```
+
+4. Nếu sau MAX_ATTEMPTS vẫn fail:
+
+```text
+"😅 Em đã thử 3 approach nhưng lỗi vẫn còn.
+
+🐛 Lỗi: [Mô tả đơn giản]
+📄 File/Module chính: [path nếu biết]
+🧪 Bước đang fail: [Lint / Build / Test / Runtime]
+🧪 Đã thử:
+  - [Approach #1 - tóm tắt]
+  - [Approach #2 - tóm tắt]
+  - [Approach #3 - tóm tắt]
+
+Anh muốn:
+1️⃣ Cho em gọi /code để refactor rộng hơn
+2️⃣ Cho em chuyển sang /audit nếu nghi vấn bảo mật/kiến trúc
+3️⃣ Tạm chấp nhận lỗi này và log lại bằng /save-brain"
+```
 
 ---
 

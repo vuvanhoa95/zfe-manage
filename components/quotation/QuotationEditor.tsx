@@ -7,6 +7,8 @@ import { Mic } from 'lucide-react';
 import { QuotationFormData } from '@/types/quotation';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { QuotationDataProvider } from '@/lib/contexts/QuotationDataContext';
+import TechnicalBadge from '@/components/technical/TechnicalBadge';
+import TechnicalMetrics from '@/components/technical/TechnicalMetrics';
 import DataTab from './DataTab';
 import PreviewTab from './PreviewTab';
 import CatalogTab from './CatalogTab';
@@ -93,6 +95,8 @@ export default function QuotationEditor({
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'data' | 'preview' | 'catalog'>('data');
     const [activeStep, setActiveStep] = useState<WizardStep>(1);
+    const [tabSwitchTime, setTabSwitchTime] = useState<number | undefined>(undefined);
+    const [cacheStatus, setCacheStatus] = useState<'cached' | 'stale' | 'fresh'>('fresh');
     const [formData, setFormData] = useState<QuotationFormData>(() => {
         const base: QuotationFormData =
             quotation || {
@@ -565,23 +569,29 @@ export default function QuotationEditor({
                 </div>
             ) : null}
             {/* Compact Header Panel - Tối ưu không gian dọc */}
-            <div className="bg-white rounded-lg shadow mb-2 mx-4 mt-2 overflow-hidden border-t-4 border-zf-accent">
+            <div className="bg-white rounded-lg shadow mb-2 mx-4 mt-2 overflow-hidden border-t-4 border-zf-accent technical-grid-hover">
                 {/* Top Row: ZFENIX + Tabs + Status + Actions - Compact */}
                 <div className="px-3 py-2 flex flex-wrap items-center gap-2 border-b border-gray-200">
                     {/* Left: ZFENIX Brand */}
                     <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
                         <h1 className="text-base font-bold text-zf-primary whitespace-nowrap">ZFENIX</h1>
                         {quotationNo ? (
-                            <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-mono text-[10px] font-bold ring-1 ring-blue-200 whitespace-nowrap">
+                            <span className="technical-code text-zf-graphite whitespace-nowrap">
                                 {quotationNo}
                             </span>
                         ) : null}
                     </div>
 
                     {/* Center: Tab Buttons - Compact */}
-                    <div className="flex gap-1 flex-1 justify-center">
+                    <div className="flex gap-1 flex-1 justify-center min-w-[240px]">
                         <button
-                            onClick={() => setActiveTab('data')}
+                            onClick={() => {
+                                const startTime = performance.now();
+                                setActiveTab('data');
+                                const endTime = performance.now();
+                                setTabSwitchTime(Math.round(endTime - startTime));
+                                setCacheStatus('cached');
+                            }}
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                                 activeTab === 'data'
                                     ? 'bg-zf-accent text-white'
@@ -606,7 +616,13 @@ export default function QuotationEditor({
                             Data
                         </button>
                         <button
-                            onClick={() => setActiveTab('preview')}
+                            onClick={() => {
+                                const startTime = performance.now();
+                                setActiveTab('preview');
+                                const endTime = performance.now();
+                                setTabSwitchTime(Math.round(endTime - startTime));
+                                setCacheStatus('cached');
+                            }}
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                                 activeTab === 'preview'
                                     ? 'bg-zf-primary text-white'
@@ -633,7 +649,13 @@ export default function QuotationEditor({
                             Preview
                         </button>
                         <button
-                            onClick={() => setActiveTab('catalog')}
+                            onClick={() => {
+                                const startTime = performance.now();
+                                setActiveTab('catalog');
+                                const endTime = performance.now();
+                                setTabSwitchTime(Math.round(endTime - startTime));
+                                setCacheStatus('cached');
+                            }}
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
                                 activeTab === 'catalog'
                                     ? 'bg-zf-accent text-white'
@@ -660,56 +682,66 @@ export default function QuotationEditor({
                         </button>
                     </div>
 
-                    {/* Right: Status + Quick Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <label htmlFor="quotation-status-select" className="text-xs font-medium text-gray-600 whitespace-nowrap">
-                            Trạng thái:
-                        </label>
-                        <select
-                            id="quotation-status-select"
-                            aria-label="Trạng thái báo giá"
-                            value={formData.status}
-                            onChange={(e) =>
-                                void handleStatusChange(e.target.value as QuotationFormData['status'])
-                            }
-                            disabled={isUpdatingStatus}
-                            className="px-2 py-1 rounded-md border border-gray-300 bg-white text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]"
-                        >
-                            <option value="DRAFT">Nháp</option>
-                            <option value="SENT">Đã gửi khách</option>
-                            <option value="ACCEPTED">Khách đã chấp nhận</option>
-                            <option value="REJECTED">Khách từ chối</option>
-                        </select>
-                        {isUpdatingStatus && (
-                            <span className="text-xs text-gray-500 whitespace-nowrap">Đang cập nhật...</span>
-                        )}
-                        {statusError && <p className="text-xs text-red-600 whitespace-nowrap">{statusError}</p>}
-                    </div>
-                </div>
-
-                {/* Second Row: Voice Input + Action Buttons - Compact */}
-                <div className="px-3 py-2 flex flex-wrap items-center gap-2 border-b border-gray-200">
-                    {/* Voice Input - chỉ là nút nhỏ, mở modal khi cần */}
-                    <div className="flex-1 min-w-[200px] max-w-md">
+                    {/* Right: Voice trigger + Status + Quick Actions (cùng dòng với tabs) */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                        {/* Voice Input - nút nhỏ mở modal */}
                         <button
                             type="button"
                             onClick={() => setIsVoiceModalOpen(true)}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 bg-gray-50 text-xs text-gray-700 hover:bg-gray-100 hover:border-zf-accent transition-colors"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 bg-gray-50 text-xs text-gray-700 hover:bg-gray-100 hover:border-zf-accent transition-colors"
                         >
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zf-accent text-white">
-                                <Mic className="w-3.5 h-3.5" />
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-zf-accent text-white">
+                                <Mic className="w-3 h-3" />
                             </span>
-                            <span className="truncate">Nhấn để nhập liệu bằng giọng nói</span>
+                            <span className="truncate max-w-[110px]">Nhập bằng giọng nói</span>
                         </button>
-                    </div>
 
-                    {/* Action Buttons - Compact */}
-                    <div className="flex flex-wrap items-center gap-1.5">
+                        <label
+                            htmlFor="quotation-status-select"
+                            className="text-xs font-medium text-zf-graphite/70 whitespace-nowrap"
+                        >
+                            Trạng thái:
+                        </label>
+                        <div className="flex items-center gap-2">
+                            <TechnicalBadge
+                                status={formData.status}
+                                timestamp={lastSaved ? lastSaved.toISOString() : undefined}
+                                info={statusError || undefined}
+                            />
+                            <select
+                                id="quotation-status-select"
+                                aria-label="Trạng thái báo giá"
+                                value={formData.status}
+                                onChange={(e) =>
+                                    void handleStatusChange(e.target.value as QuotationFormData['status'])
+                                }
+                                disabled={isUpdatingStatus}
+                                className="px-2 py-1 rounded-md border border-zf-graphite/15 bg-white text-xs text-zf-graphite focus:outline-none focus:ring-2 focus:ring-zf-accent min-w-[120px] font-technical"
+                            >
+                                <option value="DRAFT">Draft</option>
+                                <option value="SENT">Sent</option>
+                                <option value="ACCEPTED">Accepted</option>
+                                <option value="REJECTED">Rejected</option>
+                            </select>
+                        </div>
+                        {isUpdatingStatus && (
+                            <span className="text-xs text-zf-graphite/70 whitespace-nowrap font-technical">Updating...</span>
+                        )}
+                        {statusError && <p className="text-xs text-zf-error whitespace-nowrap">{statusError}</p>}
+
                         {lastSaved && (
-                            <span className="text-xs text-gray-500 whitespace-nowrap">
+                            <span className="text-xs text-technical-secondary whitespace-nowrap font-technical">
                                 Đã lưu {lastSaved.toLocaleTimeString('vi-VN')}
                             </span>
                         )}
+
+                        {/* Technical Metrics Display */}
+                        <TechnicalMetrics
+                            tabSwitchTime={tabSwitchTime}
+                            cacheStatus={cacheStatus}
+                            dataFreshness={lastSaved ? `Updated ${Math.round((Date.now() - lastSaved.getTime()) / 1000)}s ago` : undefined}
+                            className="hidden sm:flex"
+                        />
 
                         {!isNew && id && (
                             <a
@@ -782,7 +814,7 @@ export default function QuotationEditor({
             </div>
 
             {/* Tab Content - Keep-Alive: All tabs mounted, use display to show/hide */}
-            <div className="flex-1 overflow-hidden relative">
+            <div className="flex-1 overflow-y-auto relative">
                 {/* Data Tab - Keep mounted */}
                 <div 
                     key="data-tab"

@@ -10,7 +10,7 @@ export default function ContentCard({
     noPadding = false
 }: ContentCardProps) {
     return (
-        <div className={`card-premium ${noPadding ? '' : 'p-6'} ${className}`}>
+        <div className={`card-premium ${noPadding ? 'card-premium--no-padding' : ''} ${className}`}>
             {children}
         </div>
     );

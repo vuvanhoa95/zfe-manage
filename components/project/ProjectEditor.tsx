@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Trash2 } from 'lucide-react';
 
 import BillingTab from '@/components/project/BillingTab';
 import CashFlowTab from '@/components/project/CashFlowTab';
@@ -11,7 +11,6 @@ import TaskTab from '@/components/project/TaskTab';
 import ProjectQuotationsPanel from '@/components/project/ProjectQuotationsPanel';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { formatVND } from '@/lib/number-to-words-vn';
-import { LayoutList, DollarSign, Receipt, FileText, Info } from 'lucide-react';
 
 type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
@@ -30,6 +29,17 @@ type Project = {
     status: ProjectStatus;
     notes?: string;
     imageUrl?: string;
+};
+
+type ProjectCustomerOption = {
+    id: string;
+    name: string;
+};
+
+type ErrorWithResponse = {
+    response?: {
+        json: () => Promise<unknown>;
+    };
 };
 
 const PROJECT_STATUS_CONFIG: Record<ProjectStatus, { label: string; badgeClass: string }> = {
@@ -77,28 +87,25 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
         notes: '',
         imageUrl: '',
     });
-    const [customers, setCustomers] = useState<any[]>([]);
+    const [customers, setCustomers] = useState<ProjectCustomerOption[]>([]);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
-    const [projectDataCache, setProjectDataCache] = useState<any>(null); // Cache full project data for tabs
+    const [projectDataCache, setProjectDataCache] = useState<unknown>(null); // Cache full project data for tabs
+    const [deleteConfirmName, setDeleteConfirmName] = useState('');
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
 
-    useEffect(() => {
-        if (!isNew && projectId) {
-            fetchProject();
-        }
-        fetchCustomers();
-    }, [projectId, isNew]);
-
-    useEffect(() => {
-        // Khi chuyển dự án, mặc định về tab thông tin
-        setActiveTab('info');
-    }, [projectId, isNew]);
-
-    const fetchProject = async () => {
+    const fetchProject = useCallback(async () => {
         setIsLoading(true);
         try {
             const res = await fetch(`/api/projects/${projectId}`);
             if (!res.ok) {
+                if (res.status === 404) {
+                    console.warn('Project not found, redirecting to /projects');
+                    alert('Dự án không tồn tại hoặc đã bị xóa. Hệ thống sẽ quay về danh sách dự án.');
+                    router.push('/projects');
+                    return;
+                }
                 throw new Error(`HTTP error! status: ${res.status}`);
             }
             const result = await res.json();
@@ -116,20 +123,102 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                 console.error('Failed to fetch project:', result);
                 alert('Không thể tải thông tin dự án. Vui lòng thử lại.');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to fetch project:', error);
-            alert(`Lỗi: ${error?.message || 'Không thể tải thông tin dự án'}`);
+            const message =
+                error instanceof Error ? error.message : 'Không thể tải thông tin dự án. Vui lòng thử lại.';
+            alert(`Lỗi: ${message}`);
         } finally {
             setIsLoading(false);
+        }
+    }, [projectId, router]);
+
+    useEffect(() => {
+        if (!isNew && projectId) {
+            void fetchProject();
+        }
+        void fetchCustomers();
+    }, [projectId, isNew, fetchProject]);
+
+    useEffect(() => {
+        // Khi chuyển dự án, mặc định về tab thông tin và reset trạng thái xóa
+        setActiveTab('info');
+        setDeleteConfirmName('');
+        setIsDeleteSectionOpen(false);
+    }, [projectId, isNew]);
+
+    const handleDeleteProject = async () => {
+        if (isNew || !projectId) {
+            return;
+        }
+
+        const trimmedProjectName = project.name.trim();
+        const trimmedInput = deleteConfirmName.trim();
+
+        if (!trimmedProjectName) {
+            alert('Không xác định được tên dự án để xác nhận xóa.');
+            return;
+        }
+
+        if (!trimmedInput) {
+            alert('Vui lòng nhập tên dự án để xác nhận xóa.');
+            return;
+        }
+
+        if (trimmedInput !== trimmedProjectName) {
+            alert('Tên dự án nhập vào không chính xác. Vui lòng nhập đúng tên dự án để xóa.');
+            return;
+        }
+
+        // Thêm một lớp xác nhận nữa để tránh xóa nhầm
+        const confirmed = window.confirm(
+            `Bạn có chắc chắn muốn xóa dự án "${trimmedProjectName}"?\nTất cả báo giá và dòng tiền liên quan sẽ bị xóa vĩnh viễn.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const res = await fetch(`/api/projects/${projectId}`, {
+                method: 'DELETE',
+            });
+
+            const result = (await res.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+
+            if (!res.ok || !result?.success) {
+                throw new Error(result?.error || 'Không thể xóa dự án. Vui lòng thử lại.');
+            }
+
+            alert('Đã xóa dự án thành công.');
+            router.push('/projects');
+        } catch (error: unknown) {
+            console.error('Failed to delete project:', error);
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Không thể xóa dự án. Vui lòng kiểm tra lại và thử lại sau.';
+            alert(`Lỗi: ${message}`);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
     const fetchCustomers = async () => {
         try {
             const res = await fetch('/api/customers');
-            const result = await res.json();
-            if (result.success) {
-                setCustomers(result.data || []);
+            const result = (await res.json()) as {
+                success?: boolean;
+                data?: Array<{ id: string; name: string }>;
+            };
+            if (result.success && Array.isArray(result.data)) {
+                setCustomers(
+                    result.data.map((customer) => ({
+                        id: customer.id,
+                        name: customer.name,
+                    })),
+                );
             }
         } catch (err) {
             console.error('Failed to fetch customers:', err);
@@ -187,20 +276,37 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
             } else {
                 throw new Error(result.error || 'Không thể lưu dự án');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to save project:', error);
-            let errorMessage = error?.message || 'Không thể lưu dự án. Vui lòng kiểm tra lại thông tin và thử lại.';
+            let errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : 'Không thể lưu dự án. Vui lòng kiểm tra lại thông tin và thử lại.';
 
             // Try to extract more detailed error from response
-            if (error?.response) {
+            if (error && typeof error === 'object' && 'response' in error) {
                 try {
-                    const errorData = await error.response.json();
-                    if (errorData.error) {
-                        errorMessage = errorData.error;
+                    const { response } = error as ErrorWithResponse;
+                    const errorData: unknown = response ? await response.json() : undefined;
+                    if (!errorData || typeof errorData !== 'object') {
+                        throw new Error('No error data');
                     }
-                    if (errorData.details?.fieldErrors) {
-                        const fieldErrors = Object.entries(errorData.details.fieldErrors)
-                            .map(([field, messages]: [string, any]) => {
+
+                    const parsedErrorData = errorData as {
+                        error?: unknown;
+                        details?: {
+                            fieldErrors?: unknown;
+                        };
+                    };
+
+                    if (typeof parsedErrorData.error === 'string' && parsedErrorData.error.trim()) {
+                        errorMessage = parsedErrorData.error;
+                    }
+                    if (parsedErrorData.details?.fieldErrors && typeof parsedErrorData.details.fieldErrors === 'object') {
+                        const fieldErrors = Object.entries(
+                            parsedErrorData.details.fieldErrors as Record<string, string[] | undefined>,
+                        )
+                            .map(([field, messages]) => {
                                 if (messages && messages.length > 0) {
                                     return `${field}: ${messages.join(', ')}`;
                                 }
@@ -212,7 +318,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                             errorMessage = `${errorMessage}\n\nChi tiết:\n${fieldErrors}`;
                         }
                     }
-                } catch (e) {
+                } catch {
                     // Ignore JSON parse errors
                 }
             }
@@ -274,10 +380,10 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         type="button"
                         aria-label="Tab Thông tin dự án"
                         onClick={() => setActiveTab('info')}
-                        className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'info'
-                            ? 'text-zf-accent after:scale-x-100'
-                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'info'
+                            ? 'border-zf-accent text-zf-accent'
+                            : 'border-transparent text-gray-600 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                     >
                         Thông tin dự án
                     </button>
@@ -285,10 +391,10 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         type="button"
                         aria-label="Tab Công việc"
                         onClick={() => setActiveTab('tasks')}
-                        className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'tasks'
-                            ? 'text-zf-accent after:scale-x-100'
-                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'tasks'
+                            ? 'border-zf-accent text-zf-accent'
+                            : 'border-transparent text-gray-600 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                     >
                         Công việc
                     </button>
@@ -296,10 +402,10 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         type="button"
                         aria-label="Tab Quotations"
                         onClick={() => setActiveTab('quotations')}
-                        className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'quotations'
-                            ? 'text-zf-accent after:scale-x-100'
-                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'quotations'
+                            ? 'border-zf-accent text-zf-accent'
+                            : 'border-transparent text-gray-600 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                     >
                         Quotations
                     </button>
@@ -307,10 +413,10 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         type="button"
                         aria-label="Tab Dòng tiền"
                         onClick={() => setActiveTab('cashflow')}
-                        className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'cashflow'
-                            ? 'text-zf-accent after:scale-x-100'
-                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'cashflow'
+                            ? 'border-zf-accent text-zf-accent'
+                            : 'border-transparent text-gray-600 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                     >
                         Dòng tiền
                     </button>
@@ -318,10 +424,10 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                         type="button"
                         aria-label="Tab Hóa đơn"
                         onClick={() => setActiveTab('billing')}
-                        className={`relative px-4 py-3 text-sm font-semibold border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'billing'
-                            ? 'text-zf-accent after:scale-x-100'
-                            : 'text-gray-600 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'billing'
+                            ? 'border-zf-accent text-zf-accent'
+                            : 'border-transparent text-gray-600 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                     >
                         Hóa đơn
                     </button>
@@ -580,6 +686,76 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                             placeholder="Ghi chú về dự án"
                                         />
                                     </div>
+
+                                    {!isNew && (
+                                        <div className="mt-6">
+                                            {!isDeleteSectionOpen ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsDeleteSectionOpen(true)}
+                                                    className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 hover:border-red-400 transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Xóa dự án
+                                                </button>
+                                            ) : (
+                                                <div className="border border-red-200 bg-red-50 rounded-xl p-4 space-y-3">
+                                                    <h3 className="text-sm font-semibold text-red-700 flex items-center gap-2">
+                                                        <Trash2 className="w-4 h-4" />
+                                                        Xóa dự án này
+                                                    </h3>
+                                                    <p className="text-xs text-red-700">
+                                                        Hành động này sẽ xóa <strong>toàn bộ dự án</strong> cùng với tất cả báo giá
+                                                        và dòng tiền liên quan. Không thể hoàn tác sau khi xóa.
+                                                    </p>
+                                                    <div className="space-y-2">
+                                                        <label className="block text-xs font-medium text-red-700">
+                                                            Nhập chính xác tên dự án để xác nhận xóa:
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={deleteConfirmName}
+                                                            onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                                            placeholder={project.name || 'Tên dự án'}
+                                                            className="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <p className="text-xs text-red-600">
+                                                            Để xóa, anh cần nhập đúng:{' '}
+                                                            <span className="font-semibold">{project.name}</span>
+                                                        </p>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setIsDeleteSectionOpen(false);
+                                                                    setDeleteConfirmName('');
+                                                                }}
+                                                                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+                                                                disabled={isDeleting}
+                                                            >
+                                                                Hủy
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void handleDeleteProject()}
+                                                                disabled={
+                                                                    isDeleting ||
+                                                                    !deleteConfirmName.trim() ||
+                                                                    deleteConfirmName.trim() !== project.name.trim()
+                                                                }
+                                                                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-red-500 text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                                {isDeleting ? 'Đang xóa...' : 'Xóa dự án'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )
                         }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { type QuotationListItem, type QuotationStatus } from '@/types/quotation';
+import TechnicalBadge from '@/components/technical/TechnicalBadge';
 
 type FetchState<T> =
     | { status: 'idle' | 'loading'; data: null; error: null }
@@ -16,12 +17,7 @@ const STATUS_LABEL: Record<QuotationStatus, string> = {
     REJECTED: 'Từ chối',
 };
 
-const STATUS_BADGE_CLASS: Record<QuotationStatus, string> = {
-    DRAFT: 'bg-gray-100 text-gray-700 border border-gray-200',
-    SENT: 'bg-blue-50 text-blue-700 border border-blue-200',
-    ACCEPTED: 'bg-green-50 text-green-700 border border-green-200',
-    REJECTED: 'bg-red-50 text-red-700 border border-red-200',
-};
+// Status badge classes removed - using TechnicalBadge component instead
 
 export default function QuotationList() {
     const router = useRouter();
@@ -170,23 +166,23 @@ export default function QuotationList() {
             )}
 
             <div className="px-6 pb-6 flex-1 overflow-auto">
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <table className="min-w-full text-left text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
+                <div className="bg-white rounded-xl shadow-sm border-technical overflow-hidden technical-grid-hover">
+                    <table className="min-w-full text-left text-sm border-technical">
+                        <thead className="bg-zf-primary border-b border-zf-graphite/15">
                             <tr>
-                                <th className="px-4 py-3 font-semibold text-slate-600">Số BG</th>
-                                <th className="px-4 py-3 font-semibold text-slate-600">Dự án</th>
-                                <th className="px-4 py-3 font-semibold text-slate-600">
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider">Số BG</th>
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider">Dự án</th>
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider">
                                     Khách hàng
                                 </th>
-                                <th className="px-4 py-3 font-semibold text-slate-600">Trạng thái</th>
-                                <th className="px-4 py-3 font-semibold text-slate-600 text-right">
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider">Trạng thái</th>
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider text-right">
                                     Giá trị (sau VAT)
                                 </th>
-                                <th className="px-4 py-3 font-semibold text-slate-600">
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider">
                                     Cập nhật
                                 </th>
-                                <th className="px-4 py-3 font-semibold text-slate-600 text-right">
+                                <th className="px-4 py-3 text-xs font-medium text-white uppercase tracking-wider text-right">
                                     Thao tác
                                 </th>
                             </tr>
@@ -212,29 +208,28 @@ export default function QuotationList() {
                                 </tr>
                             ) : (
                                 items.map((q) => (
-                                    <tr key={q.id} className="border-t border-slate-100">
+                                    <tr key={q.id} className="border-t border-zf-graphite/10 hover:bg-zf-bg-secondary">
                                         <td className="px-4 py-3 align-middle">
-                                            <div className="font-medium text-slate-900">
-                                                {q.quotationNo}
+                                            <div className="font-technical text-technical-primary">
+                                                <span className="technical-code">{q.quotationNo}</span>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 align-middle">
-                                            <div className="text-slate-800">{q.projectName}</div>
+                                            <div className="text-zf-graphite">{q.projectName}</div>
                                         </td>
                                         <td className="px-4 py-3 align-middle">
-                                            <div className="text-slate-800">
+                                            <div className="text-zf-graphite">
                                                 {q.customer.name || '—'}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 align-middle">
-                                            <span
-                                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_BADGE_CLASS[q.status]}`}
-                                            >
-                                                {STATUS_LABEL[q.status]}
-                                            </span>
+                                            <TechnicalBadge
+                                                status={q.status}
+                                                timestamp={q.updatedAt.toISOString()}
+                                            />
                                         </td>
                                         <td className="px-4 py-3 align-middle text-right">
-                                            <div className="text-slate-900 font-semibold">
+                                            <div className="text-zf-graphite font-semibold technical-number">
                                                 {Math.round(q.totalAfterVat).toLocaleString(
                                                     'vi-VN',
                                                 )}{' '}
@@ -242,7 +237,7 @@ export default function QuotationList() {
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 align-middle">
-                                            <div className="text-xs text-slate-500">
+                                            <div className="text-xs text-technical-secondary font-technical">
                                                 {q.updatedAt.toLocaleDateString('vi-VN')}
                                             </div>
                                         </td>

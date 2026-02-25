@@ -56,6 +56,32 @@ $commands = @{
     "prisma-migrate" = {
         npx prisma migrate deploy
     }
+    "reset-local" = {
+        # Usage:
+        #   .\run-command.ps1 reset-local
+        #   .\run-command.ps1 reset-local --full
+        #   .\run-command.ps1 reset-local --port 3020
+        $port = 3030
+        $full = $false
+
+        if ($Args -contains "--full") {
+            $full = $true
+        }
+
+        $portIndex = [Array]::IndexOf($Args, "--port")
+        if ($portIndex -ge 0 -and $Args.Length -gt ($portIndex + 1)) {
+            $parsedPort = 0
+            if ([int]::TryParse($Args[$portIndex + 1], [ref]$parsedPort)) {
+                $port = $parsedPort
+            }
+        }
+
+        if ($full) {
+            & .\reset-local.ps1 -Port $port -Full
+        } else {
+            & .\reset-local.ps1 -Port $port
+        }
+    }
     "vercel-status" = {
         vercel project ls
     }

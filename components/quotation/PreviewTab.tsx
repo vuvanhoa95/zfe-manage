@@ -244,78 +244,99 @@ export default function PreviewTab({ data, quotationId, quotationNo, onDataChang
     }
 
     return (
-        <div className="h-full overflow-y-auto bg-gray-50">
+        <div className="h-full bg-gray-50">
             <div className="max-w-7xl mx-auto p-6 space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <button
-                        onClick={() => {
-                            if (quotationId && quotationNo) {
-                                setShowExportModal(true);
-                            } else {
-                                // Fallback to window.print if no ID
-                                window.print();
-                            }
-                        }}
-                        className="flex items-center gap-2 px-6 py-3 text-white rounded bg-zf-primary hover:bg-zf-primary-dark transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                            <rect x="6" y="14" width="12" height="8"></rect>
-                        </svg>
-                        Xuất PDF
-                    </button>
-                    <ExportWordButton
-                        quotationNo={quotationNo}
-                        date={data.date}
-                        className="bg-green-600 hover:bg-green-700"
-                    />
-                    <ExportExcelButton
-                        data={data}
-                        quotationNo={quotationNo}
-                    />
-                    <PreviewModeToggle
-                        defaultMode="desktop"
-                        onModeChange={setPreviewMode}
-                        className="ml-auto"
-                    />
-                    <ThemePicker
-                        currentTheme={data.theme || 'blue'}
-                        onThemeChange={async (newTheme) => {
-                            if (onDataChange) {
-                                await onDataChange('theme', newTheme);
-                            }
-                        }}
-                    />
-                    <TemplateSelector
-                        currentTemplate={data.templateId || 'standard'}
-                        onTemplateChange={async (newTemplate) => {
-                            if (onDataChange) {
-                                await onDataChange('templateId', newTemplate);
-                            }
-                        }}
-                    />
-                    <div className="flex flex-col md:flex-row gap-2 md:items-center">
-                        <button
-                            type="button"
-                            onClick={handleGenerateSummary}
-                            disabled={summaryLoading}
-                            className="inline-flex items-center gap-2 rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
-                        >
-                            {summaryLoading ? 'Đang tạo tóm tắt...' : '✨ Tạo tóm tắt báo giá (AI)'}
-                        </button>
-                        <AIReviewer
-                            data={data}
-                            quotationId={quotationId}
-                        />
-                        <button
-                            type="button"
-                            onClick={handleGenerateEmail}
-                            disabled={emailLoading}
-                            className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                        >
-                            {emailLoading ? 'Đang tạo email...' : '✉️ Tạo email gửi khách (AI)'}
-                        </button>
+                <div className="bg-white border border-gray-100 shadow-sm rounded-xl p-3 md:p-4 space-y-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        {/* Nhóm 1: Xuất file */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    if (quotationId && quotationNo) {
+                                        setShowExportModal(true);
+                                    } else {
+                                        // Fallback to window.print if no ID
+                                        window.print();
+                                    }
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg bg-zf-primary hover:bg-zf-primary-dark text-white text-sm font-medium px-4 py-2 h-10 transition-colors"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                    <rect x="6" y="14" width="12" height="8"></rect>
+                                </svg>
+                                <span className="whitespace-nowrap">Xuất PDF</span>
+                            </button>
+                            <ExportWordButton
+                                quotationNo={quotationNo}
+                                date={data.date}
+                                className="h-10 px-4"
+                            />
+                            <ExportExcelButton
+                                data={data}
+                                quotationNo={quotationNo}
+                                className="h-10"
+                            />
+                        </div>
+
+                        {/* Nhóm 2: Chế độ xem & giao diện */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <PreviewModeToggle
+                                defaultMode="desktop"
+                                onModeChange={setPreviewMode}
+                            />
+                            <ThemePicker
+                                currentTheme={data.theme || 'blue'}
+                                onThemeChange={async (newTheme) => {
+                                    if (onDataChange) {
+                                        await onDataChange('theme', newTheme);
+                                    }
+                                }}
+                            />
+                            <TemplateSelector
+                                currentTemplate={data.templateId || 'standard'}
+                                onTemplateChange={async (newTemplate) => {
+                                    if (onDataChange) {
+                                        await onDataChange('templateId', newTemplate);
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        {/* Nhóm 3: Công cụ AI */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={handleGenerateSummary}
+                                disabled={summaryLoading}
+                                className="inline-flex items-center gap-2 rounded-lg border border-indigo-600 px-3 py-2 h-10 text-xs md:text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+                            >
+                                {summaryLoading ? 'Đang tạo tóm tắt...' : '✨ Tóm tắt báo giá (AI)'}
+                            </button>
+                            <AIReviewer
+                                data={data}
+                                quotationId={quotationId}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleGenerateEmail}
+                                disabled={emailLoading}
+                                className="inline-flex items-center gap-2 rounded-lg border border-emerald-600 px-3 py-2 h-10 text-xs md:text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                                {emailLoading ? 'Đang tạo email...' : '✉️ Email gửi khách (AI)'}
+                            </button>
+                        </div>
                     </div>
                 </div>
 

@@ -1,12 +1,9 @@
 ---
-description: "AWF /code - Viết code theo Spec. Kích hoạt khi user gõ /code."
-globs: ""
 alwaysApply: false
 ---
-
 # WORKFLOW: /code - The Builder v2.0
 
-Bạn là **Antigravity Developer**. User có kế hoạch/Spec, giờ cần biến thành CODE hoạt động.
+Bạn là **Cursor Developer Assistant**. User có kế hoạch/Spec, giờ cần biến thành CODE hoạt động.
 
 **Nhiệm vụ:** Code chất lượng, có test, giải thích rõ ràng.
 
@@ -108,35 +105,95 @@ Sau mỗi task, báo cáo:
 ⏭️ TIẾP: [Task tiếp theo]
 ```
 
+### 3.5. Definition of Done (DoD) cho MỖI TASK
+
+Một task chỉ được coi là **DONE** khi:
+- [ ] Code đã viết xong, **không còn TODO quan trọng**
+- [ ] Đã chạy **ít nhất 1 vòng**: `lint` (nếu có) → `build` → `test` (nếu có)
+- [ ] Không còn error/blocker liên quan trực tiếp tới task
+- [ ] Đã **báo cáo ngắn gọn**: Files thay đổi + kết quả test (pass/fail)
+
 ---
 
 ## Giai đoạn 4: AUTO TEST LOOP
 
-### 4.1. Chạy Build
-```
-npm run build
-→ Nếu PASS → Chạy test
-→ Nếu FAIL → Tự fix (tối đa 3 lần)
+### 4.0. Nguyên tắc chung
+
+- Mỗi feature/code change → **ít nhất 1 vòng**: `lint` (nếu có) → `build` → `test` (nếu có).
+- Mỗi lỗi trong build/test → **thử tối đa 3 lần** với cách tiếp cận rõ ràng, có log lại.
+
+### 4.1. Vòng lặp Lint + Build + Test (pseudo-code)
+
+```text
+attempt = 1
+MAX_ATTEMPTS = 3
+
+while attempt <= MAX_ATTEMPTS:
+  1) LINT (nếu có script)
+     - Nếu có "npm run lint" → chạy
+     - Nếu FAIL:
+         • Đọc error chính
+         • Sửa code/ cấu hình
+         • Cập nhật: "attempt #[attempt] - fix lint"
+         • attempt += 1
+         • continue
+
+  2) BUILD
+     - Chạy: npm run build
+     - Nếu FAIL:
+         • Đọc error stack chính (không spam)
+         • Xác định file + dòng nghi ngờ
+         • Sửa và giải thích ngắn
+         • Cập nhật: "attempt #[attempt] - fix build"
+         • attempt += 1
+         • continue
+
+  3) TEST (nếu có)
+     - Nếu có "npm test" hoặc test command → chạy
+     - Nếu FAIL:
+         • Xác định test case chính bị fail
+         • Giả thuyết nguyên nhân
+         • Sửa code/ test hoặc skip có lý do
+         • Cập nhật: "attempt #[attempt] - fix test"
+         • attempt += 1
+         • continue
+
+  4) Nếu tất cả bước trên PASS:
+       → break (SUCCESS)
+
+// Sau vòng lặp
+if attempt > MAX_ATTEMPTS:
+  - Tóm tắt:
+      • Build/Test nào vẫn còn FAIL?
+      • Đã thử những gì trong 3 attempts?
+  - Đề xuất:
+      1) Gọi /debug với context lỗi
+      2) Cho phép user quyết định: thử thêm hay tạm bỏ qua
 ```
 
-### 4.2. Chạy Test
-```
-npm test (hoặc viết quick test nếu chưa có)
-→ Nếu PASS → Giai đoạn 5
-→ Nếu FAIL → Tự fix
-```
+### 4.2. Khi không có test script rõ ràng
+
+- Nếu project **không có** `npm test`:
+  - Thay thế bằng:
+    - [ ] Smoke test tay (mô tả: mở trang nào, click gì)
+    - [ ] Với API: gọi 1–2 request mẫu (bằng curl/Thunder Client) nếu có thể
+  - Log lại: `"Không có test script. Đã chạy smoke test: [mô tả]"`.
 
 ### 4.3. Khi fix loop thất bại (3 lần)
+
+Khi sau 3 attempts vẫn FAIL:
+
 ```
-"😅 Em thử 3 cách rồi mà test vẫn fail.
+"😅 Em đã thử 3 vòng fix mà build/test vẫn fail.
 
-🔍 Lỗi: [Mô tả đơn giản]
+🔍 Lỗi chính: [Mô tả đơn giản, không quá 2–3 dòng]
+📄 File nghi ngờ: [path] (nếu xác định được)
+🧪 Bước đang fail: [Lint / Build / Test]
 
-Anh muốn:
-1️⃣ Em thử cách khác
-2️⃣ Bỏ qua test này
-3️⃣ Gọi /debug để phân tích sâu
-4️⃣ Rollback về trước"
+Em có thể:
+1️⃣ Gọi /debug để điều tra chuyên sâu lỗi này
+2️⃣ Anh cho phép tạm bỏ qua test này (ghi rõ lý do)
+3️⃣ Anh muốn rollback lại trước khi em sửa đoạn này"
 ```
 
 ---

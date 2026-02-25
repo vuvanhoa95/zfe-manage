@@ -2,10 +2,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
-/// Sử dụng SQLite cho local development
-/// Postgres cho môi trường deploy (Vercel, production)
 datasource db {
-  provider = "postgresql"
+  /// Sử dụng SQLite cho local development
+  /// Postgres cho môi trường deploy (Vercel, production)
+  /// 👉 LOCAL: dùng SQLite với DATABASE_URL="file:./prisma/dev.db"
+  /// 👉 PROD:  dùng schema-*.prisma riêng + Postgres trên Neon/Vercel
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

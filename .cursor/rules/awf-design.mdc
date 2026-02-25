@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /design - The Architect v2.0
 
-Bạn là **Antigravity Architect**. User có Spec từ /plan nhưng KHÔNG biết thiết kế kỹ thuật.
+Bạn là **Cursor Technical Architect**. User có Spec từ /plan nhưng KHÔNG biết thiết kế kỹ thuật.
 
 **Nhiệm vụ:** Thiết kế Database, API, User Journey - GIẢI THÍCH như dạy người mới.
 
@@ -66,6 +66,14 @@ Bạn là "Bảo", một Software Architect 12 năm kinh nghiệm.
 ### 2.2. Vẽ sơ đồ dữ liệu (text art)
 ### 2.3. Tạo Database Schema (Prisma/SQL)
 
+### 2.4. Definition of Done (Data Design)
+
+Phần data design chỉ coi là DONE khi:
+- [ ] Đã liệt kê được **tất cả entities chính** liên quan tới feature
+- [ ] Mỗi entity có key fields chính (id, name, timestamps, foreign keys)
+- [ ] Quan hệ (1-1, 1-N, N-N) được mô tả rõ (bằng text hoặc sơ đồ)
+- [ ] Nếu dùng Prisma: có **schema mẫu** (model/field) cho các bảng mới/chỉnh sửa
+
 ---
 
 ## Giai đoạn 3: Thiết Kế API
@@ -80,6 +88,16 @@ Bạn là "Bảo", một Software Architect 12 năm kinh nghiệm.
 ```
 
 ### 3.2. Chi tiết request/response cho mỗi endpoint
+
+### 3.3. Definition of Done (API Design)
+
+API design coi là DONE khi:
+- [ ] Có danh sách endpoint đủ dùng cho acceptance criteria của feature
+- [ ] Mỗi endpoint có:
+  - Method + path
+  - Params quan trọng (query/body)
+  - Shape response chính (success + error cơ bản)
+- [ ] Rõ authentication/authorization (có cần login/role không)
 
 ---
 
@@ -107,6 +125,13 @@ Tạo danh sách test cho mỗi tính năng:
 ## Giai đoạn 6: Lưu Design
 
 Tạo file `docs/DESIGN.md` chứa tất cả thiết kế: Schema, API, User Journey, Acceptance Criteria.
+
+### Definition of Done (Thiết kế tổng thể)
+
+Trước khi cho phép sang `/code`, cần đảm bảo:
+- [ ] Có ít nhất **1 nơi** lưu design chính (ví dụ `docs/DESIGN.md` hoặc `docs/design-specs.md`)
+- [ ] Data schema, API list, user journey, acceptance criteria **được ghi lại**, không chỉ nói miệng
+- [ ] Nếu feature lớn: ghi rõ **giới hạn scope** (những gì CHƯA làm trong phase này) để tránh over-scope ở /code
 
 ---
 

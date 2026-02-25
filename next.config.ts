@@ -6,7 +6,11 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   // Turbopack config (Next.js 16+)
-  turbopack: {},
+  // Ép root về thư mục ZfeManage để tránh Next tự suy ra root ở cấp trên
+  // (tránh lỗi không tìm thấy module như @prisma/client khi chạy dev từ workspace cha)
+  turbopack: {
+    root: __dirname,
+  },
   // Webpack config for compatibility
   webpack: (config, { isServer }) => {
     // Exclude Node.js modules from client bundle

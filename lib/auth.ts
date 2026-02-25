@@ -21,7 +21,10 @@ export const authOptions: NextAuthOptions = {
                     });
                 }
                 
-                if (!credentials?.email || !credentials?.password) {
+                const email = credentials?.email?.trim();
+                const password = credentials?.password?.trim();
+
+                if (!email || !password) {
                     console.error('Missing credentials:', { 
                         email: !!credentials?.email, 
                         password: !!credentials?.password 
@@ -36,14 +39,14 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     const user = await prisma.user.findUnique({
-                        where: { email: credentials.email },
+                        where: { email },
                     });
 
                     if (!user || !user.password) {
                         throw new Error('Không tìm thấy người dùng với email này');
                     }
 
-                    const isValid = await bcrypt.compare(credentials.password, user.password);
+                    const isValid = await bcrypt.compare(password, user.password);
 
                     if (!isValid) {
                         throw new Error('Mật khẩu không chính xác');
@@ -152,6 +155,7 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: 'jwt',
     },
+    // Dùng đúng NEXTAUTH_SECRET, nếu thiếu sẽ báo lỗi cấu hình để anh sửa cho chuẩn
     secret: process.env.NEXTAUTH_SECRET,
     debug: process.env.NODE_ENV === 'development',
 };

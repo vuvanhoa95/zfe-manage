@@ -1,62 +1,34 @@
 # Preview Localhost
 
-Mở trình duyệt tích hợp của Cursor để xem ứng dụng đang chạy trên localhost.
+Mở nhanh ứng dụng Next.js của dự án này trên `http://localhost:3009` để anh xem trực tiếp trong Cursor.
 
-## Mô tả
-Mở browser panel tích hợp trong Cursor IDE tại địa chỉ localhost để preview ứng dụng Next.js ngay trong editor.
+> **AI behavior mặc định (đơn giản)**  
+> - Dùng Terminal tích hợp của Cursor để:
+>   - `cd` vào thư mục dự án web.  
+>   - Chạy `npm install` nếu cần.  
+>   - Chạy `npm run dev` để khởi động dev server (nếu lỗi, tóm tắt ngắn gọn cho anh).  
+> - Không yêu cầu anh gõ thêm lệnh trong terminal.  
+> - Sau khi server chạy, anh chỉ cần mở `http://localhost:3009` để xem app.
 
-## Command - Tự động kiểm tra và mở Browser
+## Cách dùng ngắn gọn
 
-### Cách 1: Sử dụng Script kiểm tra (Khuyến nghị)
-```powershell
-# Chạy script kiểm tra server và hướng dẫn mở browser
-.\.cursor\commands\check-and-open-browser.ps1
-```
+1. **Gọi command này**  
+   - Đợi em chạy xong các bước cần thiết trong Terminal.  
+   - Em sẽ báo một trong hai:
+     - **OK**: "Dev server đang chạy tại `http://localhost:3009`".  
+     - **Lỗi**: Tóm tắt lỗi 1–2 dòng (ví dụ: lỗi Prisma, thiếu env, v.v.).
 
-### Cách 2: Sử dụng Command Palette trong Cursor
-```bash
-# Bước 1: Mở Command Palette
-Ctrl+Shift+P (Windows/Linux) hoặc Cmd+Shift+P (Mac)
+2. **Mở app trong Cursor**  
+   - Nhấn `Ctrl+Shift+P` → gõ `Simple Browser` → chọn `Simple Browser: Show`.  
+   - Nhập URL: `http://localhost:3009` → Enter.  
+   - App sẽ hiển thị ngay trong panel browser của Cursor.
 
-# Bước 2: Tìm và chọn
-"Simple Browser: Show" hoặc "View: Show Simple Browser"
+3. **(Tuỳ chọn) Script hỗ trợ**  
+   - Nếu có file `.\.cursor\commands\check-and-open-browser.ps1`, em có thể dùng script này để kiểm tra nhanh localhost và in thêm hướng dẫn, nhưng anh không bắt buộc phải chạy tay.
 
-# Bước 3: Nhập URL
-http://localhost:3000
-```
+## Nếu vẫn không xem được
 
-### Cách 3: Sử dụng Keyboard Shortcut
-```bash
-# Nhấn Ctrl+K rồi nhập:
->Simple Browser: Show
-
-# Sau đó nhập URL: http://localhost:3000
-```
-
-## Cách sử dụng nhanh
-
-1. **Đảm bảo dev server đang chạy**:
-   ```bash
-   npm run dev
-   ```
-
-2. **Mở browser trong Cursor**:
-   - Nhấn `Ctrl+Shift+P` (hoặc `Cmd+Shift+P` trên Mac)
-   - Gõ: `Simple Browser`
-   - Chọn: `Simple Browser: Show`
-   - Nhập: `http://localhost:3000`
-   - Nhấn Enter
-
-3. **Browser sẽ hiển thị ngay trong Cursor IDE**
-
-## Access
-- Frontend: http://localhost:3000
-- API Routes: http://localhost:3000/api/*
-
-## Lưu ý
-- ✅ Browser panel hiển thị ngay trong Cursor IDE, không cần mở trình duyệt bên ngoài
-- ✅ Port mặc định là 3000, nếu khác thì thay đổi port trong URL
-- ✅ Có thể sử dụng với các port khác (VD: 3001, 5555 cho Prisma Studio)
-- ✅ Browser panel có thể được đóng/mở bằng Command Palette
-- ⚠️ Đảm bảo development server đã được khởi động (`npm run dev`) trước khi mở browser
-- 💡 Tip: Có thể bookmark URL trong browser panel để truy cập nhanh sau này
+- Anh chỉ cần gửi cho em:
+  - Ảnh chụp terminal dev server.  
+  - Hoặc đoạn log lỗi chính.  
+- Em sẽ phân tích và sửa tiếp (hoặc gợi ý bước hệ thống mà em không tự bấm được, như tắt antivirus/restart máy).

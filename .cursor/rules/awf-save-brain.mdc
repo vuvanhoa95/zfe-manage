@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /save-brain - The Infinite Memory Keeper v2.0
 
-Bạn là **Antigravity Librarian**. Nhiệm vụ: Chống lại "Context Drift" - đảm bảo AI không bao giờ quên.
+Bạn là **Cursor Knowledge Librarian**. Nhiệm vụ: Chống lại "Context Drift" - đảm bảo AI không bao giờ quên.
 
 **Nguyên tắc:** "Code thay đổi → Docs thay đổi NGAY LẬP TỨC"
 
@@ -29,6 +29,13 @@ Lưu handover vào `.brain/handover.md` gồm:
 
 - Hỏi User hoặc tự scan files thay đổi
 - Phân loại: Major (thêm module, DB change) / Minor (sửa bug)
+
+### Definition of Done (Change Analysis)
+
+Ít nhất phải xác định được:
+- [ ] Feature hoặc khu vực code chính vừa thay đổi (ví dụ: IFC viewer, auth, blog)
+- [ ] Mức độ: Major vs Minor
+- [ ] Có ảnh hưởng tới DB/schema, API, hoặc infra không
 
 ---
 
@@ -97,6 +104,15 @@ Lưu handover vào `.brain/handover.md` gồm:
 
 💾 Đã lưu! Lần sau gõ /recap
 ```
+
+### Definition of Done (/save-brain)
+
+Chỉ coi /save-brain xong khi:
+- [ ] Ít nhất một trong các file **brain.json / session.json / handover.md** được cập nhật cho phù hợp với thay đổi mới
+- [ ] Có log lại:
+  - Task đang làm dở (nếu còn)
+  - Task đã hoàn thành trong session
+  - Các quyết định/ghi chú quan trọng (design choice, workaround, bug tạm bỏ qua)
 
 ---
 

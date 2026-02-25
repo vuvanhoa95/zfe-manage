@@ -12,6 +12,12 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
+    const fillDemoAdmin = () => {
+        setEmail('hoavv@zfenix.com');
+        setPassword('Zfenix2026');
+        setError('');
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -639,6 +645,14 @@ export default function LoginPage() {
                                 Quên mật khẩu?
                             </button>
                         </div>
+
+                        <button
+                            type="button"
+                            onClick={fillDemoAdmin}
+                            className="w-full py-2 border border-zf-graphite/15 rounded-xl text-sm font-semibold text-zf-graphite hover:bg-zf-bg-secondary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent"
+                        >
+                            Dùng tài khoản demo (ADMIN)
+                        </button>
 
                         <button
                             type="submit"

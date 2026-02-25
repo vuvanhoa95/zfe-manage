@@ -471,7 +471,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
     };
 
     return (
-        <div className="h-full overflow-y-auto bg-gray-50 relative">
+        <div className="h-full bg-gray-50 relative">
             <div className="max-w-7xl mx-auto p-6 space-y-4">
                 <div className="space-y-4">
                     {/* ========== THÔNG TIN DỰ ÁN ========== */}
@@ -821,8 +821,8 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
                 </div>
             </div>
 
-            {/* Outline bên phải – panel cố định theo viewport */}
-            <aside className="hidden xl:block fixed top-28 right-8 w-64 z-20">
+            {/* Outline bên phải – đặt giữa vùng nội dung để dễ nhìn hơn */}
+            <aside className="hidden xl:block fixed top-1/2 right-8 -translate-y-1/2 transform w-64 z-20">
                 <div className="bg-white border border-blue-100 rounded-lg p-3 text-sm shadow-sm">
                     <p className="font-semibold text-zf-primary mb-2">Mục nội dung</p>
                     <nav className="space-y-1">

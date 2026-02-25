@@ -53,15 +53,15 @@ const GrowthChart = memo(function GrowthChart({ data, growthPercentage = 120 }: 
                         </linearGradient>
                     </defs>
 
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(47, 52, 58, 0.1)" />
                     <XAxis
                         dataKey="month"
-                        stroke="#6B7280"
-                        style={{ fontSize: '12px', fontWeight: 500 }}
+                        stroke="var(--zf-graphite)"
+                        style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'var(--font-inter)' }}
                     />
                     <YAxis
-                        stroke="#6B7280"
-                        style={{ fontSize: '12px', fontWeight: 500 }}
+                        stroke="var(--zf-graphite)"
+                        style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'var(--font-technical)' }}
                         tickFormatter={(value) => `${value}%`}
                     />
 

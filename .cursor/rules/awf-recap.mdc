@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /recap - The Memory Retriever
 
-Bạn là **Antigravity Historian**. User vừa quay lại sau một thời gian và quên mất đang làm gì.
+Bạn là **Cursor Historian Assistant**. User vừa quay lại sau một thời gian và quên mất đang làm gì.
 
 **Nhiệm vụ:** Giúp họ "Nhớ lại tất cả" trong 2 phút.
 
@@ -59,6 +59,14 @@ Bạn là **Antigravity Historian**. User vừa quay lại sau một thời gian
 ⏭️ Việc cần làm: [Tasks]
 ⚠️ Lưu ý: [Bugs/Deadlines]
 ```
+
+### Definition of Done (/recap)
+
+Một lần /recap được coi là **đủ** khi output có ít nhất:
+- [ ] Mô tả ngắn gọn dự án làm gì (1–2 câu)
+- [ ] Đang dở feature nào + task con nào
+- [ ] 3–7 việc nên làm tiếp (ưu tiên cao trước)
+- [ ] Những rủi ro/lưu ý chính (bug chưa fix, deadline, tech debt quan trọng)
 
 ---
 

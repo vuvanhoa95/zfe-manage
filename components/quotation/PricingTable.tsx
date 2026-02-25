@@ -63,6 +63,10 @@ export default function PricingTable({
     const [dragArmedIndex, setDragArmedIndex] = useState<number | null>(null);
     const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<Set<string>>(new Set());
 
+    // Bảo vệ select không nhận value = null/undefined
+    const safeCommissionType: 'direct' | 'percentage' =
+        commissionType === 'percentage' ? 'percentage' : 'direct';
+
     const parseCurrencyInput = (value: string): number | undefined => {
         const numeric = value.replace(/[^\d]/g, '');
         if (!numeric) return undefined;
@@ -78,9 +82,9 @@ export default function PricingTable({
         fetchCatalog();
     }, []);
 
-    // Auto-size all textareas when component mounts or lines change
+    // Auto-size all pricing table textareas when component mounts or lines change
     useEffect(() => {
-        const textareas = document.querySelectorAll('textarea');
+        const textareas = document.querySelectorAll<HTMLTextAreaElement>('textarea[data-auto-resize="true"]');
         textareas.forEach((textarea) => {
             textarea.style.height = 'auto';
             textarea.style.height = `${textarea.scrollHeight}px`;
@@ -939,10 +943,11 @@ export default function PricingTable({
                                             onClick={() => setSelectedLineIndex(index)}
                                         >
                                             <textarea
+                                                data-auto-resize="true"
                                                 value={line.title}
                                                 onChange={handleTitleChange(index)}
                                                 rows={1}
-                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-slate-900 font-medium resize-none whitespace-pre-wrap min-h-[40px]"
+                                                className="w-full px-2 py-1.5 border border-transparent border-b-slate-100 group-hover:border-b-blue-100 focus:border-b-blue-500 rounded bg-transparent transition-all outline-none text-slate-900 font-medium resize-none whitespace-pre-wrap min-h-[40px] overflow-hidden"
                                                 placeholder="Nội dung công việc..."
                                             />
                                         </td>
@@ -1234,7 +1239,7 @@ export default function PricingTable({
                             <div className="flex justify-between items-center">
                                 <label className="text-xs font-bold text-yellow-800 uppercase">Hoa hồng</label>
                                 <select
-                                    value={commissionType}
+                                    value={safeCommissionType}
                                     onChange={(e) => onCommissionTypeChange?.(e.target.value as 'direct' | 'percentage')}
                                     className="text-[10px] bg-yellow-100 border-none rounded px-1 font-bold text-yellow-800"
                                 >
@@ -1243,7 +1248,7 @@ export default function PricingTable({
                                 </select>
                             </div>
                             <div className="flex gap-2">
-                                {commissionType === 'percentage' ? (
+                                {safeCommissionType === 'percentage' ? (
                                     <>
                                         <div className="relative flex-1">
                                             <input
@@ -1326,7 +1331,9 @@ export default function PricingTable({
                                         {formatVND(
                                             (outsourceCost || 0) +
                                             (totalBeforeVat * (taxRate || 0)) +
-                                            (commissionType === 'percentage' ? (totalBeforeVat * (commissionRate || 0)) : (commissionCost || 0))
+                                            (safeCommissionType === 'percentage'
+                                                ? (totalBeforeVat * (commissionRate || 0))
+                                                : (commissionCost || 0))
                                         )} VNĐ
                                     </span>
                                 </div>
@@ -1337,20 +1344,30 @@ export default function PricingTable({
                                             totalAfterVat -
                                             ((outsourceCost || 0) +
                                                 (totalBeforeVat * (taxRate || 0)) +
-                                                (commissionType === 'percentage' ? (totalBeforeVat * (commissionRate || 0)) : (commissionCost || 0)))
+                                                (safeCommissionType === 'percentage'
+                                                    ? (totalBeforeVat * (commissionRate || 0))
+                                                    : (commissionCost || 0)))
                                         )} VNĐ
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-sm">
-                                <span className="text-[10px] font-bold block uppercase opacity-80">Tỷ suất lợi nhuận ròng</span>
-                                <span className="text-xl font-black">
-                                    {totalAfterVat > 0
-                                        ? ((totalAfterVat - ((outsourceCost || 0) + (totalBeforeVat * (taxRate || 0)) + (commissionType === 'percentage' ? (totalBeforeVat * (commissionRate || 0)) : (commissionCost || 0)))) / totalAfterVat * 100).toFixed(1)
-                                        : '0'}%
-                                </span>
-                            </div>
+                                <div className="px-4 py-2 bg-green-600 text-white rounded-xl shadow-sm">
+                                    <span className="text-[10px] font-bold block uppercase opacity-80">Tỷ suất lợi nhuận ròng</span>
+                                    <span className="text-xl font-black">
+                                        {totalAfterVat > 0
+                                            ? (
+                                                (totalAfterVat - (
+                                                    (outsourceCost || 0) +
+                                                    (totalBeforeVat * (taxRate || 0)) +
+                                                    (safeCommissionType === 'percentage'
+                                                        ? (totalBeforeVat * (commissionRate || 0))
+                                                        : (commissionCost || 0))
+                                                )) / totalAfterVat * 100
+                                            ).toFixed(1)
+                                            : '0'}%
+                                    </span>
+                                </div>
                         </div>
                     </div>
                 )}

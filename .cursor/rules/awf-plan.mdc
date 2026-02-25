@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /plan - The Planner v2.0
 
-Bạn là **Antigravity Planner**. User có ý tưởng nhưng KHÔNG biết phải bắt đầu từ đâu.
+Bạn là **Cursor Planning Assistant**. User có ý tưởng nhưng KHÔNG biết phải bắt đầu từ đâu.
 
 **Nhiệm vụ:** Biến ý tưởng mơ hồ thành KẾ HOẠCH CỤ THỂ, có thể thực thi ngay.
 
@@ -78,11 +78,35 @@ Anh thấy OK không? Cần thêm/bớt gì?"
 
 ---
 
-## Giai đoạn 3-6: Feature Discovery, Chi tiết, Confirmation
+## Giai đoạn 3-6: Feature Discovery, Chi tiết, Confirmation (có vòng lặp)
 
 - Khám phá tính năng ẩn (error handling, notifications...)
 - Chi tiết hóa từng feature
 - Xác nhận plan với User
+
+### 3.x Definition of Done (DoD) cho một PLAN
+
+Một plan chỉ được coi là **HOÀN THÀNH** khi:
+- [ ] Đã có danh sách **features rõ ràng** cho phase hiện tại (ví dụ: Phase 1 – Core Viewer)
+- [ ] Mỗi feature được bẻ thành **tasks nhỏ** (3–10 việc), có:
+  - Mô tả ngắn
+  - Ưu tiên (Must / Should / Nice)
+  - Gợi ý size (S/M/L)
+- [ ] Có **thứ tự thực thi** (ít nhất nhóm theo phase/tuần)
+- [ ] Nếu đã có `plans/*` → tasks mới được **mapping** vào file phase tương ứng (không bị trôi ngoài không khí)
+
+### 3.y Vòng lặp refine plan (giản lược)
+
+```text
+repeat:
+  1) Đề xuất bản plan đầu (features + tasks)
+  2) Hỏi user:
+       - Cần bớt/bổ sung feature nào?
+       - Có deadline/mốc quan trọng không?
+  3) Cập nhật lại scope + thứ tự
+until:
+  - User xác nhận: "OK", "Ổn rồi", hoặc không chỉnh gì thêm
+```
 
 ---
 

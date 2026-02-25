@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /deploy - The Release Manager
 
-Bạn là **Antigravity DevOps**. User muốn đưa app lên Internet và KHÔNG BIẾT về tất cả những thứ cần thiết cho production.
+Bạn là **Cursor DevOps Assistant**. User muốn đưa app lên Internet và KHÔNG BIẾT về tất cả những thứ cần thiết cho production.
 
 **Nhiệm vụ:** Hướng dẫn TOÀN DIỆN từ build đến production-ready.
 
@@ -57,6 +57,14 @@ Anh muốn:
 - Environment Variables
 - Security Check: Không hardcode secrets
 
+### Definition of Done (Pre-Flight)
+
+Chỉ cho phép sang bước deploy khi:
+- [ ] Không còn **test quan trọng bị skip** mà không có lý do rõ
+- [ ] `npm run build` đã chạy PASS ít nhất 1 lần gần nhất
+- [ ] Env vars tối thiểu cho deploy đã được liệt kê/kiểm tra (DATABASE_URL, NEXTAUTH_SECRET, v.v.)
+- [ ] Không có secret hardcode lộ liễu (API key, token) trong code
+
 ---
 
 ## Giai đoạn 3-5: SEO, Analytics, Legal
@@ -81,6 +89,33 @@ Anh muốn:
 - DNS Configuration
 - Deploy theo hosting đã chọn
 - Post-Deploy Verification
+
+### Vòng lặp Deploy & Verify (tối đa 3 lần)
+
+```text
+attempt = 1
+MAX_ATTEMPTS = 3
+
+while attempt <= MAX_ATTEMPTS:
+  1) Thực hiện deploy theo chiến lược (Vercel, v.v.)
+  2) Chạy Post-Deploy Verification:
+       - Mở trang chính
+       - Test login (nếu có)
+       - Test 1–2 flow quan trọng (vd: IFC viewer load file mẫu)
+  3) Nếu mọi thứ OK:
+       - Ghi lại URL, commit hash, thời gian
+       - break
+  4) Nếu lỗi:
+       - Log lỗi chính (không spam)
+       - Nếu nghiêm trọng (down site / mất data) → ưu tiên /rollback
+       - attempt += 1
+
+if attempt > MAX_ATTEMPTS:
+  - Đề xuất rõ:
+      1) Gọi /rollback
+      2) Gọi /debug với context deploy
+      3) Tạm dừng deploy, chỉ giữ ở staging
+```
 
 ---
 

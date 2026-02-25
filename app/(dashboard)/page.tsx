@@ -1,26 +1,10 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { formatVND } from '@/lib/number-to-words-vn';
 import PaymentMilestonesTimeline from '@/components/dashboard/PaymentMilestonesTimeline';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
-import {
-    LineChart,
-    Line,
-    BarChart,
-    Bar,
-    PieChart,
-    Pie,
-    Cell,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ResponsiveContainer,
-} from 'recharts';
 import RevenueChart from '@/components/charts/RevenueChart';
 import QuotationChart from '@/components/charts/QuotationChart';
 import CostChart from '@/components/charts/CostChart';
@@ -188,6 +172,7 @@ export default function DashboardPage() {
         fetchProjectStatus();
     }, [projectsLoaded]); // Bỏ activeTab khỏi dependency để không fetch lại khi đổi tab, chỉ fetch 1 lần khi mount
 
+
     // ✅ PERFORMANCE: Memoize chart data transformations
     const revenueChartData = useMemo(() => {
         if (!stats) return [];
@@ -263,58 +248,56 @@ export default function DashboardPage() {
     if (!stats) return null;
 
     const statusConfig = {
-        DRAFT: { label: 'Nháp', color: 'bg-gray-100 text-gray-800', icon: '📝' },
-        SENT: { label: 'Đã gửi', color: 'bg-blue-100 text-blue-800', icon: '📤' },
-        ACCEPTED: { label: 'Đã chấp nhận', color: 'bg-green-100 text-green-800', icon: '✅' },
-        REJECTED: { label: 'Từ chối', color: 'bg-red-100 text-red-800', icon: '❌' },
+        DRAFT: { label: 'Nháp', color: 'bg-zf-graphite/10 text-zf-graphite', icon: '📝' },
+        SENT: { label: 'Đã gửi', color: 'bg-zf-accent/20 text-zf-accent-dark', icon: '📤' },
+        ACCEPTED: { label: 'Đã chấp nhận', color: 'bg-zf-success/20 text-zf-success', icon: '✅' },
+        REJECTED: { label: 'Từ chối', color: 'bg-zf-error/20 text-zf-error', icon: '❌' },
     };
 
     return (
         <div className="p-8 space-y-8">
-            {/* Page Header - Premium Glassmorphism */}
-            <div className="glass-card rounded-3xl px-8 py-6 flex items-center justify-between gap-6 shadow-lg border border-white/40 bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl">
-                <div className="flex items-center gap-5">
-                    <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-zf-accent to-zf-accent-light flex items-center justify-center overflow-hidden shadow-lg animate-pulse-glow">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="40"
-                            height="40"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="drop-shadow-md"
-                        >
-                            <rect width="7" height="9" x="3" y="3" rx="1" />
-                            <rect width="7" height="5" x="14" y="3" rx="1" />
-                            <rect width="7" height="9" x="14" y="12" rx="1" />
-                            <rect width="7" height="5" x="3" y="16" rx="1" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-zf-primary via-zf-primary-light to-zf-accent bg-clip-text text-transparent">
-                            Zfenix Manage
-                        </h1>
-                        <p className="text-sm text-gray-600 mt-1.5 font-medium">
-                            Chào mừng bạn trở lại 👋&nbsp; Chúc bạn luôn nhiều năng lượng tích cực, làm việc vui như đi chơi,
-                            mỗi ngày đều có thêm một deal đẹp và vài điều khiến bạn mỉm cười.
-                        </p>
-                    </div>
+            {/* Page Header - Brand Aligned */}
+            <div className="bg-white rounded-xl px-8 py-6 flex items-center gap-5 shadow-md border border-zf-graphite/10">
+                <div className="relative w-16 h-16 rounded-xl bg-zf-accent flex items-center justify-center shadow-md">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="40"
+                        height="40"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="drop-shadow-md"
+                    >
+                        <rect width="7" height="9" x="3" y="3" rx="1" />
+                        <rect width="7" height="5" x="14" y="3" rx="1" />
+                        <rect width="7" height="9" x="14" y="12" rx="1" />
+                        <rect width="7" height="5" x="3" y="16" rx="1" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight text-zf-primary">
+                        Zfenix Manage
+                    </h1>
+                    <p className="text-sm text-zf-graphite/70 mt-1.5 font-medium">
+                        Chào mừng bạn trở lại 👋&nbsp; Chúc bạn luôn nhiều năng lượng tích cực, làm việc vui như đi chơi,
+                        mỗi ngày đều có thêm một deal đẹp và vài điều khiến bạn mỉm cười.
+                    </p>
                 </div>
             </div>
 
             {/* Tabs nhỏ cho nội dung tổng quan */}
-            <div className="mt-4 border-b border-gray-200">
+            <div className="mt-4 border-b border-zf-graphite/15">
                 <nav className="-mb-px flex flex-wrap gap-2">
                     <button
                         type="button"
                         onClick={() => setActiveTab('overview')}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'overview'
-                            ? 'text-zf-accent bg-white after:scale-x-100'
-                            : 'text-gray-500 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === 'overview'
+                            ? 'border-zf-accent text-zf-accent bg-white'
+                            : 'border-transparent text-zf-graphite/70 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         aria-label="Tab tổng quan"
                     >
                         Tổng quan
@@ -322,10 +305,10 @@ export default function DashboardPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('charts')}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'charts'
-                            ? 'text-zf-accent bg-white after:scale-x-100'
-                            : 'text-gray-500 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === 'charts'
+                            ? 'border-zf-accent text-zf-accent bg-white'
+                            : 'border-transparent text-zf-graphite/70 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         aria-label="Tab biểu đồ"
                     >
                         Biểu đồ
@@ -333,10 +316,10 @@ export default function DashboardPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('status')}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'status'
-                            ? 'text-zf-accent bg-white after:scale-x-100'
-                            : 'text-gray-500 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === 'status'
+                            ? 'border-zf-accent text-zf-accent bg-white'
+                            : 'border-transparent text-zf-graphite/70 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         aria-label="Tab trạng thái"
                     >
                         Trạng thái
@@ -344,10 +327,10 @@ export default function DashboardPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('payments')}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'payments'
-                            ? 'text-zf-accent bg-white after:scale-x-100'
-                            : 'text-gray-500 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === 'payments'
+                            ? 'border-zf-accent text-zf-accent bg-white'
+                            : 'border-transparent text-zf-graphite/70 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         aria-label="Tab mốc thanh toán"
                     >
                         Mốc thanh toán
@@ -355,10 +338,10 @@ export default function DashboardPage() {
                     <button
                         type="button"
                         onClick={() => setActiveTab('recent')}
-                        className={`relative px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 border-transparent transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${activeTab === 'recent'
-                            ? 'text-zf-accent bg-white after:scale-x-100'
-                            : 'text-gray-500 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === 'recent'
+                            ? 'border-zf-accent text-zf-accent bg-white'
+                            : 'border-transparent text-zf-graphite/70 hover:text-zf-accent'
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         aria-label="Tab báo giá gần đây"
                     >
                         Báo giá gần đây
@@ -374,69 +357,69 @@ export default function DashboardPage() {
                 render={(tab) =>
                     tab === 'overview' ? (
                         <>
-                            {/* Stats Cards - Premium Glassmorphism */}
-                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {/* Stats Cards - Technical UI */}
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 {/* Total Quotations */}
-                                <div className="stat-card group cursor-pointer">
+                                <div className="stat-card group cursor-pointer technical-grid-hover">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Tổng số Báo giá</p>
-                                            <p className="text-4xl font-extrabold text-gray-900 mt-3">{stats.totalQuotations}</p>
-                                            <p className="text-xs text-zf-accent mt-2 font-medium">Yêu cầu</p>
+                                            <p className="text-xs font-semibold text-zf-graphite/70 uppercase tracking-wide">Tổng số Báo giá</p>
+                                            <p className="text-3xl font-extrabold text-zf-graphite mt-2 technical-number">{stats.totalQuotations}</p>
+                                            <p className="text-xs text-zf-accent mt-1.5 font-medium">Yêu cầu</p>
                                         </div>
-                                        <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                        <div className="w-12 h-12 bg-zf-accent rounded-xl flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform duration-300">
                                             📊
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Revenue Before VAT */}
-                                <div className="stat-card group cursor-pointer">
+                                <div className="stat-card group cursor-pointer technical-grid-hover">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Doanh thu</p>
-                                            <p className="text-2xl font-extrabold text-gray-900 mt-3">
+                                            <p className="text-xs font-semibold text-zf-graphite/70 uppercase tracking-wide">Doanh thu</p>
+                                            <p className="text-xl font-extrabold text-zf-graphite mt-2 technical-number">
                                                 {formatVND(stats.projectedRevenue.beforeVat)}
                                             </p>
-                                            <p className="text-xs text-emerald-600 mt-2 font-medium">Trước VAT</p>
+                                            <p className="text-xs text-zf-success mt-1.5 font-medium">Trước VAT</p>
                                         </div>
-                                        <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                        <div className="w-12 h-12 bg-zf-success rounded-xl flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform duration-300">
                                             💰
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Total Costs */}
-                                <div className="stat-card group cursor-pointer">
+                                <div className="stat-card group cursor-pointer technical-grid-hover">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Chi phí</p>
-                                            <p className="text-2xl font-extrabold text-red-600 mt-3">{formatVND(stats.costs.total)}</p>
-                                            <p className="text-xs text-gray-500 mt-2 font-medium">Tổng chi</p>
+                                            <p className="text-xs font-semibold text-zf-graphite/70 uppercase tracking-wide">Chi phí</p>
+                                            <p className="text-xl font-extrabold text-zf-error mt-2 technical-number">{formatVND(stats.costs.total)}</p>
+                                            <p className="text-xs text-zf-graphite/70 mt-1.5 font-medium">Tổng chi</p>
                                         </div>
-                                        <div className="w-14 h-14 bg-gradient-to-br from-red-400 to-red-600 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                        <div className="w-12 h-12 bg-zf-error rounded-xl flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform duration-300">
                                             💸
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Profit */}
-                                <div className="stat-card group cursor-pointer">
+                                <div className="stat-card group cursor-pointer technical-grid-hover">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Lợi nhuận</p>
+                                            <p className="text-xs font-semibold text-zf-graphite/70 uppercase tracking-wide">Lợi nhuận</p>
                                             <p
-                                                className={`text-2xl font-extrabold mt-3 ${stats.profit.amount >= 0 ? 'text-emerald-600' : 'text-red-600'
+                                                className={`text-xl font-extrabold mt-2 technical-number ${stats.profit.amount >= 0 ? 'text-zf-success' : 'text-zf-error'
                                                     }`}
                                             >
                                                 {formatVND(stats.profit.amount)}
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-2 font-medium">
+                                            <p className="text-xs text-zf-graphite/70 mt-1.5 font-medium">
                                                 {stats.profit.margin.toFixed(2)}% tỷ suất
                                             </p>
                                         </div>
                                         <div
-                                            className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg group-hover:scale-110 transition-transform duration-300 ${stats.profit.amount >= 0 ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : 'bg-gradient-to-br from-red-400 to-red-600'
+                                            className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shadow-md group-hover:scale-105 transition-transform duration-300 ${stats.profit.amount >= 0 ? 'bg-zf-success' : 'bg-zf-error'
                                                 }`}
                                         >
                                             {stats.profit.amount >= 0 ? '📈' : '📉'}
@@ -445,29 +428,26 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            {/* Quick Actions - Premium Gradient */}
-                            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="max-w-xl bg-gradient-ocean rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
-                                    {/* Decorative gradient overlay */}
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-3xl"></div>
-
-                                    <h2 className="mb-4 text-xl font-bold relative z-10">⚡ Thao tác nhanh</h2>
-                                    <div className="space-y-3 relative z-10">
+                            {/* Quick Actions - Brand Aligned */}
+                            <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <div className="max-w-xl bg-zf-primary rounded-xl shadow-md p-5 text-white">
+                                    <h2 className="mb-3 text-lg font-bold">⚡ Thao tác nhanh</h2>
+                                    <div className="space-y-2">
                                         <Link
                                             href="/quotations/new"
-                                            className="block w-full rounded-xl bg-white px-4 py-3 text-center text-sm font-semibold text-zf-primary transition-all hover:bg-white/95 hover:shadow-lg hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                            className="block w-full rounded-lg bg-zf-accent px-4 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-zf-accent-dark hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                         >
                                             ➕ Tạo Báo giá mới
                                         </Link>
                                         <Link
                                             href="/customers/new"
-                                            className="block w-full rounded-xl bg-white/20 backdrop-blur-sm px-4 py-3 text-center text-sm font-semibold text-white border border-white/30 transition-all hover:bg-white/30 hover:shadow-lg hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                            className="block w-full rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2.5 text-center text-sm font-semibold text-white border border-white/20 transition-all hover:bg-white/20 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                         >
                                             👥 Thêm Khách hàng mới
                                         </Link>
                                         <Link
                                             href="/quotations"
-                                            className="block w-full rounded-xl bg-white/20 backdrop-blur-sm px-4 py-3 text-center text-sm font-semibold text-white border border-white/30 transition-all hover:bg-white/30 hover:shadow-lg hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
+                                            className="block w-full rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2.5 text-center text-sm font-semibold text-white border border-white/20 transition-all hover:bg-white/20 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                         >
                                             📄 Xem tất cả Báo giá
                                         </Link>
@@ -495,62 +475,62 @@ export default function DashboardPage() {
                             <GrowthChart data={growthChartData} growthPercentage={growthPercentage} />
                         </div>
                     ) : tab === 'status' ? (
-                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-zf-graphite/15 overflow-hidden">
+                            <div className="p-6 border-b border-zf-graphite/15 flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-900">Tình trạng dự án</h2>
-                                    <p className="text-sm text-gray-500 mt-1">
+                                    <h2 className="text-xl font-bold text-zf-primary">Tình trạng dự án</h2>
+                                    <p className="text-sm text-zf-graphite/70 mt-1">
                                         Bảng tổng quan trạng thái các dự án gần đây.
                                     </p>
                                 </div>
                                 <Link
                                     href="/projects"
-                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                    className="text-zf-accent hover:text-zf-accent-dark text-sm font-medium transition-colors"
                                 >
                                     Xem tất cả dự án →
                                 </Link>
                             </div>
 
                             {loadingProjects ? (
-                                <div className="p-6 text-center text-gray-500">Đang tải dữ liệu dự án...</div>
+                                <div className="p-6 text-center text-zf-graphite/70">Đang tải dữ liệu dự án...</div>
                             ) : projectError ? (
-                                <div className="p-6 text-center text-red-500 text-sm">{projectError}</div>
+                                <div className="p-6 text-center text-zf-error text-sm">{projectError}</div>
                             ) : projectStatusRows.length === 0 ? (
-                                <div className="p-6 text-center text-gray-500 text-sm">
+                                <div className="p-6 text-center text-zf-graphite/70 text-sm">
                                     Chưa có dữ liệu dự án để hiển thị.
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
-                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                        <thead className="bg-zf-primary border-b border-zf-graphite/15">
                                             <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                     #
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                     Mã dự án
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                     Tên dự án
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                     Khách hàng
                                                 </th>
-                                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                                                     Trạng thái
                                                 </th>
-                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                     Địa điểm
                                                 </th>
-                                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                                                     Ngày bắt đầu
                                                 </th>
-                                                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                                                     Ngày kết thúc
                                                 </th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-gray-200">
+                                        <tbody className="divide-y divide-zf-graphite/10">
                                             {projectStatusRows.map((project, index) => {
                                                 const projectStatus = project.status?.toUpperCase?.() ?? '';
                                                 const statusConfigProject: Record<
@@ -559,19 +539,19 @@ export default function DashboardPage() {
                                                 > = {
                                                     PLANNING: {
                                                         label: 'Lập kế hoạch',
-                                                        color: 'bg-gray-100 text-gray-800',
+                                                        color: 'bg-zf-graphite/10 text-zf-graphite',
                                                     },
                                                     ACTIVE: {
                                                         label: 'Đang thực hiện',
-                                                        color: 'bg-blue-100 text-blue-800',
+                                                        color: 'bg-zf-accent/20 text-zf-accent-dark',
                                                     },
                                                     COMPLETED: {
                                                         label: 'Hoàn thành',
-                                                        color: 'bg-green-100 text-green-800',
+                                                        color: 'bg-zf-success/20 text-zf-success',
                                                     },
                                                     CANCELLED: {
                                                         label: 'Đã hủy',
-                                                        color: 'bg-red-100 text-red-800',
+                                                        color: 'bg-zf-error/20 text-zf-error',
                                                     },
                                                 };
                                                 const statusInfo =
@@ -579,42 +559,42 @@ export default function DashboardPage() {
                                                     statusConfigProject.PLANNING;
 
                                                 return (
-                                                    <tr key={project.id} className="hover:bg-gray-50">
-                                                        <td className="px-4 py-3 text-sm text-gray-500">
+                                                    <tr key={project.id} className="hover:bg-zf-bg-secondary">
+                                                        <td className="px-4 py-3 text-sm text-zf-graphite/70">
                                                             {index + 1}
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm font-mono text-gray-900">
-                                                            {project.projectNo}
+                                                        <td className="px-4 py-3 text-sm font-technical text-zf-graphite">
+                                                            <span className="technical-code">{project.projectNo}</span>
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                                        <td className="px-4 py-3 text-sm text-zf-graphite">
                                                             <Link
                                                                 href={`/projects/${project.id}`}
-                                                                className="text-blue-600 hover:text-blue-800 font-medium"
+                                                                className="text-zf-accent hover:text-zf-accent-dark font-medium transition-colors"
                                                             >
                                                                 {project.name}
                                                             </Link>
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                                        <td className="px-4 py-3 text-sm text-zf-graphite">
                                                             {project.customerName}
                                                         </td>
                                                         <td className="px-4 py-3 text-center">
                                                             <span
-                                                                className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusInfo.color}`}
+                                                                className={`badge-technical ${statusInfo.color.includes('graphite') ? 'badge-technical-draft' : statusInfo.color.includes('accent') ? 'badge-technical-sent' : statusInfo.color.includes('success') ? 'badge-technical-accepted' : 'badge-technical-rejected'}`}
                                                             >
                                                                 {statusInfo.label}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                                        <td className="px-4 py-3 text-sm text-zf-graphite">
                                                             {project.location}
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-500 text-center">
+                                                        <td className="px-4 py-3 text-sm text-zf-graphite/70 text-center">
                                                             {project.startDate
                                                                 ? new Date(project.startDate).toLocaleDateString(
                                                                     'vi-VN',
                                                                 )
                                                                 : '-'}
                                                         </td>
-                                                        <td className="px-4 py-3 text-sm text-gray-500 text-center">
+                                                        <td className="px-4 py-3 text-sm text-zf-graphite/70 text-center">
                                                             {project.endDate
                                                                 ? new Date(project.endDate).toLocaleDateString(
                                                                     'vi-VN',
@@ -630,23 +610,23 @@ export default function DashboardPage() {
                             )}
                         </div>
                     ) : tab === 'payments' ? (
-                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-zf-graphite/15 overflow-hidden">
+                            <div className="p-6 border-b border-zf-graphite/15 flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-xl font-bold text-gray-900">Bảng mốc thanh toán</h2>
-                                    <p className="text-sm text-gray-500 mt-1">
+                                    <h2 className="text-xl font-bold text-zf-primary">Bảng mốc thanh toán</h2>
+                                    <p className="text-sm text-zf-graphite/70 mt-1">
                                         Tổng hợp các đợt thanh toán theo các báo giá đã chốt.
                                     </p>
                                 </div>
                                 <Link
                                     href="/projects"
-                                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                                    className="text-zf-accent hover:text-zf-accent-dark text-sm font-medium transition-colors"
                                 >
                                     Xem chi tiết dự án →
                                 </Link>
                             </div>
                             {(!stats.paymentMilestones || stats.paymentMilestones.length === 0) ? (
-                                <div className="p-6 text-center text-gray-500 text-sm">
+                                <div className="p-6 text-center text-zf-graphite/70 text-sm">
                                     Chưa có mốc thanh toán nào được thiết lập từ các báo giá đã chốt.
                                 </div>
                             ) : (
@@ -656,70 +636,70 @@ export default function DashboardPage() {
                             )}
                         </div>
                     ) : (
-                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-gray-900">Báo giá gần đây</h2>
-                                <Link href="/quotations" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+                        <div className="mt-4 bg-white rounded-xl shadow-sm border border-zf-graphite/15 overflow-hidden">
+                            <div className="p-6 border-b border-zf-graphite/15 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-zf-primary">Báo giá gần đây</h2>
+                                <Link href="/quotations" className="text-zf-accent hover:text-zf-accent-dark text-sm font-medium transition-colors">
                                     Xem tất cả →
                                 </Link>
                             </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
-                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                    <thead className="bg-zf-primary border-b border-zf-graphite/15">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                 Số báo giá
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                 Khách hàng
                                             </th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                                                 Dự án
                                             </th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                                                 Tổng tiền (VNĐ)
                                             </th>
-                                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                                                 Trạng thái
                                             </th>
-                                            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                                                 Ngày
                                             </th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
+                                    <tbody className="divide-y divide-zf-graphite/10">
                                         {stats.recentQuotations.map((quotation) => {
                                             const config = statusConfig[quotation.status as keyof typeof statusConfig];
 
                                             return (
-                                                <tr key={quotation.id} className="hover:bg-gray-50 cursor-pointer">
+                                                <tr key={quotation.id} className="hover:bg-zf-bg-secondary cursor-pointer">
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <Link
                                                             href={`/quotations/${quotation.id}`}
-                                                            className="text-blue-600 hover:text-blue-800 font-medium"
+                                                            className="text-zf-accent hover:text-zf-accent-dark font-medium transition-colors"
                                                         >
-                                                            {quotation.quotationNo}
+                                                            <span className="technical-code">{quotation.quotationNo}</span>
                                                         </Link>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <p className="text-sm text-gray-900">{quotation.customerName}</p>
+                                                        <p className="text-sm text-zf-graphite">{quotation.customerName}</p>
                                                     </td>
                                                     <td className="px-6 py-4">
-                                                        <p className="text-sm text-gray-900">{quotation.projectName}</p>
+                                                        <p className="text-sm text-zf-graphite">{quotation.projectName}</p>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
-                                                        <p className="text-sm font-medium text-gray-900">
+                                                        <p className="text-sm font-medium text-zf-graphite technical-number">
                                                             {formatVND(quotation.totalAfterVat)}
                                                         </p>
                                                     </td>
                                                     <td className="px-6 py-4 text-center">
                                                         <span
-                                                            className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${config.color}`}
+                                                            className={`badge-technical ${config.color.includes('graphite') ? 'badge-technical-draft' : config.color.includes('accent') ? 'badge-technical-sent' : config.color.includes('success') ? 'badge-technical-accepted' : 'badge-technical-rejected'}`}
                                                         >
                                                             {config.icon} {config.label}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 text-center text-sm text-gray-500">
+                                                    <td className="px-6 py-4 text-center text-sm text-zf-graphite/70">
                                                         {new Date(quotation.date).toLocaleDateString('vi-VN')}
                                                     </td>
                                                 </tr>

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /test - The Quality Guard
 
-Bạn là **Antigravity Tester**. Nhiệm vụ: Kiểm tra app có chạy đúng không, BÁO CÁO BẰNG NGÔN NGỮ ĐỜI THƯỜNG.
+Bạn là **Cursor Testing Assistant**. Nhiệm vụ: Kiểm tra app có chạy đúng không, BÁO CÁO BẰNG NGÔN NGỮ ĐỜI THƯỜNG.
 
 ---
 
@@ -48,6 +48,19 @@ C) Manual Verify - Em hướng dẫn anh test tay"
 - Phân tích lỗi (giải thích nguyên nhân)
 - "Test `shouldCalculateTotal` bị fail. Có vẻ do phép tính thiếu VAT."
 - Hỏi: "Anh muốn em sửa luôn (`/debug`) hay anh tự check?"
+
+### Definition of Done (Test)
+
+Một vòng /test được coi là **HOÀN TẤT** khi:
+- [ ] Đã rõ **scope cần test** (feature nào, page nào, API nào)
+- [ ] Đã chọn được **chiến lược**: Quick / Full / Manual
+- [ ] Đã chạy:
+  - Quick: ít nhất 1–3 test case chính liên quan phần vừa sửa
+  - Full: command test chính của dự án (vd: `npm test`, `npm run lint` nếu gắn vào test)
+  - Manual: checklist thao tác tay (mở trang X, bấm nút Y, kỳ vọng Z)
+- [ ] Kết quả được báo cáo rõ:
+  - PASS: nêu ngắn gọn đã test những gì
+  - FAIL: nêu test nào fail + đề xuất `/debug` hoặc `/code` để sửa
 
 ---
 

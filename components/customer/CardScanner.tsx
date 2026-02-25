@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
-import { Camera, RefreshCw, Check, X, Loader2, CreditCard } from 'lucide-react';
+import { Camera, RefreshCw, Check, X, Loader2, CreditCard, Image as ImageIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface CardScannerProps {
@@ -10,22 +10,110 @@ interface CardScannerProps {
   onClose: () => void;
 }
 
+type ImageSource = 'camera' | 'upload' | 'paste';
+
 const CardScanner: React.FC<CardScannerProps> = ({ onScanComplete, onClose }) => {
   const webcamRef = useRef<Webcam>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<ImageSource>('camera');
 
   const capture = useCallback(() => {
     const imageSrc = webcamRef.current?.getScreenshot();
     if (imageSrc) {
       setImgSrc(imageSrc);
+      setSource('camera');
+      setError(null);
+    } else {
+      setError('Không thể chụp ảnh từ camera. Vui lòng thử lại hoặc dùng ảnh có sẵn.');
     }
-  }, [webcamRef]);
+  }, []);
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Vui lòng chọn file hình ảnh hợp lệ (JPG, PNG, HEIC...)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        setImgSrc(result);
+        setSource('upload');
+        setError(null);
+      } else {
+        setError('Không thể đọc file ảnh. Vui lòng thử lại.');
+      }
+    };
+    reader.onerror = () => {
+      setError('Đã xảy ra lỗi khi đọc file ảnh.');
+    };
+
+    reader.readAsDataURL(file);
+  }, []);
+
+  const openFilePicker = useCallback(() => {
+    setError(null);
+    fileInputRef.current?.click();
+  }, []);
+
+  const handlePaste = useCallback((event: ClipboardEvent) => {
+    try {
+      const items = event.clipboardData?.items;
+      if (!items || items.length === 0) return;
+
+      const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+      if (!imageItem) {
+        return;
+      }
+
+      const file = imageItem.getAsFile();
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result;
+        if (typeof result === 'string') {
+          setImgSrc(result);
+          setSource('paste');
+          setError(null);
+        } else {
+          setError('Không thể đọc ảnh từ clipboard. Vui lòng thử lại.');
+        }
+      };
+      reader.onerror = () => {
+        setError('Đã xảy ra lỗi khi đọc ảnh từ clipboard.');
+      };
+
+      reader.readAsDataURL(file);
+    } catch {
+      setError('Không thể xử lý ảnh dán từ clipboard.');
+    }
+  }, []);
+
+  useEffect(() => {
+    // Cho phép dán ảnh (Ctrl+V) khi cửa sổ quét đang mở
+    const handleWindowPaste = (event: ClipboardEvent) => {
+      handlePaste(event);
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => {
+      window.removeEventListener('paste', handleWindowPaste);
+    };
+  }, [handlePaste]);
 
   const retake = () => {
     setImgSrc(null);
     setError(null);
+    setSource('camera');
   };
 
   const handleScan = async () => {
@@ -58,7 +146,7 @@ const CardScanner: React.FC<CardScannerProps> = ({ onScanComplete, onClose }) =>
   const videoConstraints = {
     width: 1280,
     height: 720,
-    facingMode: "environment" // Use back camera on mobile
+    facingMode: 'environment', // Dùng camera sau trên mobile nếu có
   };
 
   return (
@@ -85,7 +173,7 @@ const CardScanner: React.FC<CardScannerProps> = ({ onScanComplete, onClose }) =>
             />
             {/* Guide Overlay */}
             <div className="absolute inset-0 border-2 border-zf-accent/30 pointer-events-none flex items-center justify-center">
-                <div className="w-[85%] h-[75%] border-2 border-dashed border-white/50 rounded-lg"></div>
+              <div className="w-[85%] h-[75%] border-2 border-dashed border-white/50 rounded-lg" />
             </div>
           </>
         ) : (
@@ -109,36 +197,59 @@ const CardScanner: React.FC<CardScannerProps> = ({ onScanComplete, onClose }) =>
         )}
 
         {!imgSrc ? (
-          <button
-            onClick={capture}
-            className="w-full py-3 bg-white text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition-transform active:scale-95 shadow-lg shadow-white/5"
-          >
-            <Camera size={20} />
-            Chụp ảnh
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={capture}
+              className="flex-1 py-3 bg-white text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition-transform active:scale-95 shadow-lg shadow-white/5"
+            >
+              <Camera size={20} />
+              Chụp ảnh
+            </button>
+            <button
+              type="button"
+              onClick={openFilePicker}
+              className="flex-1 py-3 bg-gray-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-gray-700 transition-transform active:scale-95 shadow-lg shadow-zf-accent/10"
+            >
+              <ImageIcon size={20} />
+              Tải/Dán ảnh
+            </button>
+          </div>
         ) : (
-          <div className="flex gap-3">
-            <button
-              onClick={retake}
-              disabled={isScanning}
-              className="flex-1 py-3 bg-gray-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={18} />
-              Chụp lại
-            </button>
-            <button
-              onClick={handleScan}
-              disabled={isScanning}
-              className="flex-1 py-3 bg-zf-accent text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-zf-accent/90 transition-transform active:scale-95 shadow-lg shadow-zf-accent/20 disabled:opacity-50"
-            >
-              <Check size={18} />
-              Quét AI
-            </button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-3">
+              <button
+                onClick={retake}
+                disabled={isScanning}
+                className="flex-1 py-3 bg-gray-800 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw size={18} />
+                Chọn ảnh khác
+              </button>
+              <button
+                onClick={handleScan}
+                disabled={isScanning}
+                className="flex-1 py-3 bg-zf-accent text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-zf-accent/90 transition-transform active:scale-95 shadow-lg shadow-zf-accent/20 disabled:opacity-50"
+              >
+                <Check size={18} />
+                Quét AI
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 text-center">
+              Nguồn ảnh: {source === 'camera' ? 'Camera' : source === 'upload' ? 'Ảnh tải lên' : 'Ảnh dán từ clipboard'}
+            </p>
           </div>
         )}
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
         <p className="text-[10px] text-gray-500 text-center">
-          Vui lòng căn chỉnh danh thiếp nằm gọn trong khung hình để có kết quả tốt nhất.
+          Bạn có thể chụp ảnh trực tiếp, tải file ảnh từ máy hoặc dán ảnh (Ctrl+V) khi cửa sổ này đang mở để quét danh thiếp.
         </p>
       </div>
     </div>

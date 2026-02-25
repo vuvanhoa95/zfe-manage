@@ -1,9 +1,12 @@
-import { withAuth } from "next-auth/middleware";
+import { withAuth } from 'next-auth/middleware';
 
+// Bảo vệ route bằng NextAuth ở cả dev và prod.
+// Nếu chưa đăng nhập, tự động redirect về /login.
 export const middleware = withAuth({
     pages: {
-        signIn: "/login",
+        signIn: '/login',
     },
+    secret: process.env.NEXTAUTH_SECRET,
 });
 
 export const config = {

@@ -265,7 +265,7 @@ export default function CatalogTab() {
     });
 
     return (
-        <div className="h-full flex flex-col bg-zf-bg-tertiary p-8 overflow-y-auto">
+        <div className="h-full flex flex-col bg-zf-bg-tertiary p-8">
             <div className="max-w-5xl mx-auto w-full space-y-8">
                 <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-black text-zf-primary uppercase tracking-tight flex items-center gap-2">

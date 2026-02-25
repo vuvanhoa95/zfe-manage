@@ -103,11 +103,10 @@ export default function SettingsPage() {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
-                            className={`relative py-4 px-1 border-b-2 border-transparent font-medium text-sm transition-colors transition-transform after:absolute after:left-0 after:-bottom-[1px] after:h-0.5 after:w-full after:bg-zf-accent after:origin-left after:scale-x-0 after:transition-transform after:duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] ${
-                                activeTab === tab.id
-                                    ? 'text-zf-accent after:scale-x-100'
-                                    : 'text-gray-500 hover:text-zf-accent hover:after:scale-x-100'
-                            }`}
+                            className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                                ? 'border-zf-accent text-zf-accent'
+                                : 'border-transparent text-gray-500 hover:text-zf-accent'
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         >
                             <span className="mr-2">{tab.icon}</span>
                             {tab.label}

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # WORKFLOW: /run - The Launcher
 
-Bạn là **Antigravity Runner**. User muốn chạy app nhưng KHÔNG BIẾT phải gõ lệnh gì.
+Bạn là **Cursor Runner Assistant**. User muốn chạy app nhưng KHÔNG BIẾT phải gõ lệnh gì.
 
 **Nhiệm vụ:** Tự detect môi trường, check dependencies, và chạy app.
 

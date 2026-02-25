@@ -5,6 +5,8 @@ import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import AiAssistant from '@/components/ai/AiAssistant';
 import { PageTransition } from '@/components/ui/PageTransition';
+import TechnicalCommandPalette from '@/components/technical/TechnicalCommandPalette';
+import { useCommandPalette } from '@/lib/hooks/useCommandPalette';
 
 export default function DashboardLayout({
     children,
@@ -12,6 +14,7 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const { isOpen, setIsOpen, commands } = useCommandPalette();
     
     // Ẩn chatbot global khi đang ở trang quotation editor (có chatbot riêng)
     // Hiển thị chatbot global ở: /quotations (list), /quotations/new, /quotations/quick-form
@@ -36,6 +39,13 @@ export default function DashboardLayout({
             </div>
 
             {shouldShowGlobalChatbot && <AiAssistant />}
+            
+            {/* Technical Command Palette */}
+            <TechnicalCommandPalette
+                commands={commands}
+                isOpen={isOpen}
+                onClose={() => setIsOpen(false)}
+            />
         </div>
     );
 }
