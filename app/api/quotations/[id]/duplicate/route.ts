@@ -92,45 +92,29 @@ export async function POST(
                 notes: source.notes ? `${source.notes}\n(Đã nhân bản)` : 'Đã nhân bản từ báo giá khác',
                 createdById: userId,
                 lines: {
-                    create: source.lines.map((line: {
-                        section: string | null;
-                        itemNo: string | null;
-                        title: string | null;
-                        qty: number | null;
-                        unit: string | null;
-                        unitPrice: number | null;
-                        total: number | null;
-                        note: string | null;
-                        order: number | null;
-                        isGroupHeader: boolean;
-                        isChargeable: boolean;
-                    }) => ({
-                        section: line.section,
-                        itemNo: line.itemNo,
-                        title: line.title,
-                        qty: line.qty,
-                        unit: line.unit,
-                        unitPrice: line.unitPrice,
-                        total: (line.qty || 1) * (line.unitPrice || 0),
-                        note: line.note,
-                        order: line.order,
-                        isGroupHeader: line.isGroupHeader,
-                        isChargeable: line.isChargeable,
+                    // Đảm bảo field bắt buộc (title, order) luôn có giá trị hợp lệ theo Prisma schema
+                    create: source.lines.map((line) => ({
+                        section: line.section ?? null,
+                        itemNo: line.itemNo ?? null,
+                        title: line.title || 'Hạng mục chưa đặt tên',
+                        qty: line.qty ?? null,
+                        unit: line.unit ?? null,
+                        unitPrice: line.unitPrice ?? null,
+                        total: (line.qty ?? 1) * (line.unitPrice ?? 0),
+                        note: line.note ?? null,
+                        order: line.order ?? 0,
+                        isGroupHeader: line.isGroupHeader ?? false,
+                        isChargeable: line.isChargeable ?? true,
                     })),
                 },
                 paymentMilestones: {
-                    create: source.paymentMilestones.map((m: {
-                        no: number | null;
-                        title: string | null;
-                        percent: number | null;
-                        description: string | null;
-                        order: number | null;
-                    }) => ({
-                        no: m.no,
-                        title: m.title,
-                        percent: m.percent,
-                        description: m.description,
-                        order: m.order,
+                    // Đảm bảo field bắt buộc (no, title, percent, order) luôn có giá trị
+                    create: source.paymentMilestones.map((m) => ({
+                        no: m.no ?? 0,
+                        title: m.title || 'Đợt thanh toán',
+                        percent: m.percent ?? 0,
+                        description: m.description ?? null,
+                        order: m.order ?? 0,
                     })),
                 },
             },
