@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { existsSync, mkdirSync } from 'fs';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
 
+// Lưu ảnh dự án dưới dạng data URL (base64) để hoạt động ổn trên môi trường serverless (Vercel)
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -31,20 +29,11 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'project-images');
-    if (!existsSync(uploadsDir)) {
-      mkdirSync(uploadsDir, { recursive: true });
-    }
+    const base64 = buffer.toString('base64');
+    const mimeType = file.type || 'image/png';
 
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const fileExtension = file.name.split('.').pop() || 'png';
-    const filename = `${timestamp}-${randomString}.${fileExtension}`;
-    const filepath = join(uploadsDir, filename);
-
-    await writeFile(filepath, buffer);
-
-    const url = `/uploads/project-images/${filename}`;
+    // Lưu trực tiếp vào DB dưới dạng data URL (không ghi file lên filesystem)
+    const url = `data:${mimeType};base64,${base64}`;
 
     return NextResponse.json({ success: true, data: { url } }, { status: 201 });
   } catch (error: unknown) {

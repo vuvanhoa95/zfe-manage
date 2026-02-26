@@ -504,7 +504,9 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                                     {project.imageUrl ? (
                                                         <Image
                                                             src={
-                                                                project.imageUrl.startsWith('http')
+                                                                // Hỗ trợ URL tuyệt đối, data URL (base64) và path tương đối
+                                                                project.imageUrl.startsWith('http') ||
+                                                                project.imageUrl.startsWith('data:')
                                                                     ? project.imageUrl
                                                                     : project.imageUrl.startsWith('/')
                                                                         ? project.imageUrl
