@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { taskCreateSchema, TASK_PRIORITIES, TASK_STATUSES, type TaskCreateInput } from '@/lib/validation/task';
@@ -126,13 +127,35 @@ export async function POST(
         });
 
         return NextResponse.json({ success: true, data: task }, { status: 201 });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Failed to create task:', error);
+
+        let message = 'Không thể tạo công việc mới';
+
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            // Lỗi khóa ngoại: projectId không tồn tại
+            if (error.code === 'P2003') {
+                message = 'Không thể tạo công việc vì dự án không tồn tại hoặc đã bị xóa.';
+            }
+
+            // Lỗi bảng/column chưa tồn tại (chưa migrate DB)
+            if (error.code === 'P2021' || error.code === 'P2022') {
+                message =
+                    'Cơ sở dữ liệu chưa được cập nhật cho module công việc (tasks). Vui lòng chạy migrate database.';
+            }
+        } else if (error instanceof Error && error.message) {
+            // Tạm thời surface message thật để dễ debug trên môi trường production
+            message = error.message;
+        }
+
         return NextResponse.json(
             {
                 success: false,
-                error: 'Không thể tạo công việc mới',
-                details: process.env.NODE_ENV === 'development' ? { message: (error as Error).message } : undefined,
+                error: message,
+                details:
+                    process.env.NODE_ENV === 'development'
+                        ? { message: (error as Error | undefined)?.message }
+                        : undefined,
             },
             { status: 500 },
         );
