@@ -12,6 +12,37 @@ const taskFilterSchema = z.object({
     phase: z.string().trim().optional(),
 });
 
+async function ensureTaskSchema() {
+    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (Postgres)
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "tasks" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "projectId" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "description" TEXT,
+            "startDate" TIMESTAMP,
+            "endDate" TIMESTAMP,
+            "dueDate" TIMESTAMP,
+            "status" TEXT NOT NULL DEFAULT 'TODO',
+            "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
+            "progress" INTEGER NOT NULL DEFAULT 0,
+            "assignedTo" TEXT,
+            "phase" TEXT,
+            "discipline" TEXT,
+            "location" TEXT,
+            "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId");
+        CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status");
+        CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority");
+        CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedTo");
+        CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase");
+        CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate");
+    `);
+}
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> | { id: string } },
@@ -111,20 +142,48 @@ export async function POST(
 
         const data: TaskCreateInput = parsed.data;
 
-        const task = await prisma.task.create({
-            data: {
-                projectId,
-                title: data.title,
-                description: data.description ?? null,
-                startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
-                endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
-                // dueDate, phase, discipline, location sẽ được map sau khi cập nhật Prisma client
-                status: data.status,
-                priority: data.priority,
-                progress: data.progress,
-                assignedTo: data.assignedTo ?? null,
-            },
-        });
+        let task;
+        try {
+            task = await prisma.task.create({
+                data: {
+                    projectId,
+                    title: data.title,
+                    description: data.description ?? null,
+                    startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
+                    endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
+                    // dueDate, phase, discipline, location sẽ được map sau khi cập nhật Prisma client
+                    status: data.status,
+                    priority: data.priority,
+                    progress: data.progress,
+                    assignedTo: data.assignedTo ?? null,
+                },
+            });
+        } catch (innerError) {
+            // Nếu bảng/column chưa tồn tại, tự động tạo schema tối thiểu rồi thử lại một lần
+            if (
+                innerError instanceof Prisma.PrismaClientKnownRequestError &&
+                (innerError.code === 'P2021' || innerError.code === 'P2022')
+            ) {
+                console.warn('Task schema missing, attempting to create tasks table on-the-fly...');
+                await ensureTaskSchema();
+
+                task = await prisma.task.create({
+                    data: {
+                        projectId,
+                        title: data.title,
+                        description: data.description ?? null,
+                        startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
+                        endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
+                        status: data.status,
+                        priority: data.priority,
+                        progress: data.progress,
+                        assignedTo: data.assignedTo ?? null,
+                    },
+                });
+            } else {
+                throw innerError;
+            }
+        }
 
         return NextResponse.json({ success: true, data: task }, { status: 201 });
     } catch (error: unknown) {
