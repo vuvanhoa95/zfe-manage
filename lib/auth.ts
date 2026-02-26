@@ -3,6 +3,8 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
@@ -155,7 +157,8 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: 'jwt',
     },
-    // Dùng đúng NEXTAUTH_SECRET, nếu thiếu sẽ báo lỗi cấu hình để anh sửa cho chuẩn
-    secret: process.env.NEXTAUTH_SECRET,
-    debug: process.env.NODE_ENV === 'development',
+    // Chỉ set secret nếu có trong môi trường.
+    // Trong development nếu thiếu, NextAuth sẽ tự generate secret tạm thời.
+    ...(process.env.NEXTAUTH_SECRET ? { secret: process.env.NEXTAUTH_SECRET } : {}),
+    debug: isDevelopment,
 };

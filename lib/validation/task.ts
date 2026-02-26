@@ -18,10 +18,8 @@ const baseTaskSchema = z.object({
         .union([z.string().min(1), z.date()])
         .optional()
         .nullable(),
-    endDate: z
-        .union([z.string().min(1), z.date()])
-        .optional()
-        .nullable(),
+    endDate: z.union([z.string().min(1), z.date()]).optional().nullable(),
+    dueDate: z.union([z.string().min(1), z.date()]).optional().nullable(),
     status: z.enum(TASK_STATUSES).default('TODO'),
     priority: z.enum(TASK_PRIORITIES).default('MEDIUM'),
     progress: z
@@ -34,6 +32,22 @@ const baseTaskSchema = z.object({
         .string()
         .trim()
         .max(255, 'Tên người phụ trách tối đa 255 ký tự')
+        .optional()
+        .nullable(),
+    phase: z
+        .string()
+        .trim()
+        .max(100, 'Giai đoạn tối đa 100 ký tự')
+        .optional()
+        .nullable(),
+    discipline: z
+        .enum(['ARC', 'STR', 'MEP', 'OTHER'])
+        .optional()
+        .nullable(),
+    location: z
+        .string()
+        .trim()
+        .max(255, 'Vị trí tối đa 255 ký tự')
         .optional()
         .nullable(),
 });

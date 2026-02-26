@@ -47,13 +47,13 @@ export default function TechnicalBadge({
   return (
     <div className="relative inline-block">
       <span
-        className={`badge-technical ${config.className} ${className}`}
+        className={`badge-technical ${config.className} ${className} whitespace-nowrap text-[11px] leading-none`}
         onMouseEnter={() => (timestamp || info) && setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
         aria-label={config.tooltip}
       >
-        {icon && <span className="flex items-center">{icon}</span>}
-        <span>{config.label}</span>
+        {icon && <span className="flex items-center mr-1">{icon}</span>}
+        <span className="inline-block align-middle">{config.label}</span>
       </span>
 
       {/* Technical Tooltip */}

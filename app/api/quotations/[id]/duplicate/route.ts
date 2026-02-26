@@ -47,7 +47,7 @@ export async function POST(
         });
         const quotationNo = generateQuotationNumber(lastQuotation?.quotationNo || null, year);
 
-        const linesForTotals = source.lines.map((l) => ({
+        const linesForTotals = source.lines.map((l: { qty: number | null; unitPrice: number | null; isChargeable: boolean }) => ({
             qty: l.qty,
             unitPrice: l.unitPrice,
             isChargeable: l.isChargeable,
@@ -92,7 +92,19 @@ export async function POST(
                 notes: source.notes ? `${source.notes}\n(Đã nhân bản)` : 'Đã nhân bản từ báo giá khác',
                 createdById: userId,
                 lines: {
-                    create: source.lines.map((line) => ({
+                    create: source.lines.map((line: {
+                        section: string | null;
+                        itemNo: string | null;
+                        title: string | null;
+                        qty: number | null;
+                        unit: string | null;
+                        unitPrice: number | null;
+                        total: number | null;
+                        note: string | null;
+                        order: number | null;
+                        isGroupHeader: boolean;
+                        isChargeable: boolean;
+                    }) => ({
                         section: line.section,
                         itemNo: line.itemNo,
                         title: line.title,
@@ -107,7 +119,13 @@ export async function POST(
                     })),
                 },
                 paymentMilestones: {
-                    create: source.paymentMilestones.map((m) => ({
+                    create: source.paymentMilestones.map((m: {
+                        no: number | null;
+                        title: string | null;
+                        percent: number | null;
+                        description: string | null;
+                        order: number | null;
+                    }) => ({
                         no: m.no,
                         title: m.title,
                         percent: m.percent,

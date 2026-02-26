@@ -37,10 +37,26 @@ export async function PUT(
                     : data.endDate === null
                       ? null
                       : undefined,
+                // dueDate, phase, discipline, location sẽ được map sau khi cập nhật Prisma client/migrations
                 status: data.status,
                 priority: data.priority,
                 progress: typeof data.progress === 'number' ? data.progress : undefined,
                 assignedTo: data.assignedTo ?? undefined,
+            },
+            select: {
+                id: true,
+                projectId: true,
+                title: true,
+                description: true,
+                startDate: true,
+                endDate: true,
+                status: true,
+                priority: true,
+                progress: true,
+                assignedTo: true,
+                createdAt: true,
+                updatedAt: true,
+                // KHÔNG select phase, discipline, location, dueDate để tránh lỗi nếu DB chưa có
             },
         });
 

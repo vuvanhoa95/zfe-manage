@@ -88,7 +88,16 @@ export async function GET(request: NextRequest) {
             prisma.project.count({ where }),
         ]);
 
-        const projectsWithComputedTotals = projects.map((project) => {
+        const projectsWithComputedTotals = projects.map((project: {
+            finalQuotation: {
+                id: string;
+                totalAfterVat: number | null;
+                outsourceCost: number | null;
+                taxCost: number | null;
+                commissionCost: number | null;
+                totalBeforeVat: number | null;
+            } | null;
+        } & (typeof projects)[number]) => {
             // Rule: financial numbers MUST come from finalQuotation only.
             const baseQuotation = project.finalQuotation ?? null;
             const finalRevenue = baseQuotation?.totalAfterVat ?? 0;
@@ -132,7 +141,8 @@ export async function GET(request: NextRequest) {
         console.error('Failed to fetch projects:', error);
 
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2021') {
+            const knownError = error as Prisma.PrismaClientKnownRequestError;
+            if (knownError.code === 'P2021') {
                 return NextResponse.json(
                     {
                         success: false,
@@ -140,7 +150,7 @@ export async function GET(request: NextRequest) {
                             'Cơ sở dữ liệu chưa được khởi tạo/migrate. Vui lòng chạy migrate (và seed nếu cần) rồi thử lại.',
                         details:
                             process.env.NODE_ENV === 'development'
-                                ? { code: error.code, meta: error.meta, message: error.message }
+                                ? { code: knownError.code, meta: knownError.meta, message: knownError.message }
                                 : undefined,
                     },
                     { status: 500 }
@@ -153,7 +163,7 @@ export async function GET(request: NextRequest) {
                     error: 'Lỗi truy vấn cơ sở dữ liệu. Vui lòng thử lại.',
                     details:
                         process.env.NODE_ENV === 'development'
-                            ? { code: error.code, meta: error.meta, message: error.message }
+                            ? { code: knownError.code, meta: knownError.meta, message: knownError.message }
                             : undefined,
                 },
                 { status: 500 }
@@ -184,6 +194,41 @@ export async function GET(request: NextRequest) {
     }
 }
 
+async function getUserIdFromSessionOrFallback(explicitUserId?: string | null) {
+    // 1. Nếu client truyền lên createdById thì ưu tiên dùng, nhưng phải tồn tại trong DB
+    if (explicitUserId) {
+        const user = await prisma.user.findUnique({
+            where: { id: explicitUserId },
+            select: { id: true },
+        });
+        if (user) {
+            return user.id;
+        }
+    }
+
+    // 2. Thử lấy từ session đăng nhập hiện tại
+    const session = await getServerSession(authOptions);
+    const sessionUserId =
+        session?.user && (session.user as any).id ? ((session.user as any).id as string) : null;
+    if (sessionUserId) {
+        const user = await prisma.user.findUnique({
+            where: { id: sessionUserId },
+            select: { id: true },
+        });
+        if (user) {
+            return user.id;
+        }
+    }
+
+    // 3. Fallback: lấy user đầu tiên trong DB (dùng cho dev/seed)
+    const defaultUser = await prisma.user.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+    });
+
+    return defaultUser?.id ?? null;
+}
+
 export async function POST(request: NextRequest) {
     try {
         const json = await request.json();
@@ -212,7 +257,19 @@ export async function POST(request: NextRequest) {
         }
 
         const body: ProjectCreateInput = parsed.data;
-        const { name, code, description, customerId, location, startDate, endDate, totalArea, notes, createdById, imageUrl } = body;
+        const {
+            name,
+            code,
+            description,
+            customerId,
+            location,
+            startDate,
+            endDate,
+            totalArea,
+            notes,
+            createdById,
+            imageUrl,
+        } = body;
 
         // Verify customer exists if provided
         if (customerId) {
@@ -224,61 +281,18 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Get user from session or fallback to first user
-        let userId = createdById;
+        // Lấy userId hợp lệ từ createdById / session / user đầu tiên
+        const finalUserId = await getUserIdFromSessionOrFallback(createdById ?? null);
 
-        if (!userId) {
-            // Try to get user from session first
-            const session = await getServerSession(authOptions);
-
-            if (session?.user && (session.user as any).id) {
-                userId = (session.user as any).id;
-            } else {
-                // Fallback: get first user from database (for development/testing)
-                try {
-                    const defaultUser = await prisma.user.findFirst({
-                        orderBy: { createdAt: 'asc' },
-                    });
-
-                    if (!defaultUser) {
-                        // If no user exists, return error - user should run seed first
-                        return NextResponse.json({
-                            success: false,
-                            error: 'Không tìm thấy người dùng. Vui lòng đăng nhập hoặc chạy seed database trước.'
-                        }, { status: 400 });
-                    }
-
-                    userId = defaultUser.id;
-                } catch (userError: any) {
-                    console.error('Could not get user:', userError?.message);
-                    return NextResponse.json({
-                        success: false,
-                        error: 'Lỗi khi lấy thông tin người dùng. Vui lòng thử lại.'
-                    }, { status: 500 });
-                }
-            }
+        if (!finalUserId) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Không tìm thấy người dùng. Vui lòng đăng nhập hoặc chạy seed database trước.',
+                },
+                { status: 400 },
+            );
         }
-
-        if (!userId) {
-            return NextResponse.json({
-                success: false,
-                error: 'Không xác định được người dùng'
-            }, { status: 400 });
-        }
-
-        // Verify userId exists in database
-        const userExists = await prisma.user.findUnique({
-            where: { id: userId as string },
-        });
-
-        if (!userExists) {
-            return NextResponse.json({
-                success: false,
-                error: 'Người dùng không tồn tại'
-            }, { status: 400 });
-        }
-
-        const finalUserId = userId as string;
 
         // Generate project number
         const currentYear = new Date().getFullYear();

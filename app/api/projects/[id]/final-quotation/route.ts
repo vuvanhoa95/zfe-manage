@@ -20,16 +20,15 @@ async function regenerateCashFlowsFromQuotation(projectId: string, quotationId: 
 
     const revenueBase = quotation.totalAfterVat ?? 0;
 
-    await prisma.$transaction(async (tx) => {
-        // Remove all auto cashflows for this project (in case final quotation changes)
-        await tx.cashFlow.deleteMany({
-            where: {
-                projectId,
-                notes: { contains: AUTO_TAG },
-            },
-        });
+    // Xóa toàn bộ cashflow tự động cũ cho dự án này
+    await prisma.cashFlow.deleteMany({
+        where: {
+            projectId,
+            notes: { contains: AUTO_TAG },
+        },
+    });
 
-        const payload: Array<{
+    const payload: Array<{
             projectId: string;
             type: 'INCOME' | 'EXPENSE';
             category: string;
@@ -41,110 +40,109 @@ async function regenerateCashFlowsFromQuotation(projectId: string, quotationId: 
             createdById: string;
         }> = [];
 
-        if (quotation.paymentMilestones.length > 0) {
-            for (const m of quotation.paymentMilestones) {
-                const amount = Math.round((revenueBase * (m.percent ?? 0)) / 100);
-                if (amount <= 0) continue;
-                payload.push({
-                    projectId,
-                    type: 'INCOME',
-                    category: 'Thu từ báo giá',
-                    description: `Thu theo mốc ${m.no}: ${m.title}`,
-                    amount,
-                    date: quotation.date,
-                    quotationId: quotation.id,
-                    notes: `${AUTO_TAG} ${m.description || 'Tự động tạo theo mốc thanh toán'}`,
-                    createdById,
-                });
-            }
-        } else if (revenueBase > 0) {
+    if (quotation.paymentMilestones.length > 0) {
+        for (const m of quotation.paymentMilestones) {
+            const amount = Math.round((revenueBase * (m.percent ?? 0)) / 100);
+            if (amount <= 0) continue;
             payload.push({
                 projectId,
                 type: 'INCOME',
                 category: 'Thu từ báo giá',
-                description: 'Thu theo tổng báo giá (đã VAT)',
-                amount: Math.round(revenueBase),
+                description: `Thu theo mốc ${m.no}: ${m.title}`,
+                amount,
                 date: quotation.date,
                 quotationId: quotation.id,
-                notes: `${AUTO_TAG} Tự động tạo theo tổng báo giá`,
+                notes: `${AUTO_TAG} ${m.description || 'Tự động tạo theo mốc thanh toán'}`,
                 createdById,
             });
         }
+    } else if (revenueBase > 0) {
+        payload.push({
+            projectId,
+            type: 'INCOME',
+            category: 'Thu từ báo giá',
+            description: 'Thu theo tổng báo giá (đã VAT)',
+            amount: Math.round(revenueBase),
+            date: quotation.date,
+            quotationId: quotation.id,
+            notes: `${AUTO_TAG} Tự động tạo theo tổng báo giá`,
+            createdById,
+        });
+    }
 
-        // Chi tiết outsource per nhân sự
-        if (quotation.outsourceLines.length > 0) {
-            for (const l of quotation.outsourceLines) {
-                const baseAmount =
-                    typeof l.amount === 'number'
-                        ? l.amount
-                        : (l.qty ?? 0) * (l.unitRate ?? 0);
-                const amount = Math.round(baseAmount);
-                if (amount <= 0) continue;
+    // Chi tiết outsource per nhân sự
+    if (quotation.outsourceLines.length > 0) {
+        for (const l of quotation.outsourceLines) {
+            const baseAmount =
+                typeof l.amount === 'number'
+                    ? l.amount
+                    : (l.qty ?? 0) * (l.unitRate ?? 0);
+            const amount = Math.round(baseAmount);
+            if (amount <= 0) continue;
 
-                const staffLabel = l.staffName ? ` - ${l.staffName}` : '';
-                const disciplineLabel = l.discipline ? ` (${l.discipline})` : '';
+            const staffLabel = l.staffName ? ` - ${l.staffName}` : '';
+            const disciplineLabel = l.discipline ? ` (${l.discipline})` : '';
 
-                payload.push({
-                    projectId,
-                    type: 'EXPENSE',
-                    category: 'Chi phí outsource',
-                    description: `Outsource${staffLabel}${disciplineLabel}`,
-                    amount,
-                    date: quotation.date,
-                    quotationId: quotation.id,
-                    notes: `${AUTO_TAG} Tự động tạo từ bảng nhân sự outsource`,
-                    createdById,
-                });
-            }
-        } else if ((quotation.outsourceCost ?? 0) > 0) {
             payload.push({
                 projectId,
                 type: 'EXPENSE',
                 category: 'Chi phí outsource',
-                description: 'Chi phí outsource theo báo giá',
-                amount: Math.round(quotation.outsourceCost ?? 0),
+                description: `Outsource${staffLabel}${disciplineLabel}`,
+                amount,
                 date: quotation.date,
                 quotationId: quotation.id,
-                notes: `${AUTO_TAG} Tự động tạo từ chi phí outsource tổng`,
+                notes: `${AUTO_TAG} Tự động tạo từ bảng nhân sự outsource`,
                 createdById,
             });
         }
+    } else if ((quotation.outsourceCost ?? 0) > 0) {
+        payload.push({
+            projectId,
+            type: 'EXPENSE',
+            category: 'Chi phí outsource',
+            description: 'Chi phí outsource theo báo giá',
+            amount: Math.round(quotation.outsourceCost ?? 0),
+            date: quotation.date,
+            quotationId: quotation.id,
+            notes: `${AUTO_TAG} Tự động tạo từ chi phí outsource tổng`,
+            createdById,
+        });
+    }
 
-        const taxAmount = Math.round(quotation.taxCost ?? 0);
-        const commissionAmount = Math.round(quotation.commissionCost ?? 0);
+    const taxAmount = Math.round(quotation.taxCost ?? 0);
+    const commissionAmount = Math.round(quotation.commissionCost ?? 0);
 
-        if (taxAmount > 0) {
-            payload.push({
-                projectId,
-                type: 'EXPENSE',
-                category: 'Chi phí thuế',
-                description: 'Chi phí thuế theo báo giá',
-                amount: taxAmount,
-                date: quotation.date,
-                quotationId: quotation.id,
-                notes: `${AUTO_TAG} Tự động tạo từ chi phí thuế trong báo giá`,
-                createdById,
-            });
-        }
+    if (taxAmount > 0) {
+        payload.push({
+            projectId,
+            type: 'EXPENSE',
+            category: 'Chi phí thuế',
+            description: 'Chi phí thuế theo báo giá',
+            amount: taxAmount,
+            date: quotation.date,
+            quotationId: quotation.id,
+            notes: `${AUTO_TAG} Tự động tạo từ chi phí thuế trong báo giá`,
+            createdById,
+        });
+    }
 
-        if (commissionAmount > 0) {
-            payload.push({
-                projectId,
-                type: 'EXPENSE',
-                category: 'Chi phí hoa hồng',
-                description: 'Chi phí hoa hồng theo báo giá',
-                amount: commissionAmount,
-                date: quotation.date,
-                quotationId: quotation.id,
-                notes: `${AUTO_TAG} Tự động tạo từ chi phí hoa hồng trong báo giá`,
-                createdById,
-            });
-        }
+    if (commissionAmount > 0) {
+        payload.push({
+            projectId,
+            type: 'EXPENSE',
+            category: 'Chi phí hoa hồng',
+            description: 'Chi phí hoa hồng theo báo giá',
+            amount: commissionAmount,
+            date: quotation.date,
+            quotationId: quotation.id,
+            notes: `${AUTO_TAG} Tự động tạo từ chi phí hoa hồng trong báo giá`,
+            createdById,
+        });
+    }
 
-        if (payload.length) {
-            await tx.cashFlow.createMany({ data: payload });
-        }
-    });
+    if (payload.length) {
+        await prisma.cashFlow.createMany({ data: payload });
+    }
 }
 
 // PUT /api/projects/[id]/final-quotation
@@ -173,24 +171,24 @@ export async function PUT(
             return NextResponse.json({ success: false, error: 'Project not found' }, { status: 404 });
         }
 
-        const updated = await prisma.$transaction(async (tx) => {
-            // Unset "báo giá chốt": clear finalQuotationId and reset financial summary
-            if (!quotationId) {
-                return await tx.project.update({
-                    where: { id: project.id },
-                    data: {
-                        finalQuotationId: null,
-                        totalBudget: 0,
-                        totalRevenue: 0,
-                        totalCost: 0,
-                        totalProfit: 0,
-                    },
-                    select: { id: true, finalQuotationId: true },
-                });
-            }
+        let updated: { id: string; finalQuotationId: string | null };
 
+        // Unset "báo giá chốt": clear finalQuotationId and reset financial summary
+        if (!quotationId) {
+            updated = await prisma.project.update({
+                where: { id: project.id },
+                data: {
+                    finalQuotationId: null,
+                    totalBudget: 0,
+                    totalRevenue: 0,
+                    totalCost: 0,
+                    totalProfit: 0,
+                },
+                select: { id: true, finalQuotationId: true },
+            });
+        } else {
             // Set "báo giá chốt": validate and sync financial summary from quotation
-            const quotation = await tx.quotation.findUnique({
+            const quotation = await prisma.quotation.findUnique({
                 where: { id: quotationId },
                 select: {
                     id: true,
@@ -213,7 +211,7 @@ export async function PUT(
                 (quotation.commissionCost ?? 0);
             const totalProfit = revenue - totalCost;
 
-            return await tx.project.update({
+            updated = await prisma.project.update({
                 where: { id: project.id },
                 data: {
                     finalQuotationId: quotation.id,
@@ -224,7 +222,7 @@ export async function PUT(
                 },
                 select: { id: true, finalQuotationId: true },
             });
-        });
+        }
 
         // Auto-regenerate cashflows to match final quotation (keeps CashFlow tab consistent)
         if (updated.finalQuotationId) {

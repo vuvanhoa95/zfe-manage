@@ -59,7 +59,7 @@ export async function GET(
                     },
                     orderBy: { date: 'desc' },
                     take: 100,
-                }).catch((err) => {
+                }).catch((err: { message?: string; code?: string; meta?: unknown }) => {
                     console.warn('Error fetching cash flows with createdBy:', err);
                     console.warn('Error details:', {
                         message: err?.message,
@@ -76,7 +76,7 @@ export async function GET(
                         },
                         orderBy: { date: 'desc' },
                         take: 100,
-                    }).catch((fallbackErr) => {
+                    }).catch((fallbackErr: { message?: string; code?: string; meta?: unknown }) => {
                         console.error('Error fetching cash flows without createdBy:', fallbackErr);
                         return [];
                     });

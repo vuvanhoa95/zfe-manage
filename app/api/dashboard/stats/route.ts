@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         });
 
         const quotationsByStatus = { draft: 0, sent: 0, accepted: 0, rejected: 0 };
-        statusGroups.forEach(g => {
+        statusGroups.forEach((g: { status: string; _count: { id: number } }) => {
             if (g.status === 'DRAFT') quotationsByStatus.draft = g._count.id;
             else if (g.status === 'SENT') quotationsByStatus.sent = g._count.id;
             else if (g.status === 'ACCEPTED') quotationsByStatus.accepted = g._count.id;
@@ -93,7 +93,15 @@ export async function GET(request: NextRequest) {
             take: 10,
         });
 
-        const recentQuotations = recentQuotationsRaw.map((q) => ({
+        const recentQuotations = recentQuotationsRaw.map((q: {
+            id: string;
+            quotationNo: string;
+            projectName: string | null;
+            totalAfterVat: number | null;
+            status: string;
+            date: Date;
+            customer: { name: string } | null;
+        }) => ({
             id: q.id,
             quotationNo: q.quotationNo,
             customerName: q.customer?.name || 'N/A',
@@ -111,7 +119,7 @@ export async function GET(request: NextRequest) {
             },
             select: { finalQuotationId: true }
         });
-        const finalQuotationIds = finalProjQuotes.map(p => p.finalQuotationId as string);
+        const finalQuotationIds = finalProjQuotes.map((p: { finalQuotationId: string | null }) => p.finalQuotationId as string);
 
         // Aggregate payment milestones
         const paymentMilestones = finalQuotationIds.length
@@ -138,7 +146,21 @@ export async function GET(request: NextRequest) {
             })
             : [];
 
-        const paymentMilestonesSummary = paymentMilestones.map((m) => {
+        const paymentMilestonesSummary = paymentMilestones.map((m: {
+            id: string;
+            quotationId: string;
+            no: number;
+            title: string | null;
+            percent: number;
+            expectedDate: Date | null;
+            quotation: {
+                id: string;
+                quotationNo: string;
+                projectName: string | null;
+                totalAfterVat: number | null;
+                customer: { name: string } | null;
+            };
+        }) => {
             const quotation = m.quotation;
             const totalAfterVat = quotation.totalAfterVat || 0;
             const expectedAmount = (m.percent / 100) * totalAfterVat;
@@ -185,7 +207,14 @@ export async function GET(request: NextRequest) {
             monthlyData[key] = { revenue: 0, costs: 0, profit: 0, count: 0 };
         }
 
-        monthlyDataRaw.forEach((q) => {
+        monthlyDataRaw.forEach((q: {
+            createdAt: Date;
+            totalBeforeVat: number | null;
+            totalAfterVat: number | null;
+            outsourceCost: number | null;
+            taxCost: number | null;
+            commissionCost: number | null;
+        }) => {
             const date = new Date(q.createdAt);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             if (monthlyData[key]) {

@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     let totalRevenue = 0;
     let totalCosts = 0;
 
-    acceptedQuotationsData.forEach(q => {
+    acceptedQuotationsData.forEach((q: { totalAfterVat: number | null; outsourceCost: number | null; taxCost: number | null; commissionCost: number | null }) => {
       totalRevenue += q.totalAfterVat || 0;
       totalCosts += (q.outsourceCost || 0) + (q.taxCost || 0) + (q.commissionCost || 0);
     });

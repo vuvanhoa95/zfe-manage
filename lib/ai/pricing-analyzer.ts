@@ -66,7 +66,7 @@ export async function analyzePricing(
   const customerContext = customerInfo 
     ? `Khách hàng: ${customerInfo.name}
 Vị trí: ${customerInfo.location || 'N/A'}
-Lịch sử: ${customerInfo.quotations.length} báo giá (${customerInfo.quotations.filter(q => q.status === 'ACCEPTED').length} thành công)`
+Lịch sử: ${customerInfo.quotations.length} báo giá (${customerInfo.quotations.filter((q: { status: string }) => q.status === 'ACCEPTED').length} thành công)`
     : 'Khách hàng mới (chưa có lịch sử)';
 
   const userPrompt = `Phân tích và gợi ý giá cho hạng mục: "${itemTitle}"

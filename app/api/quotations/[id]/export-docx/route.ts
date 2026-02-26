@@ -4,6 +4,7 @@ import { generateDocx } from '@/lib/docx-generator';
 import { formatVND } from '@/lib/number-to-words-vn';
 import { formatVietnameseDate } from '@/lib/utils';
 import { QuotationPreviewData } from '@/types/quotation';
+import type { PaymentMilestone, QuotationLine } from '@prisma/client';
 
 // POST /api/quotations/[id]/export-docx
 export async function POST(
@@ -67,7 +68,7 @@ export async function POST(
             projectNotes: quotation.projectNotes || undefined,
             scopeText: quotation.scopeText || undefined,
             deliverablesHtml: quotation.deliverablesText,
-            lines: quotation.lines.map(line => ({
+            lines: quotation.lines.map((line: QuotationLine) => ({
                 section: line.section || undefined,
                 itemNo: line.itemNo || undefined,
                 title: line.title,
@@ -87,7 +88,7 @@ export async function POST(
             totalAfterVatFormatted: formatVND(quotation.totalAfterVat),
             totalInWords: quotation.totalInWords || '',
             scheduleText: quotation.scheduleText || undefined,
-            paymentMilestones: quotation.paymentMilestones.map(m => ({
+            paymentMilestones: quotation.paymentMilestones.map((m: PaymentMilestone) => ({
                 no: m.no,
                 title: m.title,
                 percent: m.percent,

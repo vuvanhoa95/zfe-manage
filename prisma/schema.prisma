@@ -351,14 +351,28 @@ model Task {
   description String?
   startDate   DateTime?
   endDate     DateTime?
-  status      String   @default("TODO") // TODO, IN_PROGRESS, COMPLETED, DELAYED
+  /// Hạn hoàn thành công việc – dùng cho logic quá hạn
+  dueDate     DateTime?
+  status      String   @default("TODO")   // TODO, IN_PROGRESS, COMPLETED, DELAYED
   priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  progress    Int      @default(0) // 0-100
-  assignedTo  String? // Name of assignee
+  progress    Int      @default(0)        // 0-100
+  /// Tên người phụ trách (hiển thị trực tiếp, không relation User ở Phase 1)
+  assignedTo  String?
+  /// Giai đoạn triển khai (Khảo sát, Thiết kế, Shopdrawing, Thi công, ...)
+  phase       String?
+  /// Bộ môn: ARC / STR / MEP / OTHER
+  discipline  String?
+  /// Vị trí/tầng/khu vực (text tự do)
+  location    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([projectId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([phase])
+  @@index([dueDate])
   @@map("tasks")
 }
 

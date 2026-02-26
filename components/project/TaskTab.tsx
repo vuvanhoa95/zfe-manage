@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import DatePicker from 'react-datepicker';
 import { format } from 'date-fns';
@@ -22,6 +22,7 @@ import {
     LayoutGrid,
     BarChart2,
     Table as TableIcon,
+    Settings2,
 } from 'lucide-react';
 
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'DELAYED';
@@ -34,12 +35,24 @@ type Task = {
     description: string | null;
     startDate: string | null;
     endDate: string | null;
+    // Hạn hoàn thành – tạm thời có thể trùng endDate cho tới khi backend support riêng
+    dueDate?: string | null;
     status: TaskStatus;
     priority: TaskPriority;
     progress: number;
     assignedTo: string | null;
+    // Phân loại phục vụ quản lý tiến độ
+    phase?: string | null;
+    discipline?: string | null;
+    location?: string | null;
     createdAt: string;
     updatedAt: string;
+};
+
+type ChecklistItem = {
+    id: string;
+    text: string;
+    done: boolean;
 };
 
 type StaffOption = {
@@ -178,6 +191,30 @@ function AssigneePill({ name }: { name: string }) {
     );
 }
 
+function getEffectiveDueDate(task: Task): Date | null {
+    const raw = task.dueDate ?? task.endDate;
+    if (!raw) return null;
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
+}
+
+function isTaskOverdue(task: Task, now: Date = new Date()): boolean {
+    const due = getEffectiveDueDate(task);
+    if (!due) return false;
+    if (task.status === 'COMPLETED') return false;
+
+    const toYmd = (d: Date) => [d.getFullYear(), d.getMonth(), d.getDate()] as const;
+    const [y1, m1, d1] = toYmd(due);
+    const [y2, m2, d2] = toYmd(now);
+
+    if (y1 < y2) return true;
+    if (y1 > y2) return false;
+    if (m1 < m2) return true;
+    if (m1 > m2) return false;
+    return d1 < d2;
+}
+
 function StatusDropdown({
     value,
     onChange,
@@ -210,7 +247,7 @@ function StatusDropdown({
                 aria-expanded={isOpen}
                 className="w-full h-[46px] px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium pr-10 transition-all cursor-pointer flex items-center justify-between"
             >
-                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold border ${STATUS_CONFIG[value].color}`}>
+                <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${STATUS_CONFIG[value].color}`}>
                     <span className={`w-2 h-2 rounded-full ${selectedTheme.dotBg}`} />
                     {STATUS_CONFIG[value].label}
                 </span>
@@ -232,7 +269,7 @@ function StatusDropdown({
                                 }}
                                 className={`w-full text-left px-2 py-2 rounded-lg transition-colors flex items-center justify-between hover:bg-gray-50 ${isActive ? 'bg-gray-50' : ''}`}
                             >
-                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold border ${cfg.color}`}>
+                                <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${cfg.color}`}>
                                     <span className={`w-2 h-2 rounded-full ${theme.dotBg}`} />
                                     {cfg.label}
                                 </span>
@@ -278,7 +315,7 @@ function PriorityDropdown({
                 aria-expanded={isOpen}
                 className="w-full h-[46px] px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium pr-10 transition-all cursor-pointer flex items-center justify-between"
             >
-                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold border ${theme.pillBg} ${theme.pillBorder} ${theme.text}`}>
+                <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${theme.pillBg} ${theme.pillBorder} ${theme.text}`}>
                     <span className={`w-2 h-2 rounded-full ${theme.dotBg}`} />
                     {PRIORITY_CONFIG[value].label}
                 </span>
@@ -300,7 +337,7 @@ function PriorityDropdown({
                                 }}
                                 className={`w-full text-left px-2 py-2 rounded-lg transition-colors flex items-center justify-between hover:bg-gray-50 ${isActive ? 'bg-gray-50' : ''}`}
                             >
-                                <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold border ${optionTheme.pillBg} ${optionTheme.pillBorder} ${optionTheme.text}`}>
+                                <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${optionTheme.pillBg} ${optionTheme.pillBorder} ${optionTheme.text}`}>
                                     <span className={`w-2 h-2 rounded-full ${optionTheme.dotBg}`} />
                                     {cfg.label}
                                 </span>
@@ -325,6 +362,7 @@ export default function TaskTab({
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'board' | 'gantt' | 'table'>('list');
     const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -332,6 +370,12 @@ export default function TaskTab({
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('ALL');
     const [priorityFilter, setPriorityFilter] = useState<'ALL' | TaskPriority>('ALL');
     const [assigneeFilter, setAssigneeFilter] = useState<string>('');
+    const [phaseFilter, setPhaseFilter] = useState<string>('');
+    const [disciplineFilter, setDisciplineFilter] = useState<string>('');
+    const [inlineEdit, setInlineEdit] = useState<{
+        taskId: string;
+        field: 'status' | 'priority' | 'assignedTo';
+    } | null>(null);
     const isDev = process.env.NODE_ENV === 'development';
     const [columnSettings, setColumnSettings] = useState<{
         showStatus: boolean;
@@ -339,12 +383,20 @@ export default function TaskTab({
         showAssignee: boolean;
         showPriority: boolean;
         showProgress: boolean;
+        showPhase: boolean;
+        showDiscipline: boolean;
+        showLocation: boolean;
+        showDueDate: boolean;
     }>({
         showStatus: true,
         showDates: true,
         showAssignee: true,
         showPriority: true,
         showProgress: true,
+        showPhase: true,
+        showDiscipline: true,
+        showLocation: true,
+        showDueDate: true,
     });
 
     // Form state
@@ -357,10 +409,16 @@ export default function TaskTab({
         priority: 'MEDIUM' as TaskPriority,
         progress: 0,
         assignedTo: '',
+        phase: '',
+        discipline: '',
+        location: '',
+        dueDate: '',
     });
+    const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
     const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
     const [isLoadingStaffOptions, setIsLoadingStaffOptions] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
+    const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
 
     const fetchTasks = useCallback(async () => {
         setIsLoading(true);
@@ -377,6 +435,42 @@ export default function TaskTab({
         }
     }, [projectId]);
 
+    const autoResizeDescription = useCallback(() => {
+        const el = descriptionRef.current;
+        if (!el) return;
+        el.style.height = '0px';
+        el.style.height = `${el.scrollHeight}px`;
+    }, []);
+
+    const handleInlineUpdate = useCallback(
+        async (taskId: string, patch: Partial<Pick<Task, 'status' | 'priority' | 'assignedTo' | 'progress'>>) => {
+            setTasks((prev) =>
+                prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
+            );
+
+            try {
+                const res = await fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(patch),
+                });
+                const result = await res.json();
+                if (!result.success) {
+                    // Nếu API báo lỗi, load lại danh sách để tránh lệch dữ liệu
+                    await fetchTasks();
+                }
+            } catch (error) {
+                console.error('Failed to update task inline:', error);
+                await fetchTasks();
+            } finally {
+                setInlineEdit((current) =>
+                    current && current.taskId === taskId ? null : current,
+                );
+            }
+        },
+        [fetchTasks],
+    );
+
     const handleSeedSampleTasks = useCallback(async () => {
         if (!projectId || isNew) return;
         try {
@@ -385,14 +479,34 @@ export default function TaskTab({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ projectId, replace: true }),
             });
-            const result = (await res.json()) as { success?: boolean; error?: string };
+            const result = (await res.json()) as {
+                success?: boolean;
+                error?: string;
+                message?: string;
+                data?: { createdCount?: number; errors?: string[]; note?: string };
+                details?: { stack?: string };
+            };
             if (!result.success) {
-                console.error('Seed sample tasks failed:', result.error || result);
+                const errorMsg = result.message || result.error || 'Lỗi không xác định';
+                console.error('Seed sample tasks failed:', errorMsg, result.details);
+                alert(`Không thể tạo task mẫu: ${errorMsg}\n\nVui lòng kiểm tra console để xem chi tiết.`);
                 return;
+            }
+            // Hiển thị thông báo thành công
+            if (result.data) {
+                const note = result.data.note || `Đã tạo ${result.data.createdCount || 0} task mẫu thành công.`;
+                if (result.data.errors && result.data.errors.length > 0) {
+                    console.warn('Một số task không tạo được:', result.data.errors);
+                    alert(`${note}\n\nMột số task không tạo được. Xem console để biết chi tiết.`);
+                } else {
+                    alert(note);
+                }
             }
             await fetchTasks();
         } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Lỗi không xác định';
             console.error('Seed sample tasks failed:', error);
+            alert(`Lỗi khi tạo task mẫu: ${errorMsg}`);
         }
     }, [projectId, isNew, fetchTasks]);
 
@@ -452,6 +566,11 @@ export default function TaskTab({
         setIsMounted(true);
     }, []);
 
+    useEffect(() => {
+        if (!isFormOpen) return;
+        autoResizeDescription();
+    }, [isFormOpen, formData.description, autoResizeDescription]);
+
     const handleOpenCreate = () => {
         setEditingTask(null);
         setFormData({
@@ -463,7 +582,12 @@ export default function TaskTab({
             priority: 'MEDIUM',
             progress: 0,
             assignedTo: '',
+            phase: '',
+            discipline: '',
+            location: '',
+            dueDate: '',
         });
+        setChecklist([]);
         setIsFormOpen(true);
     };
 
@@ -531,6 +655,10 @@ export default function TaskTab({
 
     const handleOpenEdit = (task: Task) => {
         setEditingTask(task);
+
+        // Tạm thời checklist chưa được lưu riêng trong DB nên chưa parse lại từ description
+        setChecklist([]);
+
         setFormData({
             title: task.title,
             description: task.description || '',
@@ -540,6 +668,14 @@ export default function TaskTab({
             priority: task.priority,
             progress: task.progress,
             assignedTo: task.assignedTo || '',
+            phase: task.phase || '',
+            discipline: task.discipline || '',
+            location: task.location || '',
+            dueDate: task.dueDate
+                ? new Date(task.dueDate).toISOString().slice(0, 10)
+                : task.endDate
+                    ? new Date(task.endDate).toISOString().slice(0, 10)
+                    : '',
         });
         setIsFormOpen(true);
     };
@@ -553,10 +689,29 @@ export default function TaskTab({
                 : `/api/projects/${projectId}/tasks`;
             const method = editingTask ? 'PUT' : 'POST';
 
+            const baseDescription = formData.description?.trim() ?? '';
+            const checklistLines = checklist
+                .map((item) => (item.text || '').trim())
+                .filter((text) => text.length > 0)
+                .map((text) => `- [ ] ${text}`);
+
+            let finalDescription = baseDescription;
+            if (checklistLines.length > 0) {
+                if (finalDescription) {
+                    finalDescription += '\n\n';
+                }
+                finalDescription += 'Checklist:\n' + checklistLines.join('\n');
+            }
+
+            const payload = {
+                ...formData,
+                description: finalDescription,
+            };
+
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(payload),
             });
 
             const result = await res.json();
@@ -593,9 +748,40 @@ export default function TaskTab({
         return Math.round(total / tasks.length);
     }, [tasks]);
 
+    const overdueCount = useMemo(
+        () => tasks.filter((task) => isTaskOverdue(task)).length,
+        [tasks],
+    );
+
+    const phaseOptions = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    tasks
+                        .map((task) => (task.phase ?? '').trim())
+                        .filter((val) => val.length > 0),
+                ),
+            ),
+        [tasks],
+    );
+
+    const disciplineOptions = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    tasks
+                        .map((task) => (task.discipline ?? '').trim())
+                        .filter((val) => val.length > 0),
+                ),
+            ),
+        [tasks],
+    );
+
     const filteredTasks = useMemo(() => {
         const keyword = searchQuery.trim().toLowerCase();
         const assignee = assigneeFilter.trim().toLowerCase();
+        const phase = phaseFilter.trim().toLowerCase();
+        const discipline = disciplineFilter.trim().toLowerCase();
 
         return tasks.filter((task) => {
             if (statusFilter !== 'ALL' && task.status !== statusFilter) {
@@ -613,6 +799,20 @@ export default function TaskTab({
                 }
             }
 
+            if (phase) {
+                const taskPhase = (task.phase ?? '').trim().toLowerCase();
+                if (taskPhase !== phase) {
+                    return false;
+                }
+            }
+
+            if (discipline) {
+                const taskDiscipline = (task.discipline ?? '').trim().toLowerCase();
+                if (taskDiscipline !== discipline) {
+                    return false;
+                }
+            }
+
             if (!keyword) {
                 return true;
             }
@@ -622,7 +822,7 @@ export default function TaskTab({
 
             return title.includes(keyword) || description.includes(keyword);
         });
-    }, [tasks, searchQuery, statusFilter, priorityFilter, assigneeFilter]);
+    }, [tasks, searchQuery, statusFilter, priorityFilter, assigneeFilter, phaseFilter, disciplineFilter]);
 
     const groupedTasks = useMemo(
         () => ({
@@ -663,6 +863,8 @@ export default function TaskTab({
         setStatusFilter('ALL');
         setPriorityFilter('ALL');
         setAssigneeFilter('');
+        setPhaseFilter('');
+        setDisciplineFilter('');
     };
 
     const taskModal = isFormOpen ? (
@@ -703,11 +905,15 @@ export default function TaskTab({
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">Mô tả chi tiết</label>
                             <textarea
-                                rows={2}
+                                ref={descriptionRef}
+                                rows={3}
                                 placeholder="Nhập yêu cầu hoặc ghi chú cho công việc..."
-                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none resize-none"
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none resize-none min-h-[160px] md:min-h-[200px]"
                                 value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, description: e.target.value });
+                                    autoResizeDescription();
+                                }}
                             />
                         </div>
 
@@ -828,6 +1034,134 @@ export default function TaskTab({
                                 </p>
                             </div>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Giai đoạn</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ví dụ: Thiết kế cơ sở, Thi công..."
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                    value={formData.phase}
+                                    onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Bộ môn</label>
+                                <input
+                                    type="text"
+                                    placeholder="Kiến trúc, Kết cấu, MEP..."
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                    value={formData.discipline}
+                                    onChange={(e) => setFormData({ ...formData, discipline: e.target.value })}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Vị trí / Khu vực</label>
+                                <input
+                                    type="text"
+                                    placeholder="Tầng, khu vực, block..."
+                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                                    value={formData.location}
+                                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Hạn hoàn thành</label>
+                                <div className="relative">
+                                    <DatePicker
+                                        selected={formData.dueDate ? new Date(formData.dueDate) : null}
+                                        onChange={(date: Date | null) =>
+                                            setFormData({
+                                                ...formData,
+                                                dueDate: date ? format(date, 'yyyy-MM-dd') : '',
+                                            })
+                                        }
+                                        dateFormat="dd/MM/yyyy"
+                                        placeholderText="Chọn hạn hoàn thành"
+                                        showMonthDropdown
+                                        showYearDropdown
+                                        dropdownMode="select"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
+                                        onKeyDown={(e) => e.preventDefault()}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-2">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Checklist công việc nhỏ
+                            </label>
+                            <p className="text-[11px] text-gray-500 mb-2">
+                                Thêm các bước nhỏ cần làm cho công việc này (tương tự checklist trong ClickUp). Checklist
+                                sẽ được lưu kèm phần mô tả.
+                            </p>
+                            <div className="space-y-2">
+                                {checklist.map((item, index) => (
+                                    <div
+                                        key={item.id}
+                                        className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-1.5 border border-gray-200"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={item.done}
+                                            onChange={(e) =>
+                                                setChecklist((prev) =>
+                                                    prev.map((c, i) =>
+                                                        i === index ? { ...c, done: e.target.checked } : c,
+                                                    ),
+                                                )
+                                            }
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={item.text}
+                                            onChange={(e) =>
+                                                setChecklist((prev) =>
+                                                    prev.map((c, i) =>
+                                                        i === index ? { ...c, text: e.target.value } : c,
+                                                    ),
+                                                )
+                                            }
+                                            placeholder="Nhập nội dung checklist..."
+                                            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-800"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setChecklist((prev) => prev.filter((_, i) => i !== index))
+                                            }
+                                            className="text-gray-400 hover:text-red-500 text-xs font-medium px-1"
+                                            title="Xóa mục này"
+                                        >
+                                            Xóa
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setChecklist((prev) => [
+                                            ...prev,
+                                            {
+                                                id: `${Date.now()}-${prev.length}`,
+                                                text: '',
+                                                done: false,
+                                            },
+                                        ])
+                                    }
+                                    className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    Thêm mục checklist
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
@@ -859,6 +1193,185 @@ export default function TaskTab({
         </div>
     ) : null;
 
+    const settingsModal = isSettingsOpen ? (
+        <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl w-full max-w-lg mx-4 shadow-2xl border border-gray-100 overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-900">Cài đặt Công việc & Tiến độ</h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Tùy chỉnh cách hiển thị cột trong chế độ Bảng và thanh Gantt. Các cài đặt này chỉ áp dụng
+                            cho dự án này và được lưu trên trình duyệt của anh.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setIsSettingsOpen(false)}
+                        className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                        aria-label="Đóng cài đặt"
+                    >
+                        <X className="w-5 h-5 text-gray-400" />
+                    </button>
+                </div>
+
+                <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto text-sm">
+                    <div>
+                        <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                            Cột hiển thị trong chế độ Bảng
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2">
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showStatus !== false}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showStatus: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Trạng thái</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showPriority}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showPriority: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Ưu tiên</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showAssignee}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showAssignee: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Người phụ trách</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showPhase}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showPhase: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Giai đoạn</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showDiscipline}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showDiscipline: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Bộ môn</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showLocation}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showLocation: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Vị trí</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showDates}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showDates: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Thời gian (Bắt đầu – Kết thúc)</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showDueDate}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showDueDate: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Hạn (Due date)</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={columnSettings.showProgress}
+                                    onChange={(e) =>
+                                        setColumnSettings((prev) => ({
+                                            ...prev,
+                                            showProgress: e.target.checked,
+                                        }))
+                                    }
+                                    className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span>Tiến độ (%)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-3 text-xs text-gray-500 space-y-1.5">
+                        <p className="font-semibold text-gray-700">Custom fields nâng cao</p>
+                        <p>
+                            Các loại custom field linh hoạt (số, tiền tệ, dropdown, checkbox...) kiểu ClickUp sẽ được
+                            triển khai ở phiên bản nâng cao. Hiện tại anh có thể dùng các trường{' '}
+                            <span className="font-semibold">Giai đoạn, Bộ môn, Vị trí, Hạn</span> để phân loại công việc
+                            theo BIM/Construction.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => setIsSettingsOpen(false)}
+                        className="px-5 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+                    >
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    ) : null;
+
     if (isNew) {
         return (
             <div className="px-4 pt-4 pb-6 md:px-6 md:pt-4 md:pb-8 flex items-center justify-center">
@@ -869,10 +1382,10 @@ export default function TaskTab({
 
     return (
         <>
-            <div className="px-4 pt-3 pb-5 md:px-6 md:pt-3 md:pb-7 overflow-y-auto h-full">
-                <div className="max-w-6xl mx-auto space-y-3">
-                {/* Header Stats */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-2.5 md:px-4 md:py-3">
+            <div className="pt-3 pb-5 md:pt-3 md:pb-7">
+                <div className="space-y-3">
+                {/* Header Stats – cố định trên cùng khi cuộn trong tab Công việc */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-2.5 md:px-4 md:py-3 sticky top-0 z-20">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                             <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -953,25 +1466,42 @@ export default function TaskTab({
                                         {overallProgress}%
                                     </span>
                                 </div>
+                                {overdueCount > 0 && (
+                                    <div className="flex items-center gap-1 text-[11px] font-semibold text-red-600 mt-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        <span>{overdueCount} công việc quá hạn</span>
+                                    </div>
+                                )}
                             </div>
-                            <button
-                                onClick={handleOpenCreate}
-                                className="px-3.5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold flex items-center gap-2 shadow-lg shadow-blue-100 text-sm"
-                                title="Thêm công việc mới"
-                            >
-                                <Plus className="w-5 h-5" />
-                                <span className="hidden sm:inline">Thêm công việc</span>
-                            </button>
-                            {isDev && !isNew && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleOpenCreate}
+                                    className="px-3.5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold flex items-center gap-2 shadow-lg shadow-blue-100 text-sm"
+                                    title="Thêm công việc mới"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    <span className="hidden sm:inline">Thêm công việc</span>
+                                </button>
+                                {isDev && !isNew && (
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleSeedSampleTasks()}
+                                        className="px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all font-semibold text-sm"
+                                        title="Tạo 10 task mẫu (chỉ local)"
+                                    >
+                                        Tạo 10 task mẫu
+                                    </button>
+                                )}
                                 <button
                                     type="button"
-                                    onClick={() => void handleSeedSampleTasks()}
-                                    className="px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all font-semibold text-sm"
-                                    title="Tạo 10 task mẫu (chỉ local)"
+                                    onClick={() => setIsSettingsOpen(true)}
+                                    className="px-2.5 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all text-xs sm:text-sm font-medium flex items-center gap-1.5"
+                                    title="Cài đặt hiển thị & cột công việc"
                                 >
-                                    Tạo 10 task mẫu
+                                    <Settings2 className="w-4 h-4" />
+                                    <span className="hidden sm:inline">Cài đặt</span>
                                 </button>
-                            )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1025,6 +1555,30 @@ export default function TaskTab({
                             {staffOptions.map((option) => (
                                 <option key={`${option.type}-${option.id}`} value={option.name}>
                                     {option.discipline ? `${option.name} – ${option.discipline}` : option.name}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={phaseFilter}
+                            onChange={(e) => setPhaseFilter(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
+                        >
+                            <option value="">Tất cả giai đoạn</option>
+                            {phaseOptions.map((option) => (
+                                <option key={option} value={option}>
+                                    {option}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={disciplineFilter}
+                            onChange={(e) => setDisciplineFilter(e.target.value)}
+                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
+                        >
+                            <option value="">Tất cả bộ môn</option>
+                            {disciplineOptions.map((option) => (
+                                <option key={option} value={option}>
+                                    {option}
                                 </option>
                             ))}
                         </select>
@@ -1083,9 +1637,11 @@ export default function TaskTab({
                         {filteredTasks.map((task) => (
                             <div
                                 key={task.id}
-                                className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-blue-200 hover:shadow-md transition-all group"
+                                onClick={() => handleOpenEdit(task)}
+                                className="relative overflow-hidden bg-white rounded-2xl border border-gray-100 p-5 transition-all group cursor-pointer hover:border-zf-accent hover:shadow-lg hover:shadow-zf-accent/10 hover:bg-zf-bg-secondary/70 hover:-translate-y-0.5"
                             >
-                                <div className="flex items-start justify-between gap-4">
+                                <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-zf-accent/15 via-transparent to-zf-primary/10 transition-opacity duration-500" />
+                                <div className="relative flex items-start justify-between gap-4">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3 mb-2">
                                             <span
@@ -1107,18 +1663,25 @@ export default function TaskTab({
                                             {task.description || 'Không có mô tả'}
                                         </p>
 
-                                        <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
+                                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="w-4 h-4" />
-                                                <span>
+                                                <span
+                                                    className={isTaskOverdue(task) ? 'text-red-600 font-semibold' : ''}
+                                                >
                                                     {task.startDate
                                                         ? new Date(task.startDate).toLocaleDateString('vi-VN')
                                                         : 'N/A'}
-                                                    -
+                                                    {' - '}
                                                     {task.endDate
                                                         ? new Date(task.endDate).toLocaleDateString('vi-VN')
                                                         : 'N/A'}
                                                 </span>
+                                                {isTaskOverdue(task) && (
+                                                    <span className="ml-2 inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 border border-red-100">
+                                                        Quá hạn
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <UserIcon className="w-4 h-4" />
@@ -1128,20 +1691,48 @@ export default function TaskTab({
                                                     <span>Chưa phân công</span>
                                                 )}
                                             </div>
+                                            {(task.phase || task.discipline || task.location) && (
+                                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                                    {task.phase && (
+                                                        <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 border border-gray-200">
+                                                            <span className="font-semibold mr-1">Giai đoạn:</span>
+                                                            {task.phase}
+                                                        </span>
+                                                    )}
+                                                    {task.discipline && (
+                                                        <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 border border-gray-200">
+                                                            <span className="font-semibold mr-1">Bộ môn:</span>
+                                                            {task.discipline}
+                                                        </span>
+                                                    )}
+                                                    {task.location && (
+                                                        <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 border border-gray-200">
+                                                            <span className="font-semibold mr-1">Vị trí:</span>
+                                                            {task.location}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
                                     <div className="flex flex-col items-end gap-4">
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => handleOpenEdit(task)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleOpenEdit(task);
+                                                }}
                                                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
                                                 title="Sửa"
                                             >
                                                 <Pencil className="w-5 h-5" />
                                             </button>
                                             <button
-                                                onClick={() => handleDelete(task.id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(task.id);
+                                                }}
                                                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                                 title="Xóa"
                                             >
@@ -1166,7 +1757,7 @@ export default function TaskTab({
                     </div>
                 ) : viewMode === 'table' ? (
                     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                        <div className="max-h-[520px] overflow-auto">
+                        <div className="overflow-x-auto">
                             <table className="min-w-full text-sm">
                                 <thead className="bg-gray-50 sticky top-0 z-[1]">
                                     <tr>
@@ -1188,9 +1779,29 @@ export default function TaskTab({
                                                 Người phụ trách
                                             </th>
                                         )}
+                                        {columnSettings.showPhase && (
+                                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                Giai đoạn
+                                            </th>
+                                        )}
+                                        {columnSettings.showDiscipline && (
+                                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                Bộ môn
+                                            </th>
+                                        )}
+                                        {columnSettings.showLocation && (
+                                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                Vị trí
+                                            </th>
+                                        )}
                                         {columnSettings.showDates && (
                                             <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                                 Thời gian
+                                            </th>
+                                        )}
+                                        {columnSettings.showDueDate && (
+                                            <th className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                                Hạn
                                             </th>
                                         )}
                                         {columnSettings.showProgress && (
@@ -1202,50 +1813,203 @@ export default function TaskTab({
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {filteredTasks.map((task) => (
-                                        <tr key={task.id} className="hover:bg-gray-50">
-                                            <td className="px-4 py-2 align-top">
-                                                <div className="font-semibold text-gray-900 mb-0.5">{task.title}</div>
-                                                <div className="text-xs text-gray-500 line-clamp-1">
+                                        <tr
+                                            key={task.id}
+                                            className="group transition-colors hover:bg-zf-bg-secondary"
+                                        >
+                                            <td
+                                                className="px-4 py-2 align-top cursor-pointer"
+                                                onClick={() => handleOpenEdit(task)}
+                                            >
+                                                <div className="font-semibold text-gray-900 mb-0.5 group-hover:text-zf-primary">
+                                                    {task.title}
+                                                </div>
+                                                <div className="text-xs text-gray-500 line-clamp-1 group-hover:text-zf-graphite">
                                                     {task.description || 'Không có mô tả'}
                                                 </div>
                                             </td>
                                             {columnSettings.showStatus !== false && (
                                                 <td className="px-4 py-2 align-top">
-                                                    <span
-                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${STATUS_CONFIG[task.status].color}`}
-                                                    >
-                                                        {STATUS_CONFIG[task.status].icon}
-                                                        {STATUS_CONFIG[task.status].label}
-                                                    </span>
+                                                    {inlineEdit?.taskId === task.id && inlineEdit.field === 'status' ? (
+                                                        <div className="min-w-[160px]">
+                                                            <StatusDropdown
+                                                                value={task.status}
+                                                                onChange={(next) => {
+                                                                    const patch: Partial<
+                                                                        Pick<Task, 'status' | 'progress'>
+                                                                    > = {
+                                                                        status: next,
+                                                                    };
+                                                                    if (next === 'COMPLETED' && task.progress < 100) {
+                                                                        patch.progress = 100;
+                                                                    }
+                                                                    void handleInlineUpdate(task.id, patch);
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setInlineEdit({
+                                                                    taskId: task.id,
+                                                                    field: 'status',
+                                                                })
+                                                            }
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors hover:ring-1 hover:ring-blue-200"
+                                                        >
+                                                            <span
+                                                                className={STATUS_CONFIG[task.status].color}
+                                                            >
+                                                                {STATUS_CONFIG[task.status].icon}
+                                                            </span>
+                                                            <span className="whitespace-nowrap">
+                                                                {STATUS_CONFIG[task.status].label}
+                                                            </span>
+                                                        </button>
+                                                    )}
                                                 </td>
                                             )}
                                             {columnSettings.showPriority && (
                                                 <td className="px-4 py-2 align-top">
-                                                    <span
-                                                        className={`text-xs font-semibold ${PRIORITY_CONFIG[task.priority].color}`}
-                                                    >
-                                                        {PRIORITY_CONFIG[task.priority].label}
-                                                    </span>
+                                                    {inlineEdit?.taskId === task.id &&
+                                                    inlineEdit.field === 'priority' ? (
+                                                        <div className="min-w-[140px]">
+                                                            <PriorityDropdown
+                                                                value={task.priority}
+                                                                onChange={(next) =>
+                                                                    void handleInlineUpdate(task.id, {
+                                                                        priority: next,
+                                                                    })
+                                                                }
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setInlineEdit({
+                                                                    taskId: task.id,
+                                                                    field: 'priority',
+                                                                })
+                                                            }
+                                                            className={`text-xs font-semibold ${PRIORITY_CONFIG[task.priority].color} hover:underline`}
+                                                        >
+                                                            {PRIORITY_CONFIG[task.priority].label}
+                                                        </button>
+                                                    )}
                                                 </td>
                                             )}
                                             {columnSettings.showAssignee && (
                                                 <td className="px-4 py-2 align-top">
-                                                    {task.assignedTo ? (
-                                                        <AssigneePill name={task.assignedTo} />
+                                                    {inlineEdit?.taskId === task.id &&
+                                                    inlineEdit.field === 'assignedTo' ? (
+                                                        <div className="relative min-w-[160px]">
+                                                            <input
+                                                                autoFocus
+                                                                type="text"
+                                                                defaultValue={task.assignedTo || ''}
+                                                                list={`task-assignees-inline-${projectId}`}
+                                                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                                placeholder="Nhập tên hoặc chọn từ danh sách"
+                                                                onBlur={(e) =>
+                                                                    void handleInlineUpdate(task.id, {
+                                                                        assignedTo: e.target.value,
+                                                                    })
+                                                                }
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.currentTarget.blur();
+                                                                    } else if (e.key === 'Escape') {
+                                                                        setInlineEdit(null);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            {staffOptions.length > 0 && (
+                                                                <datalist
+                                                                    id={`task-assignees-inline-${projectId}`}
+                                                                >
+                                                                    {staffOptions.map((option) => (
+                                                                        <option
+                                                                            key={`${option.type}-${option.id}`}
+                                                                            value={option.name}
+                                                                        >
+                                                                            {option.discipline
+                                                                                ? `${option.name} – ${option.discipline}`
+                                                                                : option.name}
+                                                                        </option>
+                                                                    ))}
+                                                                </datalist>
+                                                            )}
+                                                        </div>
+                                                    ) : task.assignedTo ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setInlineEdit({
+                                                                    taskId: task.id,
+                                                                    field: 'assignedTo',
+                                                                })
+                                                            }
+                                                        >
+                                                            <AssigneePill name={task.assignedTo} />
+                                                        </button>
                                                     ) : (
-                                                        <span className="text-xs text-gray-400">Chưa phân công</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setInlineEdit({
+                                                                    taskId: task.id,
+                                                                    field: 'assignedTo',
+                                                                })
+                                                            }
+                                                            className="text-xs text-gray-400 hover:text-blue-600"
+                                                        >
+                                                            Chưa phân công
+                                                        </button>
                                                     )}
+                                                </td>
+                                            )}
+                                            {columnSettings.showPhase && (
+                                                <td className="px-4 py-2 align-top text-xs text-gray-600">
+                                                    {task.phase || <span className="text-gray-400">—</span>}
+                                                </td>
+                                            )}
+                                            {columnSettings.showDiscipline && (
+                                                <td className="px-4 py-2 align-top text-xs text-gray-600">
+                                                    {task.discipline || <span className="text-gray-400">—</span>}
+                                                </td>
+                                            )}
+                                            {columnSettings.showLocation && (
+                                                <td className="px-4 py-2 align-top text-xs text-gray-600">
+                                                    {task.location || <span className="text-gray-400">—</span>}
                                                 </td>
                                             )}
                                             {columnSettings.showDates && (
                                                 <td className="px-4 py-2 align-top text-xs text-gray-600">
-                                                    {task.startDate
-                                                        ? new Date(task.startDate).toLocaleDateString('vi-VN')
-                                                        : 'N/A'}
-                                                    {' - '}
-                                                    {task.endDate
-                                                        ? new Date(task.endDate).toLocaleDateString('vi-VN')
-                                                        : 'N/A'}
+                                                    <span
+                                                        className={isTaskOverdue(task) ? 'text-red-600 font-semibold' : ''}
+                                                    >
+                                                        {task.startDate
+                                                            ? new Date(task.startDate).toLocaleDateString('vi-VN')
+                                                            : 'N/A'}
+                                                        {' - '}
+                                                        {task.endDate
+                                                            ? new Date(task.endDate).toLocaleDateString('vi-VN')
+                                                            : 'N/A'}
+                                                    </span>
+                                                </td>
+                                            )}
+                                            {columnSettings.showDueDate && (
+                                                <td className="px-4 py-2 align-top text-xs text-gray-600">
+                                                    {getEffectiveDueDate(task)
+                                                        ? getEffectiveDueDate(task)!.toLocaleDateString('vi-VN')
+                                                        : '—'}
+                                                    {isTaskOverdue(task) && (
+                                                        <span className="ml-1 text-[11px] font-semibold text-red-600">
+                                                            (Quá hạn)
+                                                        </span>
+                                                    )}
                                                 </td>
                                             )}
                                             {columnSettings.showProgress && (
@@ -1279,7 +2043,7 @@ export default function TaskTab({
                             <span>{ganttRange.totalDays + 1} ngày</span>
                         </div>
                         <div className="relative border-t border-gray-100 pt-2 max-h-[520px] overflow-auto">
-                            <div className="space-y-2.5">
+                                        <div className="space-y-2.5">
                                 {filteredTasks.map((task) => {
                                     const hasDates = task.startDate && task.endDate;
                                     const start = task.startDate
@@ -1312,9 +2076,12 @@ export default function TaskTab({
                                     return (
                                         <div
                                             key={task.id}
-                                            className="flex items-center gap-2 text-xs text-gray-600"
+                                            className="flex items-center gap-2 text-xs text-gray-600 rounded-xl px-1 py-0.5 transition-colors hover:bg-zf-bg-secondary/70"
                                         >
-                                            <div className="w-52 pr-2 shrink-0">
+                                            <div
+                                                className="w-52 pr-2 shrink-0 cursor-pointer"
+                                                onClick={() => handleOpenEdit(task)}
+                                            >
                                                 <div className="font-semibold text-gray-900 truncate">
                                                     {task.title}
                                                 </div>
@@ -1328,7 +2095,7 @@ export default function TaskTab({
                                                 <div className="relative h-7 rounded-full bg-gray-50 border border-dashed border-gray-200 overflow-hidden">
                                                     {hasDates ? (
                                                         <div
-                                                            className={`absolute inset-y-0 rounded-full shadow-sm border ${statusTheme.headerBg} ${statusTheme.topBorder}`}
+                                                            className={`absolute inset-y-0 rounded-full shadow-sm border ${statusTheme.headerBg} ${statusTheme.topBorder} ${isTaskOverdue(task) ? 'ring-1 ring-red-400' : ''}`}
                                                             style={{
                                                                 left: `${offsetPercent}%`,
                                                                 width: `${widthPercent}%`,
@@ -1400,11 +2167,13 @@ export default function TaskTab({
                                                     draggable
                                                     onDragStart={(event) => handleDragStart(event, task.id)}
                                                     onDragEnd={handleDragEnd}
-                                                    className={`bg-white rounded-xl border border-gray-100 p-3 shadow-sm hover:shadow-md transition-all cursor-move group ${
+                                                    onClick={() => handleOpenEdit(task)}
+                                                    className={`relative overflow-hidden bg-white rounded-xl border border-gray-100 p-3 shadow-sm transition-all cursor-move group hover:border-zf-accent hover:shadow-lg hover:shadow-zf-accent/10 hover:bg-zf-bg-secondary/70 hover:-translate-y-0.5 ${
                                                         draggingTaskId === task.id ? 'opacity-70 ring-2 ring-blue-200' : ''
                                                     }`}
                                                 >
-                                                    <div className="flex items-start justify-between gap-2">
+                                                    <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-zf-accent/15 via-transparent to-zf-primary/10 transition-opacity duration-500" />
+                                                    <div className="relative flex items-start justify-between gap-2">
                                                         <div className="flex-1 min-w-0">
                                                             <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate group-hover:text-blue-600">
                                                                 {task.title}
@@ -1675,6 +2444,8 @@ export default function TaskTab({
 
         {/* Modal tạo/sửa công việc – render lên thẳng body để luôn phủ toàn bộ UI */}
         {isMounted && taskModal ? createPortal(taskModal, document.body) : null}
+        {/* Modal cài đặt hiển thị công việc */}
+        {isMounted && settingsModal ? createPortal(settingsModal, document.body) : null}
         </>
     );
 }

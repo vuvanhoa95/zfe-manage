@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 type OutsourcingStaff = {
     id: string;
@@ -30,6 +31,7 @@ type OutsourcingStaff = {
 };
 
 export default function OutsourcingStaffPage() {
+    const router = useRouter();
     const [staff, setStaff] = useState<OutsourcingStaff[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
@@ -347,15 +349,24 @@ export default function OutsourcingStaffPage() {
                                             {!s.email && !s.phone && '-'}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 text-xs rounded-full ${
-                                                s.isActive
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-gray-100 text-gray-800'
-                                            }`}>
+                                            <span
+                                                className={`px-2 py-1 text-xs rounded-full ${
+                                                    s.isActive
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-gray-100 text-gray-800'
+                                                }`}
+                                            >
                                                 {s.isActive ? 'Hoạt động' : 'Ngừng'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">
+                                            <button
+                                                onClick={() => router.push(`/outsourcing-staff/${s.id}`)}
+                                                className="text-gray-400 hover:text-emerald-600 p-1 mr-2"
+                                                title="Quản lý thanh toán & hợp đồng"
+                                            >
+                                                📄
+                                            </button>
                                             <button
                                                 onClick={() => handleOpenEditModal(s)}
                                                 className="text-gray-400 hover:text-blue-600 p-1 mr-2"
@@ -720,3 +731,4 @@ export default function OutsourcingStaffPage() {
         </div>
     );
 }
+

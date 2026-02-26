@@ -23,112 +23,162 @@ function buildSampleTasks(projectId: string) {
         {
             projectId,
             title: '[MẪU] Khảo sát hiện trạng',
-            description: 'Thu thập thông tin hiện trạng, bản vẽ và các ràng buộc đầu vào.',
+            description:
+                'Thu thập thông tin hiện trạng, bản vẽ và các ràng buộc đầu vào.\n\nChecklist:\n- [ ] Thu thập bản vẽ hiện trạng\n- [ ] Chụp hình hiện trường\n- [ ] Ghi nhận ràng buộc kỹ thuật chính',
             startDate: start2,
             endDate: end2,
+            dueDate: end2,
             status: 'COMPLETED',
             priority: 'MEDIUM',
             progress: 100,
             assignedTo: 'Nguyễn Văn An',
+            phase: 'Khảo sát',
+            discipline: 'ARC',
+            location: 'Hiện trường',
         },
         {
             projectId,
             title: '[MẪU] Lập kế hoạch triển khai',
-            description: 'Xác định phạm vi, mốc tiến độ, phân công nguồn lực.',
+            description:
+                'Xác định phạm vi, mốc tiến độ, phân công nguồn lực.\n\nChecklist:\n- [ ] Chốt phạm vi deliverables\n- [ ] Lập timeline chính\n- [ ] Gán người phụ trách từng giai đoạn',
             startDate: start1,
             endDate: end1,
+            dueDate: end1,
             status: 'IN_PROGRESS',
             priority: 'HIGH',
             progress: 45,
             assignedTo: 'Nguyễn Văn An',
+            phase: 'Lập kế hoạch',
+            discipline: 'OTHER',
+            location: null,
         },
         {
             projectId,
             title: '[MẪU] Thiết lập template & chuẩn hóa naming',
-            description: 'Chuẩn hóa cấu trúc thư mục, layer, naming, shared parameters.',
+            description:
+                'Chuẩn hóa cấu trúc thư mục, layer, naming, shared parameters.\n\nChecklist:\n- [ ] Tạo thư mục dự án chuẩn\n- [ ] Thiết lập template Revit/CAD\n- [ ] Chốt quy tắc đặt tên (naming convention)',
             startDate: start1,
             endDate: end3,
+            dueDate: end3,
             status: 'IN_PROGRESS',
             priority: 'MEDIUM',
             progress: 25,
             assignedTo: 'Trần Minh Khoa',
+            phase: 'Thiết kế',
+            discipline: 'OTHER',
+            location: null,
         },
         {
             projectId,
             title: '[MẪU] Dựng mô hình kiến trúc tầng 1',
-            description: 'Dựng khối kiến trúc cơ bản, kiểm tra clash sơ bộ.',
+            description:
+                'Dựng khối kiến trúc cơ bản, kiểm tra clash sơ bộ.\n\nChecklist:\n- [ ] Dựng massing tổng thể\n- [ ] Dựng tường, sàn, cửa đi/cửa sổ\n- [ ] Chạy clash sơ bộ với kết cấu',
             startDate: start3,
             endDate: end3,
+            dueDate: end3,
             status: 'TODO',
             priority: 'HIGH',
             progress: 0,
             assignedTo: 'Lê Thu Hà',
+            phase: 'Thiết kế',
+            discipline: 'ARC',
+            location: 'Tầng 1',
         },
         {
             projectId,
             title: '[MẪU] Dựng mô hình kết cấu',
-            description: 'Dựng cột/dầm/sàn theo hồ sơ thiết kế, kiểm tra giao cắt.',
+            description:
+                'Dựng cột/dầm/sàn theo hồ sơ thiết kế, kiểm tra giao cắt.\n\nChecklist:\n- [ ] Nhập lưới trục\n- [ ] Dựng cột & dầm chính\n- [ ] Kiểm tra giao cắt với kiến trúc',
             startDate: start3,
             endDate: end3,
+            dueDate: end3,
             status: 'TODO',
             priority: 'MEDIUM',
             progress: 0,
             assignedTo: 'Nguyễn Văn An',
+            phase: 'Thiết kế',
+            discipline: 'STR',
+            location: 'Toàn bộ',
         },
         {
             projectId,
             title: '[MẪU] Dựng mô hình MEP',
-            description: 'Bố trí hệ thống chính, đảm bảo cao độ và khoảng trống kỹ thuật.',
+            description:
+                'Bố trí hệ thống chính, đảm bảo cao độ và khoảng trống kỹ thuật.\n\nChecklist:\n- [ ] Dựng ống gió chính\n- [ ] Dựng ống nước & thoát nước\n- [ ] Kiểm tra cao độ với kết cấu',
             startDate: start3,
             endDate: end3,
+            dueDate: end3,
             status: 'TODO',
             priority: 'CRITICAL',
             progress: 0,
             assignedTo: 'Phạm Quốc Huy',
+            phase: 'Thiết kế',
+            discipline: 'MEP',
+            location: 'Toàn bộ',
         },
         {
             projectId,
             title: '[MẪU] Coordination meeting',
-            description: 'Họp phối hợp và cập nhật issue list.',
+            description:
+                'Họp phối hợp và cập nhật issue list.\n\nChecklist:\n- [ ] Chuẩn bị agenda cuộc họp\n- [ ] Chia sẻ mô hình & bản vẽ mới nhất\n- [ ] Cập nhật issue list sau cuộc họp',
             startDate: start1,
             endDate: end1,
+            dueDate: end1,
             status: 'DELAYED',
             priority: 'HIGH',
             progress: 60,
             assignedTo: 'Trần Minh Khoa',
+            phase: 'Phối hợp',
+            discipline: 'OTHER',
+            location: null,
         },
         {
             projectId,
             title: '[MẪU] Xuất bản vẽ & deliverables đợt 1',
-            description: 'Xuất bản vẽ, IFC, báo cáo clash và checklist chất lượng.',
+            description:
+                'Xuất bản vẽ, IFC, báo cáo clash và checklist chất lượng.\n\nChecklist:\n- [ ] Kiểm tra lại title block & thông tin dự án\n- [ ] Xuất bộ bản vẽ PDF/DWG\n- [ ] Export mô hình IFC & báo cáo clash',
             startDate: end1,
             endDate: end3,
+            dueDate: end3,
             status: 'TODO',
             priority: 'MEDIUM',
             progress: 0,
             assignedTo: null,
+            phase: 'Xuất bản vẽ',
+            discipline: 'OTHER',
+            location: null,
         },
         {
             projectId,
             title: '[MẪU] QC – kiểm tra lỗi mô hình',
-            description: 'Kiểm tra tiêu chuẩn LOD/LOI, naming, tham số và lỗi hình học.',
+            description:
+                'Kiểm tra tiêu chuẩn LOD/LOI, naming, tham số và lỗi hình học.\n\nChecklist:\n- [ ] Kiểm tra đầy đủ LOD/LOI theo phase\n- [ ] Quét lỗi naming & tham số thiếu\n- [ ] Kiểm tra các lỗi hình học lớn',
             startDate: start1,
             endDate: end1,
+            dueDate: end1,
             status: 'IN_PROGRESS',
             priority: 'MEDIUM',
             progress: 30,
             assignedTo: 'Lê Thu Hà',
+            phase: 'QC',
+            discipline: 'OTHER',
+            location: null,
         },
         {
             projectId,
             title: '[MẪU] Tổng hợp báo cáo tiến độ tuần',
-            description: 'Cập nhật tiến độ, rủi ro và đề xuất hành động tuần tới.',
+            description:
+                'Cập nhật tiến độ, rủi ro và đề xuất hành động tuần tới.\n\nChecklist:\n- [ ] Thu thập % hoàn thành từ các task\n- [ ] Cập nhật rủi ro & vướng mắc chính\n- [ ] Đề xuất hành động tuần tới cho PM',
             startDate: end1,
             endDate: end3,
+            dueDate: end3,
             status: 'TODO',
             priority: 'LOW',
             progress: 0,
             assignedTo: null,
+            phase: 'Báo cáo',
+            discipline: 'OTHER',
+            location: null,
         },
     ];
 }
@@ -167,38 +217,102 @@ export async function POST(request: NextRequest) {
         }
 
         const sampleTasks = buildSampleTasks(body.projectId);
+        console.log(`[DEV_SEED_SAMPLE_TASKS] Bắt đầu tạo ${sampleTasks.length} task mẫu cho project ${body.projectId}`);
 
-        const result = await prisma.$transaction(async (tx) => {
-            if (body.replace) {
-                await tx.task.deleteMany({
-                    where: {
-                        projectId: body.projectId,
-                        title: { startsWith: '[MẪU]' },
-                    },
-                });
+        // Nếu replace, xóa task mẫu cũ trước bằng raw SQL (không phụ thuộc Prisma model "task")
+        if (body.replace) {
+            const deleted = await prisma.$executeRawUnsafe(
+                `DELETE FROM tasks WHERE projectId = '${body.projectId}' AND title LIKE '[MẪU]%'`,
+            );
+            console.log(`[DEV_SEED_SAMPLE_TASKS] Đã xóa ${deleted} task mẫu cũ`);
+        }
+
+        // Đơn giản hóa: luôn tạo với field cơ bản trước (không có phase/discipline/location/dueDate)
+        // Vì DB có thể chưa migrate các field mới. Dùng raw SQL trực tiếp, không cần transaction phức tạp.
+        let createdCount = 0;
+        const errors: string[] = [];
+
+        for (let i = 0; i < sampleTasks.length; i++) {
+            const taskData = sampleTasks[i];
+            try {
+                // Generate UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+                const generateUUID = () => {
+                    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                        const r = (Math.random() * 16) | 0;
+                        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                        return v.toString(16);
+                    });
+                };
+                const taskId = generateUUID();
+                const startDateStr = taskData.startDate ? `'${taskData.startDate.toISOString()}'` : 'NULL';
+                const endDateStr = taskData.endDate ? `'${taskData.endDate.toISOString()}'` : 'NULL';
+                const descriptionStr = taskData.description ? `'${taskData.description.replace(/'/g, "''")}'` : 'NULL';
+                const assignedToStr = taskData.assignedTo ? `'${taskData.assignedTo.replace(/'/g, "''")}'` : 'NULL';
+                const titleStr = taskData.title.replace(/'/g, "''");
+
+                await prisma.$executeRawUnsafe(`
+                    INSERT INTO tasks (
+                        id, projectId, title, description, startDate, endDate,
+                        status, priority, progress, assignedTo,
+                        createdAt, updatedAt
+                    ) VALUES (
+                        '${taskId}',
+                        '${taskData.projectId}',
+                        '${titleStr}',
+                        ${descriptionStr},
+                        ${startDateStr},
+                        ${endDateStr},
+                        '${taskData.status}',
+                        '${taskData.priority}',
+                        ${taskData.progress},
+                        ${assignedToStr},
+                        datetime('now'),
+                        datetime('now')
+                    )
+                `);
+                createdCount++;
+                console.log(`[DEV_SEED_SAMPLE_TASKS] ✓ Đã tạo task ${i + 1}/${sampleTasks.length}: "${taskData.title}" (ID: ${taskId})`);
+            } catch (taskError: unknown) {
+                const errorMsg = taskError instanceof Error ? taskError.message : String(taskError);
+                errors.push(`Task "${taskData.title}": ${errorMsg}`);
+                console.error(`[DEV_SEED_SAMPLE_TASKS] ✗ Không thể tạo task ${i + 1}/${sampleTasks.length} "${taskData.title}":`, taskError);
+                if (taskError instanceof Error && taskError.stack) {
+                    console.error(`[DEV_SEED_SAMPLE_TASKS] Stack trace:`, taskError.stack);
+                }
             }
+        }
 
-            const created = await tx.task.createMany({
-                data: sampleTasks,
-            });
-
-            return created.count;
-        });
+        if (errors.length > 0) {
+            console.warn(`[DEV_SEED_SAMPLE_TASKS] ${errors.length} task không tạo được:`, errors);
+        } else {
+            console.log(`[DEV_SEED_SAMPLE_TASKS] ✓ Đã tạo thành công tất cả ${createdCount} task mẫu`);
+        }
 
         return NextResponse.json({
             success: true,
             data: {
-                createdCount: result,
-                note: 'Task mẫu chỉ phục vụ local development (NODE_ENV=development).',
+                createdCount,
+                errors: errors.length > 0 ? errors : undefined,
+                note:
+                    errors.length > 0
+                        ? `Đã tạo ${createdCount}/10 task. Một số task không tạo được (xem errors).`
+                        : `Đã tạo ${createdCount} task mẫu thành công.`,
             },
         });
     } catch (error) {
         console.error('[DEV_SEED_SAMPLE_TASKS]:', error);
+        const errorMessage =
+            error instanceof Error
+                ? error.message
+                : typeof error === 'string'
+                  ? error
+                  : 'Lỗi không xác định';
         return NextResponse.json(
             {
                 success: false,
                 error: 'Không thể tạo task mẫu',
-                message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : undefined,
+                message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+                details: process.env.NODE_ENV === 'development' ? { stack: error instanceof Error ? error.stack : undefined } : undefined,
             },
             { status: 500 },
         );

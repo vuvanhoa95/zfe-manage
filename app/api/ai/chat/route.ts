@@ -21,6 +21,18 @@ type OpenAIChatMessage = {
   content: string;
 };
 
+type ProjectWithFinancials = {
+  id?: string;
+  projectNo: string;
+  name: string;
+  finalQuotation: {
+    totalAfterVat: number | null;
+    outsourceCost: number | null;
+    taxCost: number | null;
+    commissionCost: number | null;
+  } | null;
+};
+
 function normalizeVietnameseQuery(input: string): string {
   return input
     .toLowerCase()
@@ -68,7 +80,7 @@ async function tryHandleDataQuery(message: string): Promise<string | null> {
       /\b(active)\b/.test(q) ||
       /\b(tình trạng dự án|tinh trang du an)\b/.test(q);
 
-    const projects = await prisma.project.findMany({
+    const projects = (await prisma.project.findMany({
       where: onlyActive ? { status: 'ACTIVE' } : undefined,
       include: {
         finalQuotation: {
@@ -81,7 +93,7 @@ async function tryHandleDataQuery(message: string): Promise<string | null> {
         },
       },
       orderBy: { createdAt: 'desc' },
-    });
+    })) as ProjectWithFinancials[];
 
     if (projects.length === 0) {
       return onlyActive
@@ -89,7 +101,7 @@ async function tryHandleDataQuery(message: string): Promise<string | null> {
         : 'Hiện tại hệ thống chưa có dữ liệu dự án để lập báo cáo.';
     }
 
-    const rows = projects.map((p) => {
+    const rows = projects.map((p: ProjectWithFinancials) => {
       const fq = p.finalQuotation ?? null;
       const revenue = fq?.totalAfterVat ?? 0;
       const cost = (fq?.outsourceCost ?? 0) + (fq?.taxCost ?? 0) + (fq?.commissionCost ?? 0);
@@ -130,7 +142,7 @@ async function tryHandleDataQuery(message: string): Promise<string | null> {
 
   if (wantsProjectRanking && (wantsProfit || wantsRevenue || wantsCost)) {
     // Use the same computed logic as /api/projects: financial numbers come from finalQuotation only.
-    const projects = await prisma.project.findMany({
+    const projects = (await prisma.project.findMany({
       include: {
         finalQuotation: {
           select: {
@@ -142,9 +154,9 @@ async function tryHandleDataQuery(message: string): Promise<string | null> {
         },
       },
       orderBy: { createdAt: 'desc' },
-    });
+    })) as ProjectWithFinancials[];
 
-    const rows = projects.map((p) => {
+    const rows = projects.map((p: ProjectWithFinancials) => {
       const fq = p.finalQuotation ?? null;
       const revenue = fq?.totalAfterVat ?? 0;
       const cost = (fq?.outsourceCost ?? 0) + (fq?.taxCost ?? 0) + (fq?.commissionCost ?? 0);

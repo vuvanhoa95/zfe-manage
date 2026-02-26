@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         });
 
         // Calculate financials for each project
-        const projectsWithFinancials = projects.map((project) => {
+        const projectsWithFinancials = projects.map((project: (typeof projects)[number]) => {
             const baseQuotation = project.finalQuotation ?? null;
             const finalRevenue = baseQuotation?.totalAfterVat ?? 0;
             const totalCost =
@@ -100,29 +100,43 @@ export async function GET(request: NextRequest) {
 
         // Status breakdown
         const statusBreakdown = {
-            PLANNING: projectsWithFinancials.filter((p) => p.status === 'PLANNING').length,
-            ACTIVE: projectsWithFinancials.filter((p) => p.status === 'ACTIVE').length,
-            COMPLETED: projectsWithFinancials.filter((p) => p.status === 'COMPLETED').length,
-            CANCELLED: projectsWithFinancials.filter((p) => p.status === 'CANCELLED').length,
+            PLANNING: projectsWithFinancials.filter((p: (typeof projectsWithFinancials)[number]) => p.status === 'PLANNING').length,
+            ACTIVE: projectsWithFinancials.filter((p: (typeof projectsWithFinancials)[number]) => p.status === 'ACTIVE').length,
+            COMPLETED: projectsWithFinancials.filter((p: (typeof projectsWithFinancials)[number]) => p.status === 'COMPLETED').length,
+            CANCELLED: projectsWithFinancials.filter((p: (typeof projectsWithFinancials)[number]) => p.status === 'CANCELLED').length,
         };
 
         // Financial summary
         const financialSummary = {
-            totalBudget: projectsWithFinancials.reduce((sum, p) => sum + p.totalBudget, 0),
-            totalRevenue: projectsWithFinancials.reduce((sum, p) => sum + p.totalRevenue, 0),
-            totalCost: projectsWithFinancials.reduce((sum, p) => sum + p.totalCost, 0),
-            totalProfit: projectsWithFinancials.reduce((sum, p) => sum + p.totalProfit, 0),
+            totalBudget: projectsWithFinancials.reduce(
+                (sum: number, p: (typeof projectsWithFinancials)[number]) => sum + p.totalBudget,
+                0,
+            ),
+            totalRevenue: projectsWithFinancials.reduce(
+                (sum: number, p: (typeof projectsWithFinancials)[number]) => sum + p.totalRevenue,
+                0,
+            ),
+            totalCost: projectsWithFinancials.reduce(
+                (sum: number, p: (typeof projectsWithFinancials)[number]) => sum + p.totalCost,
+                0,
+            ),
+            totalProfit: projectsWithFinancials.reduce(
+                (sum: number, p: (typeof projectsWithFinancials)[number]) => sum + p.totalProfit,
+                0,
+            ),
             averageProfitMargin:
                 projectsWithFinancials.length > 0
-                    ? projectsWithFinancials.reduce((sum, p) => sum + p.profitMargin, 0) /
-                      projectsWithFinancials.length
+                    ? projectsWithFinancials.reduce(
+                          (sum: number, p: (typeof projectsWithFinancials)[number]) => sum + p.profitMargin,
+                          0,
+                      ) / projectsWithFinancials.length
                     : 0,
         };
 
         // Projects with issues
         const now = new Date();
         const projectsWithIssues = projectsWithFinancials
-            .filter((p) => {
+            .filter((p: (typeof projectsWithFinancials)[number]) => {
                 // Negative profit
                 if (p.totalProfit < 0) return true;
                 // Overdue (endDate passed but status is ACTIVE)
@@ -134,7 +148,7 @@ export async function GET(request: NextRequest) {
                 if (!p.hasFinalQuotation && p.quotationCount > 0) return true;
                 return false;
             })
-            .map((p) => {
+            .map((p: (typeof projectsWithFinancials)[number]) => {
                 const issues: string[] = [];
                 if (p.totalProfit < 0) {
                     issues.push('Lợi nhuận âm');
@@ -157,7 +171,22 @@ export async function GET(request: NextRequest) {
 
         // Projects by customer
         const projectsByCustomer = projectsWithFinancials.reduce(
-            (acc, project) => {
+            (
+                acc: Record<
+                    string,
+                    {
+                        customerId: string;
+                        customerName: string;
+                        projectCount: number;
+                        totalBudget: number;
+                        totalRevenue: number;
+                        totalCost: number;
+                        totalProfit: number;
+                        projects: Array<{ id: string; projectNo: string; name: string; status: string }>;
+                    }
+                >,
+                project: (typeof projectsWithFinancials)[number],
+            ) => {
                 const customerId = project.customer?.id || 'unknown';
                 const customerName = project.customer?.name || 'Không xác định';
 
@@ -203,7 +232,16 @@ export async function GET(request: NextRequest) {
             >
         );
 
-        const customerSummary = Object.values(projectsByCustomer)
+        const customerSummary = (Object.values(projectsByCustomer) as Array<{
+            customerId: string;
+            customerName: string;
+            projectCount: number;
+            totalBudget: number;
+            totalRevenue: number;
+            totalCost: number;
+            totalProfit: number;
+            projects: Array<{ id: string; projectNo: string; name: string; status: string }>;
+        }>)
             .map((c) => ({
                 ...c,
                 profitMargin: c.totalRevenue > 0 ? (c.totalProfit / c.totalRevenue) * 100 : 0,
@@ -237,7 +275,7 @@ export async function GET(request: NextRequest) {
             };
         }
 
-        projectsWithFinancials.forEach((project) => {
+        projectsWithFinancials.forEach((project: (typeof projectsWithFinancials)[number]) => {
             const date = new Date(project.createdAt);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             if (monthlyTrend[key]) {

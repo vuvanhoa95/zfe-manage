@@ -639,7 +639,7 @@ export default function ProjectTab() {
                                                     </span>
                                                 )}
                                                 <span
-                                                    className={`px-3 py-1 rounded-full text-xs font-bold ${status.badgeClass}`}
+                                                    className={`px-2 py-0.5 rounded-full text-[11px] leading-none font-bold whitespace-nowrap ${status.badgeClass}`}
                                                 >
                                                     {status.label}
                                                 </span>

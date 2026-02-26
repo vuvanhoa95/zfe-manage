@@ -72,7 +72,7 @@ export async function generateIntroText(
 
   // Step 3: Build context
   const isReturningCustomer = customer.quotations.length > 0;
-  const successfulProjects = customer.quotations.filter(q => q.status === 'ACCEPTED').length;
+  const successfulProjects = customer.quotations.filter((q: { status: string }) => q.status === 'ACCEPTED').length;
 
   const customerContext = isReturningCustomer
     ? `Khách hàng thân thiết với ${customer.quotations.length} báo giá trước đó (${successfulProjects} dự án thành công)`

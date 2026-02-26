@@ -37,7 +37,7 @@ export async function GET() {
       },
     });
 
-    projectsWithDeadlines.forEach((project) => {
+    projectsWithDeadlines.forEach((project: { id: string; projectNo: string; name: string; endDate: Date | null }) => {
       if (!project.endDate) return;
       
       const daysRemaining = Math.ceil(
@@ -77,7 +77,7 @@ export async function GET() {
       },
     });
 
-    overdueProjects.forEach((project) => {
+    overdueProjects.forEach((project: { id: string; projectNo: string; name: string; endDate: Date | null }) => {
       if (!project.endDate) return;
 
       const daysOverdue = Math.ceil(
@@ -111,8 +111,8 @@ export async function GET() {
       },
     });
 
-    const revenue = cashFlowSummary.find((cf) => cf.type === 'REVENUE')?._sum.amount || 0;
-    const expense = cashFlowSummary.find((cf) => cf.type === 'EXPENSE')?._sum.amount || 0;
+    const revenue = cashFlowSummary.find((cf: { type: string; _sum: { amount: number | null } }) => cf.type === 'REVENUE')?._sum.amount || 0;
+    const expense = cashFlowSummary.find((cf: { type: string; _sum: { amount: number | null } }) => cf.type === 'EXPENSE')?._sum.amount || 0;
     const netCashFlow = revenue - expense;
 
     if (netCashFlow < 10000000) {
@@ -150,7 +150,7 @@ export async function GET() {
       },
     });
 
-    pendingQuotations.forEach((quotation) => {
+    pendingQuotations.forEach((quotation: { id: string; quotationNo: string; projectName: string | null; createdAt: Date }) => {
       const daysOld = Math.ceil(
         (new Date().getTime() - quotation.createdAt.getTime()) / (1000 * 60 * 60 * 24)
       );

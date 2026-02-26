@@ -73,18 +73,17 @@ export async function POST(
         const autoTag = '[AUTO_FROM_QUOTATION]';
         const revenueBase = quotation.totalAfterVat ?? 0;
 
-        const created = await prisma.$transaction(async (tx) => {
-            if (overwriteExisting) {
-                await tx.cashFlow.deleteMany({
-                    where: {
-                        projectId: project.id,
-                        quotationId: quotation.id,
-                        notes: { contains: autoTag },
-                    },
-                });
-            }
+        if (overwriteExisting) {
+            await prisma.cashFlow.deleteMany({
+                where: {
+                    projectId: project.id,
+                    quotationId: quotation.id,
+                    notes: { contains: autoTag },
+                },
+            });
+        }
 
-            const payload: Array<{
+        const payload: Array<{
                 projectId: string;
                 type: 'INCOME' | 'EXPENSE';
                 category: string;
@@ -96,126 +95,130 @@ export async function POST(
                 createdById: string;
             }> = [];
 
-            if (quotation.paymentMilestones.length > 0) {
-                // Create INCOME flows by milestone percent
-                for (const m of quotation.paymentMilestones) {
-                    const amount = Math.round((revenueBase * (m.percent ?? 0)) / 100);
-                    if (amount <= 0) continue;
-                    payload.push({
-                        projectId: project.id,
-                        type: 'INCOME',
-                        category: 'Thu từ báo giá',
-                        description: `Thu theo mốc ${m.no}: ${m.title}`,
-                        amount,
-                        date: quotation.date,
-                        quotationId: quotation.id,
-                        notes: `${autoTag} ${m.description || 'Tự động tạo theo mốc thanh toán'}`,
-                        createdById: userId,
-                    });
-                }
-            } else if (revenueBase > 0) {
-                // Fallback: single INCOME flow equals totalAfterVat
+        if (quotation.paymentMilestones.length > 0) {
+            // Create INCOME flows by milestone percent
+            for (const m of quotation.paymentMilestones) {
+                const amount = Math.round((revenueBase * (m.percent ?? 0)) / 100);
+                if (amount <= 0) continue;
                 payload.push({
                     projectId: project.id,
                     type: 'INCOME',
                     category: 'Thu từ báo giá',
-                    description: 'Thu theo tổng báo giá (đã VAT)',
-                    amount: Math.round(revenueBase),
+                    description: `Thu theo mốc ${m.no}: ${m.title}`,
+                    amount,
                     date: quotation.date,
                     quotationId: quotation.id,
-                    notes: `${autoTag} Tự động tạo theo tổng báo giá`,
+                    notes: `${autoTag} ${m.description || 'Tự động tạo theo mốc thanh toán'}`,
                     createdById: userId,
                 });
             }
+        } else if (revenueBase > 0) {
+            // Fallback: single INCOME flow equals totalAfterVat
+            payload.push({
+                projectId: project.id,
+                type: 'INCOME',
+                category: 'Thu từ báo giá',
+                description: 'Thu theo tổng báo giá (đã VAT)',
+                amount: Math.round(revenueBase),
+                date: quotation.date,
+                quotationId: quotation.id,
+                notes: `${autoTag} Tự động tạo theo tổng báo giá`,
+                createdById: userId,
+            });
+        }
 
-            if (includeExpenses) {
-                // Chi tiết outsource: mỗi nhân sự / dòng outsource tương ứng 1 dòng chi phí
-                if (quotation.outsourceLines.length > 0) {
-                    for (const l of quotation.outsourceLines) {
-                        const baseAmount =
-                            typeof l.amount === 'number'
-                                ? l.amount
-                                : (l.qty ?? 0) * (l.unitRate ?? 0);
-                        const amount = Math.round(baseAmount);
-                        if (amount <= 0) continue;
+        if (includeExpenses) {
+            // Chi tiết outsource: mỗi nhân sự / dòng outsource tương ứng 1 dòng chi phí
+            if (quotation.outsourceLines.length > 0) {
+                for (const l of quotation.outsourceLines) {
+                    const baseAmount =
+                        typeof l.amount === 'number'
+                            ? l.amount
+                            : (l.qty ?? 0) * (l.unitRate ?? 0);
+                    const amount = Math.round(baseAmount);
+                    if (amount <= 0) continue;
 
-                        const staffLabel = l.staffName ? ` - ${l.staffName}` : '';
-                        const disciplineLabel = l.discipline ? ` (${l.discipline})` : '';
+                    const staffLabel = l.staffName ? ` - ${l.staffName}` : '';
+                    const disciplineLabel = l.discipline ? ` (${l.discipline})` : '';
 
-                        payload.push({
-                            projectId: project.id,
-                            type: 'EXPENSE',
-                            category: 'Chi phí outsource',
-                            description: `Outsource${staffLabel}${disciplineLabel}`,
-                            amount,
-                            date: quotation.date,
-                            quotationId: quotation.id,
-                            notes: `${autoTag} Tự động tạo từ bảng nhân sự outsource`,
-                            createdById: userId,
-                        });
-                    }
-                } else if ((quotation.outsourceCost ?? 0) > 0) {
-                    // Fallback: 1 dòng tổng chi phí outsource
                     payload.push({
                         projectId: project.id,
                         type: 'EXPENSE',
                         category: 'Chi phí outsource',
-                        description: 'Chi phí outsource theo báo giá',
-                        amount: Math.round(quotation.outsourceCost ?? 0),
+                        description: `Outsource${staffLabel}${disciplineLabel}`,
+                        amount,
                         date: quotation.date,
                         quotationId: quotation.id,
-                        notes: `${autoTag} Tự động tạo từ chi phí outsource tổng`,
+                        notes: `${autoTag} Tự động tạo từ bảng nhân sự outsource`,
                         createdById: userId,
                     });
                 }
-
-                // Thuế & hoa hồng
-                const taxAmount = Math.round(quotation.taxCost ?? 0);
-                const commissionAmount = Math.round(quotation.commissionCost ?? 0);
-
-                if (taxAmount > 0) {
-                    payload.push({
-                        projectId: project.id,
-                        type: 'EXPENSE',
-                        category: 'Chi phí thuế',
-                        description: 'Chi phí thuế theo báo giá',
-                        amount: taxAmount,
-                        date: quotation.date,
-                        quotationId: quotation.id,
-                        notes: `${autoTag} Tự động tạo từ chi phí thuế trong báo giá`,
-                        createdById: userId,
-                    });
-                }
-
-                if (commissionAmount > 0) {
-                    payload.push({
-                        projectId: project.id,
-                        type: 'EXPENSE',
-                        category: 'Chi phí hoa hồng',
-                        description: 'Chi phí hoa hồng theo báo giá',
-                        amount: commissionAmount,
-                        date: quotation.date,
-                        quotationId: quotation.id,
-                        notes: `${autoTag} Tự động tạo từ chi phí hoa hồng trong báo giá`,
-                        createdById: userId,
-                    });
-                }
+            } else if ((quotation.outsourceCost ?? 0) > 0) {
+                // Fallback: 1 dòng tổng chi phí outsource
+                payload.push({
+                    projectId: project.id,
+                    type: 'EXPENSE',
+                    category: 'Chi phí outsource',
+                    description: 'Chi phí outsource theo báo giá',
+                    amount: Math.round(quotation.outsourceCost ?? 0),
+                    date: quotation.date,
+                    quotationId: quotation.id,
+                    notes: `${autoTag} Tự động tạo từ chi phí outsource tổng`,
+                    createdById: userId,
+                });
             }
 
-            if (payload.length === 0) {
-                return { createdCount: 0 };
+            // Thuế & hoa hồng
+            const taxAmount = Math.round(quotation.taxCost ?? 0);
+            const commissionAmount = Math.round(quotation.commissionCost ?? 0);
+
+            if (taxAmount > 0) {
+                payload.push({
+                    projectId: project.id,
+                    type: 'EXPENSE',
+                    category: 'Chi phí thuế',
+                    description: 'Chi phí thuế theo báo giá',
+                    amount: taxAmount,
+                    date: quotation.date,
+                    quotationId: quotation.id,
+                    notes: `${autoTag} Tự động tạo từ chi phí thuế trong báo giá`,
+                    createdById: userId,
+                });
             }
 
-            await tx.cashFlow.createMany({ data: payload });
-            return { createdCount: payload.length };
-        });
+            if (commissionAmount > 0) {
+                payload.push({
+                    projectId: project.id,
+                    type: 'EXPENSE',
+                    category: 'Chi phí hoa hồng',
+                    description: 'Chi phí hoa hồng theo báo giá',
+                    amount: commissionAmount,
+                    date: quotation.date,
+                    quotationId: quotation.id,
+                    notes: `${autoTag} Tự động tạo từ chi phí hoa hồng trong báo giá`,
+                    createdById: userId,
+                });
+            }
+        }
+
+        if (payload.length === 0) {
+            return NextResponse.json({
+                success: true,
+                data: { createdCount: 0 },
+                message: 'Không có dữ liệu để tạo dòng tiền',
+            });
+        }
+
+        const created = await prisma.cashFlow.createMany({ data: payload });
 
         await updateProjectTotals(project.id);
 
+        const createdCount = created.count ?? 0;
+
         return NextResponse.json({
             success: true,
-            data: created,
-            message: created.createdCount > 0 ? 'Đã tạo dòng tiền từ báo giá' : 'Không có dữ liệu để tạo dòng tiền',
+            data: { createdCount },
+            message: createdCount > 0 ? 'Đã tạo dòng tiền từ báo giá' : 'Không có dữ liệu để tạo dòng tiền',
         });
     } catch (error: any) {
         console.error('Failed to generate cash flows from quotation:', error);

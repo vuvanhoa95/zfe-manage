@@ -54,7 +54,7 @@ export async function GET(
             orderBy: { name: 'asc' },
         });
 
-        const outsourcingStaffOptions = outsourcingStaff.map((staff) => ({
+        const outsourcingStaffOptions = outsourcingStaff.map((staff: { id: string; name: string; discipline: string | null }) => ({
             id: staff.id,
             name: staff.name,
             type: 'outsourcing' as const,

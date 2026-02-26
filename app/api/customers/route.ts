@@ -28,7 +28,19 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        const data = customers.map((c) => ({
+        const data = customers.map((c: {
+            id: string;
+            name: string;
+            taxCode: string | null;
+            address: string | null;
+            location: string | null;
+            contactName: string | null;
+            email: string | null;
+            phone: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            _count: { projects: number };
+        }) => ({
             id: c.id,
             name: c.name,
             taxCode: c.taxCode,
