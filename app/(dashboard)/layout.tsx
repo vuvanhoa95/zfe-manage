@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
@@ -15,6 +16,29 @@ export default function DashboardLayout({
 }) {
     const pathname = usePathname();
     const { isOpen, setIsOpen, commands } = useCommandPalette();
+    
+    // Lọc bớt các cảnh báo Recharts gây nhiễu log nhưng không ảnh hưởng tới chức năng.
+    useEffect(() => {
+        const originalError = console.error;
+
+        console.error = (...args: unknown[]) => {
+            const firstArg = args[0];
+            if (
+                typeof firstArg === 'string' &&
+                firstArg.includes('The width(-1) and height(-1) of chart should be greater than 0')
+            ) {
+                // Bỏ qua cảnh báo kích thước chart của Recharts
+                return;
+            }
+
+            // eslint-disable-next-line no-console
+            originalError(...(args as []));
+        };
+
+        return () => {
+            console.error = originalError;
+        };
+    }, []);
     
     // Ẩn chatbot global khi đang ở trang quotation editor (có chatbot riêng)
     // Hiển thị chatbot global ở: /quotations (list), /quotations/new, /quotations/quick-form
