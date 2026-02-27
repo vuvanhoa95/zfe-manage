@@ -224,27 +224,36 @@ export async function POST(
         console.error('Failed to create task:', error);
 
         let message = 'Không thể tạo công việc mới';
+        let code: string | undefined;
 
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            code = error.code;
+
             // Lỗi khóa ngoại: projectId không tồn tại
             if (error.code === 'P2003') {
                 message = 'Không thể tạo công việc vì dự án không tồn tại hoặc đã bị xóa.';
-            }
-
-            // Lỗi bảng/column chưa tồn tại (chưa migrate DB)
-            if (error.code === 'P2021' || error.code === 'P2022') {
+            } else if (error.code === 'P2021' || error.code === 'P2022') {
+                // Lỗi bảng/column chưa tồn tại (chưa migrate DB)
                 message =
                     'Cơ sở dữ liệu chưa được cập nhật cho module công việc (tasks). Vui lòng chạy migrate database.';
+            } else {
+                // Các lỗi Prisma khác: expose thông điệp để dễ debug
+                message = error.message;
             }
         } else if (error instanceof Error && error.message) {
-            // Tạm thời surface message thật để dễ debug trên môi trường production
+            // Surface message thật để dễ debug trên môi trường production
             message = error.message;
+        } else if (typeof error === 'object' && error !== null) {
+            message = JSON.stringify(error);
+        } else if (typeof error === 'string') {
+            message = error;
         }
 
         return NextResponse.json(
             {
                 success: false,
                 error: message,
+                code,
                 details:
                     process.env.NODE_ENV === 'development'
                         ? { message: (error as Error | undefined)?.message }
