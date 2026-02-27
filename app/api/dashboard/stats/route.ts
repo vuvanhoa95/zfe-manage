@@ -19,14 +19,19 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Local schema đang dùng provider = "sqlite"
-        if (!databaseUrl.startsWith('file:')) {
+        const isDevelopment = process.env.NODE_ENV === 'development';
+
+        // Trong môi trường development, schema đang dùng provider = "sqlite" (file-based)
+        // nên DATABASE_URL phải bắt đầu bằng "file:".
+        // Trong môi trường production (deploy), DATABASE_URL có thể là PostgreSQL trên cloud,
+        // vì vậy KHÔNG kiểm tra prefix "file:" để tránh chặn dashboard.
+        if (isDevelopment && !databaseUrl.startsWith('file:')) {
             return NextResponse.json(
                 {
                     success: false,
                     error:
                         'DATABASE_URL không đúng định dạng cho local SQLite. ' +
-                        'Vui lòng set `DATABASE_URL="file:./prisma/dev.db"` (xem `docs/LOCAL_DEVELOPMENT_SETUP.md`).',
+                        'Vui lòng set `DATABASE_URL=\"file:./prisma/dev.db\"` (xem `docs/LOCAL_DEVELOPMENT_SETUP.md`).',
                     code: 'DATABASE_URL_INVALID',
                 },
                 { status: 500 },
