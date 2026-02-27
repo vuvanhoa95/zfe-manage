@@ -3,10 +3,10 @@ generator client {
 }
 
 datasource db {
-  /// Local development: SQLite (file:./prisma/dev.db)
+  /// Local development: nên dùng cùng PostgreSQL với production (Neon/Vercel) để tránh lệch schema
   /// Production/Staging: PostgreSQL (Neon/Vercel)
-  /// Khi chạy local, set: DATABASE_URL="file:./prisma/dev.db"
-  provider = "sqlite"
+  /// Ví dụ: DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

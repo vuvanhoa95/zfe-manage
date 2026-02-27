@@ -27,10 +27,13 @@ Chuyển sang sử dụng **SQLite** cho local development để:
 
 ```prisma
 datasource db {
-  provider = "sqlite"  // Đổi từ "postgresql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 ```
+
+> 💡 **Lưu ý:** Để tránh lỗi validate kiểu `the URL must start with the protocol 'file:'` trên production,  
+> schema trong repo hiện tại luôn để `provider = "postgresql"`. Khi chạy local, anh nên dùng luôn `DATABASE_URL` PostgreSQL (Neon) nếu có thể.
 
 ### 2. Tạo file `.env.development`
 **File:** `.env.development`
@@ -90,29 +93,7 @@ Truy cập: **http://localhost:3002**
 
 ## 🔄 Chuyển đổi giữa SQLite và PostgreSQL
 
-### Sử dụng SQLite (Local Development)
-
-1. Cập nhật `prisma/schema.prisma`:
-```prisma
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-```
-
-2. Cập nhật `.env`:
-```bash
-DATABASE_URL="file:./prisma/dev.db"
-```
-
-3. Generate và push:
-```powershell
-npx prisma generate
-npx prisma db push
-npx prisma db seed
-```
-
-### Sử dụng PostgreSQL (Production/Staging)
+### Sử dụng PostgreSQL (Khuyến nghị cho Dev + Production)
 
 1. Cập nhật `prisma/schema.prisma`:
 ```prisma
@@ -122,7 +103,7 @@ datasource db {
 }
 ```
 
-2. Cập nhật `.env`:
+2. Cập nhật `.env` (hoặc biến môi trường trên Vercel):
 ```bash
 DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
 ```
@@ -135,11 +116,6 @@ npx prisma migrate deploy
 ---
 
 ## 📁 Cấu trúc Database
-
-### SQLite
-- **Location:** `prisma/dev.db`
-- **Size:** ~500KB (với demo data)
-- **Backup:** Copy file `dev.db`
 
 ### PostgreSQL (Neon)
 - **Host:** `ep-jolly-grass-ah2jd4m0-pooler.c-3.us-east-1.aws.neon.tech`
