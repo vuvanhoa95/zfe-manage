@@ -1,20 +1,18 @@
 import Image from 'next/image';
+import ZfIcon from '@/components/ui/ZfIcon';
+import type { ZfIconName } from '@/components/ui/ZfIcon';
 
 interface PageHeaderProps {
     title: string;
     description?: string;
-    icon?: string;
+    icon?: ZfIconName;
     showLogo?: boolean;
     actions?: React.ReactNode;
 }
 
-export default function PageHeader({
-    title,
-    description,
-    icon = '📄',
-    showLogo = false,
-    actions
-}: PageHeaderProps) {
+export default function PageHeader({ title, description, icon = 'quotations', showLogo = false, actions }: PageHeaderProps) {
+    const iconName: ZfIconName = icon || 'quotations';
+
     return (
         <div className="glass-card rounded-2xl px-6 py-4 flex items-center justify-between gap-4 shadow-lg border border-white/40 bg-gradient-to-br from-white/90 to-white/70 backdrop-blur-xl mb-4">
             <div className="flex items-center gap-4">
@@ -30,7 +28,7 @@ export default function PageHeader({
                     </div>
                 ) : (
                     <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-zf-accent to-zf-accent-light flex items-center justify-center overflow-hidden shadow-lg">
-                        <span className="text-3xl">{icon}</span>
+                        <ZfIcon name={iconName} size={22} className="text-zf-text-inverse" aria-hidden="true" />
                     </div>
                 )}
                 <div>

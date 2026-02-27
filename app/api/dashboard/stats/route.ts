@@ -5,6 +5,34 @@ import { cache, cacheKeys } from '@/lib/cache';
 // GET /api/dashboard/stats - Get dashboard statistics
 export async function GET(request: NextRequest) {
     try {
+        const databaseUrl = (process.env.DATABASE_URL ?? '').trim();
+        if (!databaseUrl) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error:
+                        'Chưa cấu hình DATABASE_URL nên không thể tải Dashboard. ' +
+                        'Vui lòng xem `docs/LOCAL_DEVELOPMENT_SETUP.md` để cấu hình local (SQLite).',
+                    code: 'DATABASE_URL_MISSING',
+                },
+                { status: 500 },
+            );
+        }
+
+        // Local schema đang dùng provider = "sqlite"
+        if (!databaseUrl.startsWith('file:')) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error:
+                        'DATABASE_URL không đúng định dạng cho local SQLite. ' +
+                        'Vui lòng set `DATABASE_URL="file:./prisma/dev.db"` (xem `docs/LOCAL_DEVELOPMENT_SETUP.md`).',
+                    code: 'DATABASE_URL_INVALID',
+                },
+                { status: 500 },
+            );
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const statusFilter = searchParams.get('status'); // Optional: filter by status (ACCEPTED, SENT, etc.)
 

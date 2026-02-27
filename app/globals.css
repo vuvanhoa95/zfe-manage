@@ -123,6 +123,9 @@ html {
   font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   /* Compact scale: giảm nhẹ base rem để tối ưu không gian toàn hệ thống */
   font-size: 15px;
+  /* Giữ không gian cho scrollbar để tránh layout bị co kéo khi hiển thị/ẩn */
+  scrollbar-gutter: stable both-edges;
+  height: 100%;
 }
 
 body {
@@ -136,6 +139,32 @@ body {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "kern" 1;
   text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  overflow-y: scroll; /* Luôn hiển thị thanh cuộn dọc kể cả khi nội dung ngắn */
+}
+
+/* ========================================
+   GLOBAL SCROLLBAR (Desktop)
+   - Giữ layout ổn định khi đổi tab
+   - Thu nhỏ chiều rộng thanh cuộn
+   ======================================== */
+
+/* WebKit-based browsers (Chrome, Edge, Safari) */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.8); /* slate-400 */
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.9); /* slate-500 */
 }
 
 /* Tab panel animations (ZFENIX) */
@@ -766,5 +795,143 @@ code,
   .technical-grid::before,
   .technical-grid-visible::before {
     display: none;
+  }
+}
+
+/* ========================================
+   PRINT LAYOUT (A4) - Work Report
+   ======================================== */
+@media print {
+  /* Hide navigation, sidebar, tabs, filters, buttons */
+  body > *:not(.print-content),
+  nav,
+  aside,
+  header:not(.print-header),
+  button:not(.print-button),
+  select,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Print container */
+  .print-content {
+    width: 100%;
+    max-width: 210mm; /* A4 width */
+    margin: 0 auto;
+    padding: 20mm 25mm; /* A4 margins */
+    background: white;
+    color: black;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  /* Print header */
+  .print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #053663;
+  }
+
+  .print-header .print-logo {
+    font-size: 14pt;
+    font-weight: bold;
+    color: #053663;
+  }
+
+  .print-header .print-meta {
+    text-align: right;
+    font-size: 10pt;
+    color: #6b7280;
+  }
+
+  /* Print title */
+  .print-title {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #053663;
+    margin: 15px 0 10px;
+  }
+
+  .print-subtitle {
+    font-size: 11pt;
+    color: #6b7280;
+    margin-bottom: 20px;
+  }
+
+  /* Print table */
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 10pt;
+  }
+
+  .print-table thead {
+    background: #f3f4f6;
+    border-bottom: 2px solid #053663;
+  }
+
+  .print-table th {
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: bold;
+    color: #053663;
+    border: 1px solid #e5e7eb;
+  }
+
+  .print-table td {
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+  }
+
+  .print-table tbody tr:nth-child(even) {
+    background: #f9fafb;
+  }
+
+  .print-table tbody tr:last-child {
+    background: #f3f4f6;
+    font-weight: bold;
+  }
+
+  /* Print notes */
+  .print-notes {
+    margin-top: 25px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .print-notes-title {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #053663;
+    margin-bottom: 10px;
+  }
+
+  .print-notes-content {
+    font-size: 10pt;
+    line-height: 1.6;
+    color: #374151;
+    white-space: pre-wrap;
+  }
+
+  /* Show print-only elements (hidden in screen, visible in print) */
+  .print-header.hidden,
+  .print-notes.hidden {
+    display: block !important;
+  }
+
+  /* Avoid page breaks */
+  .print-table,
+  .print-notes {
+    page-break-inside: avoid;
+  }
+
+  /* Page setup */
+  @page {
+    size: A4;
+    margin: 0;
   }
 }

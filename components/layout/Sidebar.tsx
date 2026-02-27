@@ -2,32 +2,24 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ElementType } from 'react';
 import { useState } from 'react';
-import {
-    Building2,
-    FileText,
-    FolderKanban,
-    Gauge,
-    HardHat,
-    Settings,
-    Users,
-} from 'lucide-react';
+import ZfIcon from '@/components/ui/ZfIcon';
+import type { ZfIconName } from '@/components/ui/ZfIcon';
 
 interface NavItem {
     href: string;
     label: string;
-    icon: ElementType;
+    icon: ZfIconName;
 }
 
 const navItems: NavItem[] = [
-    { href: '/', label: 'Tổng quan', icon: Gauge },
-    { href: '/projects', label: 'Dự án', icon: FolderKanban },
-    { href: '/quotations', label: 'Báo giá', icon: FileText },
-    { href: '/customers', label: 'Khách hàng', icon: Users },
-    { href: '/outsourcing-staff', label: 'Nhân sự Outsource', icon: HardHat },
-    { href: '/company-profile', label: 'Hồ sơ công ty', icon: Building2 },
-    { href: '/settings', label: 'Cài đặt', icon: Settings },
+    { href: '/', label: 'Tổng quan', icon: 'dashboard' },
+    { href: '/projects', label: 'Dự án', icon: 'projects' },
+    { href: '/quotations', label: 'Báo giá', icon: 'quotations' },
+    { href: '/customers', label: 'Khách hàng', icon: 'customers' },
+    { href: '/outsourcing-staff', label: 'Nhân sự Outsource', icon: 'outsourcingStaff' },
+    { href: '/company-profile', label: 'Hồ sơ công ty', icon: 'companyProfile' },
+    { href: '/settings', label: 'Cài đặt', icon: 'settings' },
 ];
 
 export default function Sidebar() {
@@ -35,9 +27,7 @@ export default function Sidebar() {
     const [collapsed, setCollapsed] = useState(true);
 
     return (
-        <aside
-            className={`bg-zf-primary text-zf-text-inverse ${collapsed ? 'w-20' : 'w-64'}`}
-        >
+        <aside className={`bg-zf-primary text-zf-text-inverse ${collapsed ? 'w-16' : 'w-64'}`}>
             <div className="h-full flex flex-col">
                 {/* Logo */}
                 <div className="p-4 border-b border-zf-primary-light/40">
@@ -97,9 +87,9 @@ export default function Sidebar() {
                             >
                                 <span
                                     aria-hidden="true"
-                                    className="flex items-center justify-center rounded-md bg-zf-primary-light/30 p-1 text-zf-text-inverse"
+                                    className="flex items-center justify-center rounded-md bg-zf-primary-light/30 p-1.5 text-zf-text-inverse"
                                 >
-                                    <item.icon className="h-5 w-5" />
+                                    <ZfIcon name={item.icon} className="h-6 w-6" />
                                 </span>
                                 {!collapsed && <span className="font-medium">{item.label}</span>}
                             </Link>

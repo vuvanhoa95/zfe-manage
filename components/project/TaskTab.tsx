@@ -1384,16 +1384,10 @@ export default function TaskTab({
         <>
             <div className="pt-3 pb-5 md:pt-3 md:pb-7">
                 <div className="space-y-3">
-                {/* Header Stats – cố định trên cùng khi cuộn trong tab Công việc */}
+                {/* Header controls – cố định trên cùng khi cuộn trong tab Công việc */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-2.5 md:px-4 md:py-3 sticky top-0 z-20">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                                <LayoutList className="w-4 h-4" />
-                            </div>
-                            <h2 className="text-lg md:text-xl font-bold text-gray-900">Công việc & Tiến độ</h2>
-                        </div>
-                        <div className="flex items-center gap-3">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div className="flex items-center gap-3 md:ml-auto">
                             {/* View toggle: icon-only để tiết kiệm không gian */}
                             <div className="flex items-center gap-1.5 bg-gray-50 rounded-full px-1 py-0.5">
                                 <button

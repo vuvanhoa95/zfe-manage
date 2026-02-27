@@ -155,7 +155,7 @@ export default function OutsourcingStaffDetailPage({ params }: { params: Promise
             <PageHeader
                 title={staff ? `Nhân sự: ${staff.name}` : 'Nhân sự'}
                 description="Quản lý thông tin, hợp đồng và các đợt thanh toán của nhân sự outsource."
-                icon="👷"
+                icon="staff"
                 actions={
                     <Link
                         href="/outsourcing-staff"
@@ -186,7 +186,25 @@ export default function OutsourcingStaffDetailPage({ params }: { params: Promise
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (
-                                        <span className="text-3xl">👤</span>
+                                        <span className="text-zf-graphite">
+                                            {/* Icon đơn sắc thay cho emoji */}
+                                            <svg
+                                                width="28"
+                                                height="28"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                aria-hidden="true"
+                                            >
+                                                <circle cx="12" cy="9" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+                                                <path
+                                                    d="M6.5 19c.8-2.1 2.8-3.5 5.5-3.5s4.7 1.4 5.5 3.5"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.6"
+                                                    strokeLinecap="round"
+                                                />
+                                            </svg>
+                                        </span>
                                     )}
                                 </div>
                                 <div>

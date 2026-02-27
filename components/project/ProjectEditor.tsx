@@ -9,7 +9,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 
 import BillingTab from '@/components/project/BillingTab';
 import CashFlowTab from '@/components/project/CashFlowTab';
-import TaskTab from '@/components/project/TaskTab';
+import WorkTabsContainer, { type SubTabKey as WorkSubTabKey } from '@/components/project/WorkTabsContainer';
 import ProjectQuotationsPanel from '@/components/project/ProjectQuotationsPanel';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { formatVND } from '@/lib/number-to-words-vn';
@@ -135,6 +135,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [deleteConfirmName, setDeleteConfirmName] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
+    const [activeWorkSubTab, setActiveWorkSubTab] = useState<WorkSubTabKey>('dashboard');
 
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
@@ -414,64 +415,104 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                 </div>
             </div>
 
-            {/* Tabs */}
+            {/* Tabs + Work sub-tabs (khi ở tab Công việc) */}
             <div className="bg-white border-b border-gray-200 px-3">
-                <div className="flex items-center gap-2 overflow-x-auto">
-                    <button
-                        type="button"
-                        aria-label="Tab Thông tin dự án"
-                        onClick={() => setActiveTab('info')}
-                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'info'
-                            ? 'border-zf-accent text-zf-accent'
-                            : 'border-transparent text-gray-600 hover:text-zf-accent'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
-                    >
-                        Thông tin dự án
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Tab Công việc"
-                        onClick={() => setActiveTab('tasks')}
-                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'tasks'
-                            ? 'border-zf-accent text-zf-accent'
-                            : 'border-transparent text-gray-600 hover:text-zf-accent'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
-                    >
-                        Công việc
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Tab Quotations"
-                        onClick={() => setActiveTab('quotations')}
-                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'quotations'
-                            ? 'border-zf-accent text-zf-accent'
-                            : 'border-transparent text-gray-600 hover:text-zf-accent'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
-                    >
-                        Quotations
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Tab Dòng tiền"
-                        onClick={() => setActiveTab('cashflow')}
-                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'cashflow'
-                            ? 'border-zf-accent text-zf-accent'
-                            : 'border-transparent text-gray-600 hover:text-zf-accent'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
-                    >
-                        Dòng tiền
-                    </button>
-                    <button
-                        type="button"
-                        aria-label="Tab Hóa đơn"
-                        onClick={() => setActiveTab('billing')}
-                        className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'billing'
-                            ? 'border-zf-accent text-zf-accent'
-                            : 'border-transparent text-gray-600 hover:text-zf-accent'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
-                    >
-                        Hóa đơn
-                    </button>
+                <div className="flex items-center justify-between gap-4 overflow-x-auto">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            aria-label="Tab Thông tin dự án"
+                            onClick={() => setActiveTab('info')}
+                            className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'info'
+                                ? 'border-zf-accent text-zf-accent'
+                                : 'border-transparent text-gray-600 hover:text-zf-accent'
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
+                        >
+                            Thông tin dự án
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Tab Công việc"
+                            onClick={() => setActiveTab('tasks')}
+                            className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'tasks'
+                                ? 'border-zf-accent text-zf-accent'
+                                : 'border-transparent text-gray-600 hover:text-zf-accent'
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
+                        >
+                            Công việc
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Tab Quotations"
+                            onClick={() => setActiveTab('quotations')}
+                            className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'quotations'
+                                ? 'border-zf-accent text-zf-accent'
+                                : 'border-transparent text-gray-600 hover:text-zf-accent'
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
+                        >
+                            Quotations
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Tab Dòng tiền"
+                            onClick={() => setActiveTab('cashflow')}
+                            className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'cashflow'
+                                ? 'border-zf-accent text-zf-accent'
+                                : 'border-transparent text-gray-600 hover:text-zf-accent'
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
+                        >
+                            Dòng tiền
+                        </button>
+                        <button
+                            type="button"
+                            aria-label="Tab Hóa đơn"
+                            onClick={() => setActiveTab('billing')}
+                            className={`px-4 py-3 text-sm font-semibold border-b-2 ${activeTab === 'billing'
+                                ? 'border-zf-accent text-zf-accent'
+                                : 'border-transparent text-gray-600 hover:text-zf-accent'
+                                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
+                        >
+                            Hóa đơn
+                        </button>
+                    </div>
+
+                    {activeTab === 'tasks' && (
+                        <div className="flex items-center gap-1 bg-white/80 rounded-2xl border border-gray-200 px-1 py-0.5 shadow-sm">
+                            <button
+                                type="button"
+                                onClick={() => setActiveWorkSubTab('dashboard')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
+                                    activeWorkSubTab === 'dashboard'
+                                        ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
+                                        : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
+                                }`}
+                            >
+                                <span className="hidden sm:inline">Dashboard</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveWorkSubTab('task')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
+                                    activeWorkSubTab === 'task'
+                                        ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
+                                        : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
+                                }`}
+                            >
+                                <span className="hidden sm:inline">Công việc</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveWorkSubTab('report')}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
+                                    activeWorkSubTab === 'report'
+                                        ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
+                                        : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
+                                }`}
+                            >
+                                <span className="hidden sm:inline">Báo cáo</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -490,7 +531,13 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                             ) : tab === 'quotations' ? (
                                 <ProjectQuotationsPanel projectId={projectId || project.id} isNew={isNew} projectData={projectDataCache} />
                             ) : tab === 'tasks' ? (
-                                <TaskTab projectId={projectId || project.id} isNew={isNew} />
+                                <WorkTabsContainer
+                                    projectId={projectId || project.id}
+                                    isNew={isNew}
+                                    activeSubTab={activeWorkSubTab}
+                                    onChangeSubTab={setActiveWorkSubTab}
+                                    showHeader={false}
+                                />
                             ) : (
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
                                     <h2 className="text-xl font-bold text-gray-900">Thông tin cơ bản</h2>

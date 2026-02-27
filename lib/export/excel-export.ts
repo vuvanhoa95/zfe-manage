@@ -75,3 +75,102 @@ export function exportPricingToExcel(data: QuotationFormData, filename: string) 
   XLSX.utils.book_append_sheet(wb, ws, 'Báo giá');
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
+
+/**
+ * Export task report to Excel
+ */
+export type GroupRow = {
+  key: string;
+  label: string;
+  total: number;
+  inProgress: number;
+  completed: number;
+  overdue: number;
+  percentCompleted: number;
+};
+
+export type ReportExportData = {
+  reportType: 'phase' | 'discipline' | 'assignee';
+  reportTitle: string;
+  projectName: string;
+  groups: GroupRow[];
+  datePreset: string;
+  statusFilter: string;
+  priorityFilter: string;
+  notes?: string;
+  createdAt: string;
+};
+
+export function exportTaskReportToExcel(data: ReportExportData, filename: string) {
+  const rows: (string | number)[][] = [];
+
+  // Header: Project name & Report title
+  rows.push([data.projectName || 'Dự án']);
+  rows.push([data.reportTitle]);
+  rows.push([]);
+
+  // Metadata
+  rows.push(['Khoảng thời gian:', data.datePreset === 'all' ? 'Tất cả' : data.datePreset === 'thisMonth' ? 'Tháng này' : 'Quý này']);
+  rows.push(['Trạng thái:', data.statusFilter === 'ALL' ? 'Tất cả' : data.statusFilter]);
+  rows.push(['Mức ưu tiên:', data.priorityFilter === 'ALL' ? 'Tất cả' : data.priorityFilter]);
+  rows.push(['Thời điểm tạo:', data.createdAt]);
+  rows.push([]);
+
+  // Table headers
+  const columnLabel = data.reportType === 'phase' ? 'Giai đoạn' : data.reportType === 'discipline' ? 'Bộ môn' : 'Nhân sự';
+  rows.push([columnLabel, 'Tổng công việc', 'Đang thực hiện', 'Hoàn thành', 'Quá hạn', '% hoàn thành']);
+
+  // Table data
+  data.groups.forEach((group) => {
+    rows.push([
+      group.label,
+      group.total,
+      group.inProgress,
+      group.completed,
+      group.overdue,
+      `${group.percentCompleted}%`,
+    ]);
+  });
+
+  // Total row
+  if (data.groups.length > 0) {
+    const total = data.groups.reduce(
+      (acc, g) => ({
+        total: acc.total + g.total,
+        inProgress: acc.inProgress + g.inProgress,
+        completed: acc.completed + g.completed,
+        overdue: acc.overdue + g.overdue,
+      }),
+      { total: 0, inProgress: 0, completed: 0, overdue: 0 },
+    );
+    const totalPercent = total.total > 0 ? Math.round((total.completed / total.total) * 100) : 0;
+    rows.push([]);
+    rows.push(['Tổng', total.total, total.inProgress, total.completed, total.overdue, `${totalPercent}%`]);
+  }
+
+  // Notes
+  if (data.notes && data.notes.trim()) {
+    rows.push([]);
+    rows.push(['Ghi chú / Nhận xét:']);
+    rows.push([data.notes]);
+  }
+
+  // Create worksheet
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  // Apply column widths
+  ws['!cols'] = [
+    { wch: 25 }, // Column label
+    { wch: 12 }, // Tổng công việc
+    { wch: 12 }, // Đang thực hiện
+    { wch: 12 }, // Hoàn thành
+    { wch: 12 }, // Quá hạn
+    { wch: 12 }, // % hoàn thành
+  ];
+
+  // Create workbook and download
+  const wb = XLSX.utils.book_new();
+  const sheetName = data.reportType === 'phase' ? 'Theo giai đoạn' : data.reportType === 'discipline' ? 'Theo bộ môn' : 'Theo nhân sự';
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+}

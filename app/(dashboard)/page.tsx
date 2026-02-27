@@ -80,6 +80,7 @@ export default function DashboardPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+    const [statsError, setStatsError] = useState<string | null>(null);
     const [projectStatusRows, setProjectStatusRows] = useState<ProjectStatusRow[]>([]);
     const [loadingProjects, setLoadingProjects] = useState<boolean>(false);
     const [projectsLoaded, setProjectsLoaded] = useState<boolean>(false);
@@ -89,15 +90,14 @@ export default function DashboardPage() {
         const fetchStats = async () => {
             try {
                 const res = await fetch('/api/dashboard/stats');
+                const result = await res.json().catch(() => null);
+
                 if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
-                }
-                const result = await res.json();
-                if (result.success) {
-                    setStats(result.data);
-                } else {
-                    console.error('Failed to fetch dashboard stats:', result.error, result.details);
-                    // Set default empty stats to prevent crash
+                    const msg =
+                        (result && typeof result === 'object' && 'error' in result && typeof result.error === 'string'
+                            ? (result.error as string)
+                            : `Không tải được Dashboard (HTTP ${res.status}).`);
+                    setStatsError(msg);
                     setStats({
                         totalQuotations: 0,
                         quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
@@ -108,10 +108,33 @@ export default function DashboardPage() {
                         recentQuotations: [],
                         paymentMilestones: [],
                     });
+                    return;
                 }
-            } catch (error: any) {
-                console.error('Error fetching dashboard stats:', error);
+
+                if (result?.success) {
+                    setStats(result.data);
+                    setStatsError(null);
+                    return;
+                }
+
+                const fallbackMsg =
+                    result?.error && typeof result.error === 'string'
+                        ? result.error
+                        : 'Không lấy được dữ liệu Dashboard.';
+                setStatsError(fallbackMsg);
                 // Set default empty stats to prevent crash
+                setStats({
+                    totalQuotations: 0,
+                    quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
+                    projectedRevenue: { beforeVat: 0, afterVat: 0 },
+                    costs: { outsource: 0, tax: 0, commission: 0, total: 0 },
+                    profit: { amount: 0, margin: 0 },
+                    monthlyChartData: [],
+                    recentQuotations: [],
+                    paymentMilestones: [],
+                });
+            } catch {
+                setStatsError('Không thể kết nối tới máy chủ. Vui lòng thử lại.');
                 setStats({
                     totalQuotations: 0,
                     quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
@@ -141,10 +164,15 @@ export default function DashboardPage() {
                         'Cache-Control': 'no-cache',
                     },
                 });
+                const result = await res.json().catch(() => null);
                 if (!res.ok) {
-                    throw new Error(`HTTP error! status: ${res.status}`);
+                    const msg =
+                        (result && typeof result === 'object' && 'error' in result && typeof result.error === 'string'
+                            ? (result.error as string)
+                            : `Không tải được dữ liệu dự án (HTTP ${res.status}).`);
+                    setProjectError(msg);
+                    return;
                 }
-                const result = await res.json();
                 if (result.success && Array.isArray(result.data)) {
                     const mapped: ProjectStatusRow[] = result.data.slice(0, 20).map((project: any) => ({
                         id: project.id,
@@ -159,7 +187,7 @@ export default function DashboardPage() {
                     setProjectStatusRows(mapped);
                     setProjectsLoaded(true);
                 } else {
-                    setProjectError('Không lấy được dữ liệu dự án.');
+                    setProjectError(result?.error || 'Không lấy được dữ liệu dự án.');
                 }
             } catch (error) {
                 console.error('Lỗi khi tải trạng thái dự án:', error);
@@ -287,6 +315,13 @@ export default function DashboardPage() {
                     </p>
                 </div>
             </div>
+
+            {statsError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
+                    <p className="font-semibold">Không tải được dữ liệu Dashboard</p>
+                    <p className="mt-1">{statsError}</p>
+                </div>
+            )}
 
             {/* Tabs nhỏ cho nội dung tổng quan */}
             <div className="mt-4 border-b border-zf-graphite/15">

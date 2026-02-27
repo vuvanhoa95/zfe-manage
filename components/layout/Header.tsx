@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatVND } from '@/lib/number-to-words-vn';
+import ZfIcon from '@/components/ui/ZfIcon';
+import type { ZfIconName } from '@/components/ui/ZfIcon';
 
 type SmartSearchProject = {
     id: string;
@@ -38,25 +39,61 @@ export default function Header() {
         role: 'GUEST',
     };
 
-    const getPageMeta = (path: string): { title: string; subtitle?: string; icon?: string } => {
-        if (path === '/') return { title: 'Tổng quan', subtitle: 'Tổng quan dữ liệu hệ thống', icon: '📊' };
-        if (path === '/projects') return { title: 'Dự án', subtitle: 'Danh sách & bộ lọc dự án', icon: '📁' };
-        if (path === '/projects/new') return { title: 'Tạo dự án', subtitle: 'Khởi tạo thông tin dự án mới', icon: '➕' };
-        if (path.startsWith('/projects/')) return { title: 'Chi tiết dự án', subtitle: 'Thông tin & dòng tiền dự án', icon: '📌' };
+    type PageIconMeta = {
+        title: string;
+        subtitle?: string;
+        icon?: ZfIconName;
+    };
 
-        if (path === '/quotations') return { title: 'Báo giá', subtitle: 'Danh sách báo giá', icon: '📄' };
-        if (path === '/quotations/new') return { title: 'Tạo báo giá', subtitle: 'Nhập dữ liệu & xem trước', icon: '➕' };
-        if (path.includes('/quotations/') && path.endsWith('/edit')) return { title: 'Chỉnh sửa báo giá', icon: '✏️' };
-        if (path.includes('/quotations/') && path.endsWith('/versions')) return { title: 'Lịch sử báo giá', icon: '🕒' };
-        if (path.startsWith('/quotations/')) return { title: 'Báo giá', icon: '📄' };
+    const getPageMeta = (path: string): PageIconMeta => {
+        if (path === '/') return { title: 'Tổng quan', subtitle: 'Tổng quan dữ liệu hệ thống', icon: 'dashboard' };
+        if (path === '/projects') return { title: 'Dự án', subtitle: 'Danh sách & bộ lọc dự án', icon: 'projects' };
+        if (path === '/projects/new')
+            return { title: 'Tạo dự án', subtitle: 'Khởi tạo thông tin dự án mới', icon: 'projects' };
+        if (path.startsWith('/projects/'))
+            return { title: 'Chi tiết dự án', subtitle: 'Thông tin & dòng tiền dự án', icon: 'projects' };
 
-        if (path === '/customers') return { title: 'Khách hàng', subtitle: 'Danh bạ khách hàng & đối tác', icon: '👥' };
-        if (path === '/outsourcing-staff') return { title: 'Nhân sự outsource', subtitle: 'Danh sách & chi phí nhân sự', icon: '👷' };
-        if (path === '/company-profile') return { title: 'Hồ sơ công ty', subtitle: 'Thông tin dùng cho xuất báo giá', icon: '🏢' };
-        if (path === '/settings') return { title: 'Cài đặt', subtitle: 'Cấu hình hệ thống', icon: '⚙️' };
-        if (path === '/reports') return { title: 'Báo cáo', subtitle: 'Tổng hợp hiệu quả báo giá', icon: '📈' };
+        if (path === '/quotations') return { title: 'Báo giá', subtitle: 'Danh sách báo giá', icon: 'quotations' };
+        if (path === '/quotations/new')
+            return { title: 'Tạo báo giá', subtitle: 'Nhập dữ liệu & xem trước', icon: 'quotations' };
+        if (path.includes('/quotations/') && path.endsWith('/edit'))
+            return { title: 'Chỉnh sửa báo giá', icon: 'quotations' };
+        if (path.includes('/quotations/') && path.endsWith('/versions'))
+            return { title: 'Lịch sử báo giá', icon: 'quotations' };
+        if (path.startsWith('/quotations/')) return { title: 'Báo giá', icon: 'quotations' };
 
-        return { title: 'Zfenix Manage', subtitle: 'Hệ thống quản lý dự án và báo giá', icon: '🧾' };
+        if (path === '/customers')
+            return { title: 'Khách hàng', subtitle: 'Danh bạ khách hàng & đối tác', icon: 'customers' };
+        if (path === '/outsourcing-staff')
+            return {
+                title: 'Nhân sự outsource',
+                subtitle: 'Danh sách & chi phí nhân sự',
+                icon: 'outsourcingStaff',
+            };
+        if (path === '/company-profile')
+            return {
+                title: 'Hồ sơ công ty',
+                subtitle: 'Thông tin dùng cho xuất báo giá',
+                icon: 'companyProfile',
+            };
+        if (path === '/settings')
+            return {
+                title: 'Cài đặt',
+                subtitle: 'Cấu hình hệ thống',
+                icon: 'settings',
+            };
+        if (path === '/reports')
+            return {
+                title: 'Báo cáo',
+                subtitle: 'Tổng hợp hiệu quả báo giá',
+                icon: 'dashboard',
+            };
+
+        return {
+            title: 'Zfenix Manage',
+            subtitle: 'Hệ thống quản lý dự án và báo giá',
+            icon: 'dashboard',
+        };
     };
 
     const { title, subtitle, icon } = getPageMeta(pathname || '/');
@@ -157,9 +194,7 @@ export default function Header() {
                 <div className="min-w-0 flex items-center gap-3">
                     {icon ? (
                         <div className="hidden sm:flex h-9 w-9 items-center justify-center rounded-xl border border-zf-graphite/20 bg-zf-graphite/5 text-zf-graphite">
-                            <span className="text-lg" aria-hidden="true">
-                                {icon}
-                            </span>
+                            <ZfIcon name={icon} size={18} aria-hidden="true" />
                         </div>
                     ) : null}
                     <div className="min-w-0">
@@ -192,7 +227,10 @@ export default function Header() {
                 ) : (
                     <div className="w-full md:max-w-md lg:max-w-lg">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zf-graphite/40 pointer-events-none" />
+                            <ZfIcon
+                                name="search"
+                                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zf-graphite/40 pointer-events-none"
+                            />
                             <input
                                 type="text"
                                 value={searchQuery}
@@ -307,10 +345,10 @@ export default function Header() {
                 )}
 
                 <div className="flex items-center justify-end gap-1.5">
-                    {/* Notifications (Future) */}
+                    {/* Notifications */}
                     <button className="p-1.5 hover:bg-gray-100 rounded-lg relative transition-colors" aria-label="Thông báo" type="button">
-                        <span className="text-lg">🔔</span>
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                        <ZfIcon name="notification" size={18} className="text-zf-graphite" aria-hidden="true" />
+                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
                     </button>
 
                     {/* User Menu */}
@@ -336,17 +374,17 @@ export default function Header() {
                                     <p className="text-xs text-zf-graphite/70">{user.email}</p>
                                 </div>
                                 <button className="w-full px-4 py-2 text-left text-sm text-zf-graphite hover:bg-zf-bg-secondary transition-colors">
-                                    👤 Hồ sơ
+                                    Hồ sơ
                                 </button>
                                 <button className="w-full px-4 py-2 text-left text-sm text-zf-graphite hover:bg-zf-bg-secondary transition-colors">
-                                    ⚙️ Cài đặt
+                                    Cài đặt
                                 </button>
                                 <hr className="my-1" />
                                 <button
                                     onClick={() => signOut({ callbackUrl: '/login' })}
                                     className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                                 >
-                                    🚪 Đăng xuất
+                                    Đăng xuất
                                 </button>
                             </div>
                         )}
