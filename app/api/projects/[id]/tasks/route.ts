@@ -14,6 +14,8 @@ const taskFilterSchema = z.object({
 
 async function ensureTaskSchema() {
     // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (Postgres)
+    // Lưu ý: Prisma với PostgreSQL KHÔNG cho phép nhiều câu lệnh trong một prepared statement,
+    // nên mỗi CREATE TABLE / CREATE INDEX phải gọi bằng $executeRawUnsafe riêng.
     await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "tasks" (
             "id" TEXT NOT NULL PRIMARY KEY,
@@ -32,15 +34,15 @@ async function ensureTaskSchema() {
             "location" TEXT,
             "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId");
-        CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status");
-        CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority");
-        CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedTo");
-        CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase");
-        CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate");
+        )
     `);
+
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedTo")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate")`);
 }
 
 export async function GET(
