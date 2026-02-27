@@ -13,9 +13,12 @@ const taskFilterSchema = z.object({
 });
 
 async function ensureTaskSchema() {
-    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (Postgres)
-    // Lưu ý: Prisma với PostgreSQL KHÔNG cho phép nhiều câu lệnh trong một prepared statement,
-    // nên mỗi CREATE TABLE / CREATE INDEX phải gọi bằng $executeRawUnsafe riêng.
+    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (Postgres).
+    // Lưu ý:
+    // - Prisma với PostgreSQL KHÔNG cho phép nhiều câu lệnh trong một prepared statement,
+    //   nên mỗi DDL phải chạy riêng bằng $executeRawUnsafe.
+    // - Có thể đã tồn tại bảng "tasks" cũ chưa có các cột mới (phase, discipline, ...),
+    //   nên dùng ALTER TABLE ... ADD COLUMN IF NOT EXISTS để bổ sung dần mà không lỗi.
     await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "tasks" (
             "id" TEXT NOT NULL PRIMARY KEY,
@@ -24,18 +27,20 @@ async function ensureTaskSchema() {
             "description" TEXT,
             "startDate" TIMESTAMP,
             "endDate" TIMESTAMP,
-            "dueDate" TIMESTAMP,
             "status" TEXT NOT NULL DEFAULT 'TODO',
             "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
             "progress" INTEGER NOT NULL DEFAULT 0,
             "assignedTo" TEXT,
-            "phase" TEXT,
-            "discipline" TEXT,
-            "location" TEXT,
             "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Bổ sung các cột mới nếu thiếu
+    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "dueDate" TIMESTAMP`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "phase" TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "discipline" TEXT`);
+    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "location" TEXT`);
 
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
