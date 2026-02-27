@@ -57,6 +57,8 @@ const getProjectImageUrl = (imageUrl?: string | null): string | null => {
     const trimmed = imageUrl.trim();
     if (!trimmed) return null;
 
+    // Hỗ trợ URL tuyệt đối (http/https), data URL (base64) và path tương đối
+    if (trimmed.startsWith('data:')) return trimmed;
     if (trimmed.startsWith('http')) return trimmed;
     if (trimmed.startsWith('/')) return trimmed;
 
