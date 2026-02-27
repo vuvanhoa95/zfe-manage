@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from '@/lib/validation/task';
 import { getCurrentUser, getProjectMemberRole } from '@/lib/project-permissions';
@@ -34,6 +35,37 @@ type GroupRow = {
     overdue: number;
     percentCompleted: number;
 };
+
+async function ensureTaskSchema() {
+    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (Postgres)
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "tasks" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "projectId" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "description" TEXT,
+            "startDate" TIMESTAMP,
+            "endDate" TIMESTAMP,
+            "dueDate" TIMESTAMP,
+            "status" TEXT NOT NULL DEFAULT 'TODO',
+            "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
+            "progress" INTEGER NOT NULL DEFAULT 0,
+            "assignedTo" TEXT,
+            "phase" TEXT,
+            "discipline" TEXT,
+            "location" TEXT,
+            "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId");
+        CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status");
+        CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority");
+        CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedTo");
+        CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase");
+        CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate");
+    `);
+}
 
 function getEffectiveDueDate(task: ReportTask): Date | null {
     const raw = task.dueDate ?? task.endDate;
@@ -121,21 +153,56 @@ export async function GET(
             where.priority = priority;
         }
 
-        const tasks = await prisma.task.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            select: {
-                id: true,
-                status: true,
-                priority: true,
-                progress: true,
-                phase: true,
-                discipline: true,
-                assignedTo: true,
-                dueDate: true,
-                endDate: true,
-            },
-        });
+        let tasks: ReportTask[];
+        try {
+            const rawTasks = await prisma.task.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    status: true,
+                    priority: true,
+                    progress: true,
+                    phase: true,
+                    discipline: true,
+                    assignedTo: true,
+                    dueDate: true,
+                    endDate: true,
+                },
+            });
+
+            tasks = rawTasks as unknown as ReportTask[];
+        } catch (innerError) {
+            // Nếu bảng/column tasks chưa tồn tại (chưa migrate DB),
+            // cố gắng tạo schema tối thiểu và thử lại.
+            if (
+                innerError instanceof Prisma.PrismaClientKnownRequestError &&
+                (innerError.code === 'P2021' || innerError.code === 'P2022')
+            ) {
+                console.warn('Task schema missing on REPORT, attempting to create tasks table on-the-fly...');
+                await ensureTaskSchema();
+
+                const rawTasks = await prisma.task.findMany({
+                    where,
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        phase: true,
+                        discipline: true,
+                        assignedTo: true,
+                        dueDate: true,
+                        endDate: true,
+                    },
+                });
+
+                tasks = rawTasks as unknown as ReportTask[];
+            } else {
+                throw innerError;
+            }
+        }
 
         const now = new Date();
         const nowYear = now.getFullYear();

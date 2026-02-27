@@ -87,26 +87,60 @@ export async function GET(
         }
 
         // Chỉ select các field cơ bản để tránh lỗi nếu DB chưa có field mới
-        const tasks = await prisma.task.findMany({
-            where,
-            orderBy: { createdAt: 'desc' },
-            select: {
-                id: true,
-                projectId: true,
-                title: true,
-                description: true,
-                startDate: true,
-                endDate: true,
-                status: true,
-                priority: true,
-                progress: true,
-                assignedTo: true,
-                createdAt: true,
-                updatedAt: true,
-                // KHÔNG select phase, discipline, location, dueDate để tránh lỗi nếu DB chưa có
-                // Sẽ bật lại sau khi DB đã migrate
-            },
-        });
+        let tasks;
+        try {
+            tasks = await prisma.task.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                select: {
+                    id: true,
+                    projectId: true,
+                    title: true,
+                    description: true,
+                    startDate: true,
+                    endDate: true,
+                    status: true,
+                    priority: true,
+                    progress: true,
+                    assignedTo: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    // KHÔNG select phase, discipline, location, dueDate để tránh lỗi nếu DB chưa có
+                    // Sẽ bật lại sau khi DB đã migrate
+                },
+            });
+        } catch (innerError) {
+            // Nếu bảng/column tasks chưa tồn tại (ví dụ mới deploy, chưa migrate),
+            // tự tạo schema tối thiểu rồi thử lại một lần.
+            if (
+                innerError instanceof Prisma.PrismaClientKnownRequestError &&
+                (innerError.code === 'P2021' || innerError.code === 'P2022')
+            ) {
+                console.warn('Task schema missing on GET, attempting to create tasks table on-the-fly...');
+                await ensureTaskSchema();
+
+                tasks = await prisma.task.findMany({
+                    where,
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedTo: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+            } else {
+                throw innerError;
+            }
+        }
 
         return NextResponse.json({ success: true, data: tasks });
     } catch (error) {
