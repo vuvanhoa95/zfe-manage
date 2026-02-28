@@ -136,6 +136,15 @@ Vui lòng kiểm tra file .env hoặc .env.local và sửa DATABASE_URL.`;
   // Neon provides pooled connections via ?pgbouncer=true or separate pooled connection string
   // Không override datasources để Prisma tự đọc từ schema.prisma
   const client = new PrismaClient({
+    // Override datasource URL explicitly để tránh trường hợp env bị set sai trên production
+    // hoặc Prisma engine cache giá trị env trước khi ta kịp chỉnh.
+    ...(process.env.DATABASE_URL
+      ? {
+          datasources: {
+            db: { url: process.env.DATABASE_URL },
+          },
+        }
+      : {}),
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   });
 
