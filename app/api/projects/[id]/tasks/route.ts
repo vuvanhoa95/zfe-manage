@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { taskCreateSchema, TASK_PRIORITIES, TASK_STATUSES, type TaskCreateInput } from '@/lib/validation/task';
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 async function resolveAssignedToId(input: { assignedToId?: string | null; assignedTo?: string | null }): Promise<string | null> {
     const direct = (input.assignedToId ?? '').trim();
@@ -266,6 +267,9 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> | { id: string } },
 ) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         const resolvedParams = params instanceof Promise ? await params : params;
         const projectId = resolvedParams.id;
         const rawBody = await request.json();
@@ -334,8 +338,44 @@ export async function POST(
                 },
             });
         } catch (innerError) {
+            // Nếu table không tồn tại, đảm bảo schema và retry
+            if (isMissingTableError(innerError)) {
+                await ensureCoreSchema();
+                // Retry create task
+                task = await prisma.task.create({
+                    data: {
+                        projectId,
+                        title: data.title,
+                        description: data.description ?? null,
+                        startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
+                        endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
+                        status: data.status,
+                        priority: data.priority,
+                        progress: data.progress,
+                        assignedToId: assignedToId ?? null,
+                        parentId: data.parentId ?? null,
+                        order: 0,
+                    },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
+                        parentId: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+            }
             // Nếu Prisma Client đang cũ (chưa có parentId) thì retry bỏ parentId để vẫn tạo được task
-            if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
+            else if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
                 console.warn('Prisma Client missing parentId on CREATE, retrying without parentId...');
                 task = await prisma.task.create({
                     data: {

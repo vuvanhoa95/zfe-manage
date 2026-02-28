@@ -467,6 +467,9 @@ async function ensureDefaultUser(): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         const json = await request.json();
         const parsed = projectCreateSchema.safeParse(json);
 

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 /**
  * API endpoint để cập nhật hoặc tạo user mới
@@ -11,9 +12,12 @@ import { authOptions } from '@/lib/auth';
  */
 export async function POST(request: NextRequest) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         // Check authentication
         const session = await getServerSession(authOptions);
-        if (!session?.user || (session.user as any).role !== 'ADMIN') {
+        if (!session?.user || (session.user as { role?: string }).role !== 'ADMIN') {
             return NextResponse.json(
                 { success: false, error: 'Unauthorized - Admin access required' },
                 { status: 401 }
@@ -34,31 +38,69 @@ export async function POST(request: NextRequest) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Check if user exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
-        });
+        let existingUser;
+        try {
+            existingUser = await prisma.user.findUnique({
+                where: { email },
+            });
+        } catch (error: any) {
+            if (isMissingTableError(error)) {
+                await ensureCoreSchema();
+                existingUser = null;
+            } else {
+                throw error;
+            }
+        }
 
         let user;
-        if (existingUser) {
-            // Update existing user
-            user = await prisma.user.update({
-                where: { email },
-                data: {
-                    name: name || existingUser.name,
-                    password: hashedPassword,
-                    role: role || existingUser.role,
-                },
-            });
-        } else {
-            // Create new user
-            user = await prisma.user.create({
-                data: {
-                    email,
-                    name: name || 'User',
-                    password: hashedPassword,
-                    role: role || 'USER',
-                },
-            });
+        try {
+            if (existingUser) {
+                // Update existing user
+                user = await prisma.user.update({
+                    where: { email },
+                    data: {
+                        name: name || existingUser.name,
+                        password: hashedPassword,
+                        role: role || existingUser.role,
+                    },
+                });
+            } else {
+                // Create new user
+                user = await prisma.user.create({
+                    data: {
+                        email,
+                        name: name || 'User',
+                        password: hashedPassword,
+                        role: role || 'USER',
+                    },
+                });
+            }
+        } catch (error: any) {
+            if (isMissingTableError(error)) {
+                await ensureCoreSchema();
+                // Retry after ensuring schema
+                if (existingUser) {
+                    user = await prisma.user.update({
+                        where: { email },
+                        data: {
+                            name: name || existingUser.name,
+                            password: hashedPassword,
+                            role: role || existingUser.role,
+                        },
+                    });
+                } else {
+                    user = await prisma.user.create({
+                        data: {
+                            email,
+                            name: name || 'User',
+                            password: hashedPassword,
+                            role: role || 'USER',
+                        },
+                    });
+                }
+            } else {
+                throw error;
+            }
         }
 
         return NextResponse.json({
