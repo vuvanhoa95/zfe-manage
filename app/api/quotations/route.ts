@@ -11,6 +11,7 @@ import { authOptions } from '@/lib/auth';
 import { createQuotationSchema } from '@/lib/validation/quotation';
 import { generateUniqueQuotationNumber } from '@/lib/quotation-number';
 import { sendQuotationCreatedEmail, buildQuotationUrl, getAdminEmails } from '@/lib/email/send';
+import { withSchemaCheck, isMissingTableError } from '@/lib/db-schema';
 
 export async function GET(request: NextRequest) {
     try {
@@ -29,18 +30,24 @@ export async function GET(request: NextRequest) {
             ];
         }
 
-        const quotations = await prisma.quotation.findMany({
-            where,
-            include: {
-                customer: { select: { id: true, name: true } },
-                createdBy: { select: { id: true, name: true } },
-            },
-            orderBy: { createdAt: 'desc' },
-            skip: (page - 1) * pageSize,
-            take: pageSize,
-        });
+        const quotations = await withSchemaCheck(
+            () => prisma.quotation.findMany({
+                where,
+                include: {
+                    customer: { select: { id: true, name: true } },
+                    createdBy: { select: { id: true, name: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * pageSize,
+                take: pageSize,
+            }),
+            [] // fallback: empty array nếu table không tồn tại
+        );
 
-        const total = await prisma.quotation.count({ where });
+        const total = await withSchemaCheck(
+            () => prisma.quotation.count({ where }),
+            0 // fallback: 0 nếu table không tồn tại
+        );
 
         return NextResponse.json({
             success: true,
@@ -54,6 +61,23 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('API Error:', error);
+        
+        // Nếu là lỗi "table does not exist", trả về empty data thay vì 500
+        if (isMissingTableError(error)) {
+            const page = parseInt(new URL(request.url).searchParams.get('page') || '1');
+            const pageSize = parseInt(new URL(request.url).searchParams.get('pageSize') || '20');
+            return NextResponse.json({
+                success: true,
+                data: [],
+                pagination: {
+                    page,
+                    pageSize,
+                    total: 0,
+                    totalPages: 0,
+                },
+            });
+        }
+
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

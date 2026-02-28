@@ -29,7 +29,22 @@ import {
     Link2,
     Flag,
     Eye,
+    GripVertical,
+    CheckSquare,
+    Search,
+    Filter,
+    SortAsc,
+    LayoutTemplate,
+    MoreHorizontal,
+    MessageSquare,
+    Paperclip,
+    Download,
+    Settings,
+    Hash,
+    RefreshCcw,
+    FolderTree,
 } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import GroupTool, { type GroupConfig } from '@/components/ui/GroupTool';
 import { groupAndSort } from '@/lib/utils/group-sort';
 
@@ -97,7 +112,7 @@ type ChecklistItem = {
 type StaffOption = {
     id: string;
     name: string;
-    type: 'quotation' | 'outsourcing';
+    type: 'quotation' | 'outsourcing' | 'user';
     discipline?: string | null;
 };
 
@@ -322,14 +337,15 @@ function getAssigneePreset(name: string): AssigneePreset {
 }
 
 function AssigneePill({ name }: { name: string }) {
-    const preset = getAssigneePreset(name);
+    const displayName = name || 'Chưa phân công';
+    const preset = getAssigneePreset(displayName);
     return (
         <span
             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-extrabold border ${preset.bg} ${preset.border} ${preset.text}`}
-            title={`Phụ trách: ${name}`}
+            title={`Phụ trách: ${displayName}`}
         >
             <span className={`w-2 h-2 rounded-full ${preset.dot}`} />
-            <span className="truncate max-w-[180px]">{name}</span>
+            <span className="truncate max-w-[180px]">{displayName}</span>
         </span>
     );
 }
@@ -619,6 +635,7 @@ export default function TaskTab({
     const [isCustomFieldsSectionOpen, setIsCustomFieldsSectionOpen] = useState(true);
     const [isSubtaskSectionOpen, setIsSubtaskSectionOpen] = useState(true);
     const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
+    const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
 
@@ -851,6 +868,7 @@ export default function TaskTab({
             ...prev,
             [NEW_TASK_CUSTOM_KEY]: {},
         }));
+        setAssigneeSearchQuery('');
         setIsFormOpen(true);
     };
 
@@ -904,20 +922,18 @@ export default function TaskTab({
         [taskCustomFields],
     );
 
-    const handleDragStart = (event: React.DragEvent<HTMLDivElement>, taskId: string) => {
-        setDraggingTaskId(taskId);
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', taskId);
-    };
-
-    const handleDragEnd = () => {
+    const handleDragEndBoard = async (result: DropResult) => {
         setDraggingTaskId(null);
-    };
+        if (!result.destination) return;
 
-    const handleDropOnColumn = async (event: React.DragEvent<HTMLDivElement>, status: TaskStatus) => {
-        event.preventDefault();
-        const taskId = event.dataTransfer.getData('text/plain') || draggingTaskId;
-        if (!taskId) return;
+        const { source, destination, draggableId } = result;
+
+        if (source.droppableId === destination.droppableId) {
+            return;
+        }
+
+        const taskId = draggableId;
+        const status = destination.droppableId as TaskStatus;
 
         const task = tasks.find((t) => t.id === taskId);
         if (!task || task.status === status) return;
@@ -949,22 +965,17 @@ export default function TaskTab({
                 body: JSON.stringify(body),
             });
 
-            const result = await res.json();
-            if (!result.success) {
+            const backendResult = await res.json();
+            if (!backendResult.success) {
                 await fetchTasks();
             }
         } catch (error) {
             console.error('Failed to update task status via drag & drop:', error);
             await fetchTasks();
-        } finally {
-            setDraggingTaskId(null);
         }
     };
 
-    const handleColumnDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-    };
+
 
     const handleOpenEdit = (task: Task) => {
         setEditingTask(task);
@@ -987,6 +998,7 @@ export default function TaskTab({
             parentId: task.parentId || '',
         });
         void handleLoadTaskCustomValues(task.id);
+        setAssigneeSearchQuery(task.assignee?.name || '');
         setIsFormOpen(true);
     };
 
@@ -1587,13 +1599,13 @@ export default function TaskTab({
     );
 
     const filteredAssigneeOptions = useMemo(() => {
-        const keyword = formData.assignedToId.trim().toLowerCase();
+        const keyword = assigneeSearchQuery.trim().toLowerCase();
         if (!keyword) return staffOptions;
         return staffOptions.filter((option) =>
             option.name.toLowerCase().includes(keyword) ||
             (option.discipline ?? '').toLowerCase().includes(keyword),
         );
-    }, [staffOptions, formData.assignedToId]);
+    }, [staffOptions, assigneeSearchQuery]);
 
     // Helper: Toggle expand/collapse
     const toggleExpand = (taskId: string) => {
@@ -1624,8 +1636,8 @@ export default function TaskTab({
     };
 
     // Helper: Preset màu hiện tại cho ô phân công trong form (nền sáng giống dropdown/table)
-    const activeAssigneePreset = formData.assignedToId.trim()
-        ? getAssigneePreset(formData.assignedToId)
+    const activeAssigneePreset = assigneeSearchQuery.trim()
+        ? getAssigneePreset(assigneeSearchQuery)
         : null;
 
     const taskModal = isFormOpen ? (
@@ -1709,9 +1721,13 @@ export default function TaskTab({
                                                     ? `${activeAssigneePreset.bg} ${activeAssigneePreset.border} ${activeAssigneePreset.text}`
                                                     : 'border-gray-200 bg-white text-gray-900'
                                             }`}
-                                            value={formData.assignedToId}
+                                            value={assigneeSearchQuery}
                                             onChange={(e) => {
-                                                setFormData({ ...formData, assignedToId: e.target.value });
+                                                setAssigneeSearchQuery(e.target.value);
+                                                // Nếu xóa hết text thì cũng xóa ID
+                                                if (!e.target.value.trim()) {
+                                                    setFormData({ ...formData, assignedToId: '' });
+                                                }
                                                 setIsAssigneeDropdownOpen(true);
                                             }}
                                             onFocus={() => setIsAssigneeDropdownOpen(true)}
@@ -1738,6 +1754,7 @@ export default function TaskTab({
                                                             onMouseDown={(e) => {
                                                                 e.preventDefault();
                                                                 setFormData({ ...formData, assignedToId: option.id });
+                                                                setAssigneeSearchQuery(option.name);
                                                                 setIsAssigneeDropdownOpen(false);
                                                             }}
                                                             className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${preset.bg} ${preset.border} border-l-4 hover:opacity-80`}
@@ -3879,129 +3896,148 @@ export default function TaskTab({
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {(['TODO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'DELAYED'] as const)
-                            .filter((status) => status !== 'REVIEW')
-                            .map((status) => {
-                                const statusTasks = groupedTasks[status];
-                                const statusConfig = STATUS_CONFIG[status];
-                                const theme = BOARD_STATUS_THEME[status];
+                    <DragDropContext 
+                        onDragStart={(start) => setDraggingTaskId(start.draggableId)}
+                        onDragEnd={handleDragEndBoard}
+                    >
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+                            {(['TODO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED', 'DELAYED'] as const)
+                                .filter((status) => status !== 'REVIEW')
+                                .map((status) => {
+                                    const statusTasks = groupedTasks[status];
+                                    const statusConfig = STATUS_CONFIG[status];
+                                    const theme = BOARD_STATUS_THEME[status];
 
-                                return (
-                                    <div
-                                        key={status}
-                                        className={`rounded-2xl border border-gray-100 border-t-4 p-3 flex flex-col min-h-[220px] ${theme.columnBg} ${theme.topBorder}`}
-                                        onDragOver={handleColumnDragOver}
-                                        onDrop={(event) => handleDropOnColumn(event, status)}
-                                    >
-                                        <div className={`flex items-center justify-between mb-3 px-2 py-1.5 rounded-xl ${theme.headerBg}`}>
-                                            <div className="flex items-center gap-2">
-                                                <span
-                                                    className={`w-2.5 h-2.5 rounded-full ${theme.dotBg}`}
-                                                />
-                                                <span className={`text-xs font-extrabold uppercase tracking-wide ${theme.headerText}`}>
-                                                    {statusConfig.label}
+                                    return (
+                                        <div
+                                            key={status}
+                                            className={`rounded-2xl border border-gray-100 border-t-4 flex flex-col min-h-[220px] ${theme.columnBg} ${theme.topBorder}`}
+                                        >
+                                            <div className={`flex items-center justify-between mx-3 mt-3 px-2 py-1.5 rounded-xl ${theme.headerBg}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className={`w-2.5 h-2.5 rounded-full ${theme.dotBg}`}
+                                                    />
+                                                    <span className={`text-xs font-extrabold uppercase tracking-wide ${theme.headerText}`}>
+                                                        {statusConfig.label}
+                                                    </span>
+                                                </div>
+                                                <span className={`text-xs font-semibold ${theme.countText}`}>
+                                                    {statusTasks.length} công việc
                                                 </span>
                                             </div>
-                                            <span className={`text-xs font-semibold ${theme.countText}`}>
-                                                {statusTasks.length} công việc
-                                            </span>
-                                        </div>
-                                        <div className="space-y-2 flex-1 min-h-[120px]">
-                                            {statusTasks.map((task) => {
-                                                const isSelected = selectedTasks.has(task.id);
-                                                return (
-                                                <div
-                                                    key={task.id}
-                                                    draggable
-                                                    onDragStart={(event) => handleDragStart(event, task.id)}
-                                                    onDragEnd={handleDragEnd}
-                                                    onClick={() => handleOpenEdit(task)}
-                                                    className={`relative overflow-hidden bg-white rounded-xl border border-gray-100 p-3 shadow-sm transition-all cursor-move group hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/50 hover:bg-blue-50/60 hover:-translate-y-0.5 ${
-                                                        draggingTaskId === task.id ? 'opacity-70 ring-2 ring-blue-200' : ''
-                                                    } ${
-                                                        isSelected ? 'bg-blue-50 border-blue-300' : ''
-                                                    }`}
-                                                >
-                                                    <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-zf-accent/15 via-transparent to-zf-primary/10 transition-opacity duration-500" />
-                                                    <div className="relative flex items-start justify-between gap-2">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate group-hover:text-blue-600">
-                                                                {task.title}
-                                                            </h4>
-                                                            <p className="text-xs text-gray-500 line-clamp-2 mb-2">
-                                                                {task.description || 'Không có mô tả'}
-                                                            </p>
-                                                            <div className="flex items-center justify-between gap-2 text-[11px] text-gray-500">
-                                                                <div className="flex items-center gap-1">
-                                                                    <Calendar className="w-3 h-3" />
-                                                                    <span>
-                                                                        {task.startDate
-                                                                            ? new Date(
-                                                                                  task.startDate,
-                                                                              ).toLocaleDateString('vi-VN')
-                                                                            : 'N/A'}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1">
-                                                                    <UserIcon className="w-3 h-3" />
-                                                                    {task.assignee ? (
-                                                                        <AssigneePill name={task.assignee?.name || ''} />
-                                                                    ) : (
-                                                                        <span className="truncate max-w-[80px]">
-                                                                            Chưa phân công
-                                                                        </span>
+                                            
+                                                <Droppable droppableId={status}>
+                                                    {(provided, snapshot) => (
+                                                        <div 
+                                                            ref={provided.innerRef}
+                                                            {...provided.droppableProps}
+                                                            className={`flex flex-col gap-3 flex-1 p-3 min-h-[120px] rounded-b-2xl transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50/40 ring-2 ring-inset ring-blue-200' : ''}`}
+                                                        >
+                                                            {statusTasks.map((task, index) => {
+                                                                const isSelected = selectedTasks.has(task.id);
+                                                            return (
+                                                                <Draggable key={task.id} draggableId={task.id} index={index}>
+                                                                    {(provided, snapshot) => (
+                                                                        <div
+                                                                            ref={provided.innerRef}
+                                                                            {...provided.draggableProps}
+                                                                            {...provided.dragHandleProps}
+                                                                            style={provided.draggableProps.style}
+                                                                            onClick={() => handleOpenEdit(task)}
+                                                                            className={`relative overflow-hidden bg-white rounded-xl border border-gray-100 p-3 shadow-sm cursor-grab active:cursor-grabbing group ${
+                                                                                snapshot.isDragging 
+                                                                                    ? 'shadow-lg shadow-blue-200/50 ring-2 ring-blue-400 z-50 opacity-90 !transition-none' 
+                                                                                    : 'transition-colors transition-shadow hover:border-blue-300 hover:shadow-md hover:shadow-blue-100/50 hover:bg-blue-50/60'
+                                                                            } ${
+                                                                                isSelected ? 'bg-blue-50 border-blue-300' : ''
+                                                                            }`}
+                                                                        >
+                                                                            <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 bg-gradient-to-r from-zf-accent/15 via-transparent to-zf-primary/10 transition-opacity duration-500" />
+                                                                            <div className="relative flex items-start justify-between gap-2">
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <h4 className="text-sm font-semibold text-gray-900 mb-1 truncate group-hover:text-blue-600">
+                                                                                        {task.title}
+                                                                                    </h4>
+                                                                                    <p className="text-xs text-gray-500 line-clamp-2 mb-2">
+                                                                                        {task.description || 'Không có mô tả'}
+                                                                                    </p>
+                                                                                    <div className="flex items-center justify-between gap-2 text-[11px] text-gray-500">
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <Calendar className="w-3 h-3" />
+                                                                                            <span>
+                                                                                                {task.startDate
+                                                                                                    ? new Date(
+                                                                                                          task.startDate,
+                                                                                                      ).toLocaleDateString('vi-VN')
+                                                                                                    : 'N/A'}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <UserIcon className="w-3 h-3" />
+                                                                                            {task.assignee ? (
+                                                                                                <AssigneePill name={task.assignee?.name || ''} />
+                                                                                            ) : (
+                                                                                                <span className="truncate max-w-[80px]">
+                                                                                                    Chưa phân công
+                                                                                                </span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex flex-col items-end gap-1 ml-2">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => { e.stopPropagation(); handleOpenEdit(task); }}
+                                                                                        className="p-1 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                                                                        title="Sửa"
+                                                                                    >
+                                                                                        <Pencil className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}
+                                                                                        className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                                                        title="Xóa"
+                                                                                    >
+                                                                                        <Trash2 className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    <div className="flex flex-col items-end gap-0.5 mt-1">
+                                                                                        <span className="text-[11px] font-semibold text-gray-900">
+                                                                                            {task.progress}%
+                                                                                        </span>
+                                                                                        <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                                                            <div
+                                                                                                className={`h-full transition-all duration-300 ${
+                                                                                                    task.status === 'COMPLETED'
+                                                                                                        ? 'bg-emerald-500'
+                                                                                                        : 'bg-blue-500'
+                                                                                                }`}
+                                                                                                style={{ width: `${task.progress}%` }}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
                                                                     )}
-                                                                </div>
+                                                                </Draggable>
+                                                            );
+                                                        })}
+                                                        {provided.placeholder}
+                                                        {statusTasks.length === 0 && (
+                                                            <div className="h-24 flex items-center justify-center rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-400 bg-gray-50/50">
+                                                                Kéo thả công việc vào đây
                                                             </div>
-                                                        </div>
-                                                        <div className="flex flex-col items-end gap-1 ml-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenEdit(task)}
-                                                                className="p-1 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                                                title="Sửa"
-                                                            >
-                                                                <Pencil className="w-3 h-3" />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDelete(task.id)}
-                                                                className="p-1 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                                title="Xóa"
-                                                            >
-                                                                <Trash2 className="w-3 h-3" />
-                                                            </button>
-                                                            <div className="flex flex-col items-end gap-0.5 mt-1">
-                                                                <span className="text-[11px] font-semibold text-gray-900">
-                                                                    {task.progress}%
-                                                                </span>
-                                                                <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={`h-full transition-all duration-300 ${
-                                                                            task.status === 'COMPLETED'
-                                                                                ? 'bg-emerald-500'
-                                                                                : 'bg-blue-500'
-                                                                        }`}
-                                                                        style={{ width: `${task.progress}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        )}
                                                     </div>
-                                                </div>
-                                                );
-                                            })}
-                                            {statusTasks.length === 0 && (
-                                                <div className="h-24 flex items-center justify-center rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-400 bg-gray-50/50">
-                                                    Kéo thả công việc vào đây
-                                                </div>
-                                            )}
+                                                )}
+                                            </Droppable>
                                         </div>
-                                    </div>
-                                );
-                            })}
-                    </div>
+                                    );
+                                })}
+                        </div>
+                    </DragDropContext>
                 )}
             </div>
 

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { addDays, isPast, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { withSchemaCheck, isMissingTableError } from '@/lib/db-schema';
+import { Prisma } from '@prisma/client';
 
 export async function GET() {
   try {
@@ -16,7 +18,8 @@ export async function GET() {
 
     // 1. Check upcoming deadlines (next 7 days)
     const sevenDaysFromNow = addDays(new Date(), 7);
-    const projectsWithDeadlines = await prisma.project.findMany({
+    const projectsWithDeadlines = await withSchemaCheck(
+      () => prisma.project.findMany({
       where: {
         endDate: {
           gte: new Date(),
@@ -35,7 +38,9 @@ export async function GET() {
       orderBy: {
         endDate: 'asc',
       },
-    });
+      }),
+      [] // fallback: empty array nếu table không tồn tại
+    );
 
     projectsWithDeadlines.forEach((project: { id: string; projectNo: string; name: string; endDate: Date | null }) => {
       if (!project.endDate) return;
@@ -56,7 +61,8 @@ export async function GET() {
     });
 
     // 2. Check overdue projects
-    const overdueProjects = await prisma.project.findMany({
+    const overdueProjects = await withSchemaCheck(
+      () => prisma.project.findMany({
       where: {
         endDate: {
           lt: new Date(),
@@ -75,7 +81,9 @@ export async function GET() {
       orderBy: {
         endDate: 'desc',
       },
-    });
+      }),
+      [] // fallback: empty array nếu table không tồn tại
+    );
 
     overdueProjects.forEach((project: { id: string; projectNo: string; name: string; endDate: Date | null }) => {
       if (!project.endDate) return;
@@ -99,7 +107,8 @@ export async function GET() {
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     
-    const cashFlowSummary = await prisma.cashFlow.groupBy({
+    const cashFlowSummary = await withSchemaCheck(
+      () => prisma.cashFlow.groupBy({
       by: ['type'],
       where: {
         date: {
@@ -109,7 +118,9 @@ export async function GET() {
       _sum: {
         amount: true,
       },
-    });
+      }),
+      [] // fallback: empty array nếu table không tồn tại
+    );
 
     const revenue = cashFlowSummary.find((cf: { type: string; _sum: { amount: number | null } }) => cf.type === 'REVENUE')?._sum.amount || 0;
     const expense = cashFlowSummary.find((cf: { type: string; _sum: { amount: number | null } }) => cf.type === 'EXPENSE')?._sum.amount || 0;
@@ -131,7 +142,8 @@ export async function GET() {
 
     // 4. Check pending quotations (DRAFT status > 7 days old)
     const sevenDaysAgo = addDays(new Date(), -7);
-    const pendingQuotations = await prisma.quotation.findMany({
+    const pendingQuotations = await withSchemaCheck(
+      () => prisma.quotation.findMany({
       where: {
         status: 'DRAFT',
         createdAt: {
@@ -148,7 +160,9 @@ export async function GET() {
       orderBy: {
         createdAt: 'asc',
       },
-    });
+      }),
+      [] // fallback: empty array nếu table không tồn tại
+    );
 
     pendingQuotations.forEach((quotation: { id: string; quotationNo: string; projectName: string | null; createdAt: Date }) => {
       const daysOld = Math.ceil(
@@ -174,8 +188,17 @@ export async function GET() {
       alerts,
       count: alerts.length,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching alerts:', error);
+    
+    // Nếu là lỗi "table does not exist", trả về empty alerts thay vì 500
+    if (isMissingTableError(error)) {
+      return NextResponse.json({
+        alerts: [],
+        count: 0,
+      });
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch alerts' },
       { status: 500 }

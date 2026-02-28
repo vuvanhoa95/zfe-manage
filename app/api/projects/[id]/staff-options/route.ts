@@ -9,7 +9,7 @@ export async function GET(
         const resolvedParams = params instanceof Promise ? await params : params;
         const projectId = resolvedParams.id;
 
-        // Lấy báo giá chốt của dự án (nếu có) và các dòng outsource
+        // Báo giá chốt cho dự án
         const projectWithQuotation = await prisma.project.findUnique({
             where: { id: projectId },
             select: {
@@ -29,50 +29,41 @@ export async function GET(
             },
         });
 
-        const quotationStaff: Array<{ id: string; name: string; type: 'quotation'; discipline?: string | null }> = [];
-
-        if (projectWithQuotation?.finalQuotation) {
-            for (const line of projectWithQuotation.finalQuotation.outsourceLines) {
-                if (!line.staffName) continue;
-                quotationStaff.push({
-                    id: line.id,
-                    name: line.staffName,
-                    type: 'quotation',
-                    discipline: line.discipline ?? null,
-                });
-            }
-        }
+        const quotationStaffNames = projectWithQuotation?.finalQuotation?.outsourceLines
+            .map(line => line.staffName?.trim())
+            .filter(name => !!name) || [];
 
         // Lấy danh sách nhân sự outsource đang active
         const outsourcingStaff = await prisma.outsourcingStaff.findMany({
             where: { isActive: true },
+            select: { name: true },
+        });
+        const outsourcingStaffNames = outsourcingStaff.map(s => s.name.trim());
+
+        const allPotentialNames = Array.from(new Set([...quotationStaffNames, ...outsourcingStaffNames]));
+
+        // Lấy danh sách System Users
+        const systemUsers = await prisma.user.findMany({
             select: {
                 id: true,
                 name: true,
-                discipline: true,
+                role: true,
             },
             orderBy: { name: 'asc' },
         });
 
-        const outsourcingStaffOptions = outsourcingStaff.map((staff: { id: string; name: string; discipline: string | null }) => ({
-            id: staff.id,
-            name: staff.name,
-            type: 'outsourcing' as const,
-            discipline: staff.discipline,
+        // Map system users sang format StaffOption
+        const data = systemUsers.map(user => ({
+            id: user.id,
+            name: user.name,
+            type: 'user', // Đổi type thành user để UI nhận biết
+            discipline: user.role === 'ADMIN' ? 'Quản trị viên' : 'Nhân sự',
         }));
 
-        // Gộp & loại bỏ trùng theo (name, type, discipline)
-        const combined = [...quotationStaff, ...outsourcingStaffOptions];
-        const uniqueMap = new Map<string, (typeof combined)[number]>();
-
-        for (const item of combined) {
-            const key = `${item.type}:${item.name}:${item.discipline ?? ''}`;
-            if (!uniqueMap.has(key)) {
-                uniqueMap.set(key, item);
-            }
-        }
-
-        const data = Array.from(uniqueMap.values());
+        // Option bổ sung: Nếu có nhân sự trong danh sách tiềm năng (outsource) mà CHƯA có trong system users,
+        // chúng ta có thể gợi ý (trong tương lai sẽ tạo user từ đây). 
+        // Nhưng theo yêu cầu của user: "Quản lý system user sẽ là phần nhân sự outsource luôn",
+        // nên trước mắt ta chỉ hiện System Users. Nếu user muốn assign người mới, họ phải tạo User trước (hoặc ta tự động tạo).
 
         return NextResponse.json({ success: true, data });
     } catch (error) {
@@ -87,4 +78,3 @@ export async function GET(
         );
     }
 }
-

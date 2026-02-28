@@ -5,12 +5,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { projectCreateSchema, type ProjectCreateInput } from '@/lib/validation/project';
 import { cache, cacheKeys } from '@/lib/cache';
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 /**
  * Tạo các bảng cơ bản nếu chưa tồn tại (users, customers, projects)
  * Được gọi tự động khi detect lỗi "table does not exist"
+ * @deprecated Use ensureCoreSchema from '@/lib/db-schema' instead
  */
-async function ensureCoreSchema() {
+async function ensureCoreSchemaLegacy() {
     // 1. Tạo bảng users (cần thiết cho createdById)
     await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "users" (
@@ -240,14 +242,7 @@ export async function GET(request: NextRequest) {
         console.error('Failed to fetch projects:', error);
 
         // Kiểm tra xem có phải lỗi "table does not exist" không
-        const message: string = error instanceof Error ? error.message : '';
-        const isMissingTable =
-            (error instanceof Prisma.PrismaClientKnownRequestError &&
-                (error.code === 'P2021' || error.code === 'P2022')) ||
-            /does not exist in the current database/i.test(message) ||
-            /no such table/i.test(message);
-
-        if (isMissingTable) {
+        if (isMissingTableError(error)) {
             // Tự động tạo schema và trả về danh sách rỗng
             try {
                 await ensureCoreSchema();
@@ -327,14 +322,7 @@ async function getUserIdFromSessionOrFallback(explicitUserId?: string | null): P
                     return user.id;
                 }
             } catch (error: any) {
-                const message: string = error?.message ?? '';
-                const isMissingTable =
-                    (error instanceof Prisma.PrismaClientKnownRequestError &&
-                        (error.code === 'P2021' || error.code === 'P2022')) ||
-                    /does not exist in the current database/i.test(message) ||
-                    /no such table/i.test(message);
-
-                if (isMissingTable) {
+                if (isMissingTableError(error)) {
                     await ensureCoreSchema();
                     // Sau khi tạo schema, tạo user mặc định nếu chưa có
                     return await ensureDefaultUser();
@@ -357,14 +345,7 @@ async function getUserIdFromSessionOrFallback(explicitUserId?: string | null): P
                     return user.id;
                 }
             } catch (error: any) {
-                const message: string = error?.message ?? '';
-                const isMissingTable =
-                    (error instanceof Prisma.PrismaClientKnownRequestError &&
-                        (error.code === 'P2021' || error.code === 'P2022')) ||
-                    /does not exist in the current database/i.test(message) ||
-                    /no such table/i.test(message);
-
-                if (isMissingTable) {
+                if (isMissingTableError(error)) {
                     await ensureCoreSchema();
                     return await ensureDefaultUser();
                 }
@@ -459,14 +440,7 @@ async function ensureDefaultUser(): Promise<string | null> {
     } catch (error: any) {
         console.error('Failed to create default user:', error);
         // Nếu vẫn lỗi sau khi đã ensure schema, có thể là lỗi khác
-        const message: string = error?.message ?? '';
-        const isMissingTable =
-            (error instanceof Prisma.PrismaClientKnownRequestError &&
-                (error.code === 'P2021' || error.code === 'P2022')) ||
-            /does not exist in the current database/i.test(message) ||
-            /no such table/i.test(message);
-
-        if (isMissingTable) {
+        if (isMissingTableError(error)) {
             // Thử lại một lần nữa với schema mới
             try {
                 await ensureCoreSchema();
@@ -542,21 +516,14 @@ export async function POST(request: NextRequest) {
                 if (!customer) {
                     return NextResponse.json({ success: false, error: 'Khách hàng không tồn tại' }, { status: 400 });
                 }
-            } catch (error: any) {
-                const message: string = error?.message ?? '';
-                const isMissingTable =
-                    (error instanceof Prisma.PrismaClientKnownRequestError &&
-                        (error.code === 'P2021' || error.code === 'P2022')) ||
-                    /does not exist in the current database/i.test(message) ||
-                    /no such table/i.test(message);
-
-                if (isMissingTable) {
-                    await ensureCoreSchema();
-                    // Sau khi tạo schema, customer vẫn không tồn tại → trả lỗi
-                    return NextResponse.json({ success: false, error: 'Khách hàng không tồn tại' }, { status: 400 });
-                }
-                throw error;
+        } catch (error: any) {
+            if (isMissingTableError(error)) {
+                await ensureCoreSchema();
+                // Sau khi tạo schema, customer vẫn không tồn tại → trả lỗi
+                return NextResponse.json({ success: false, error: 'Khách hàng không tồn tại' }, { status: 400 });
             }
+            throw error;
+        }
         }
 
         // Lấy userId hợp lệ từ createdById / session / user đầu tiên
@@ -581,14 +548,7 @@ export async function POST(request: NextRequest) {
                 orderBy: { projectNo: 'desc' },
             });
         } catch (error: any) {
-            const message: string = error?.message ?? '';
-            const isMissingTable =
-                (error instanceof Prisma.PrismaClientKnownRequestError &&
-                    (error.code === 'P2021' || error.code === 'P2022')) ||
-                /does not exist in the current database/i.test(message) ||
-                /no such table/i.test(message);
-
-            if (isMissingTable) {
+            if (isMissingTableError(error)) {
                 await ensureCoreSchema();
                 lastProject = null; // Không có project nào → bắt đầu từ 0001
             } else {
@@ -626,14 +586,7 @@ export async function POST(request: NextRequest) {
                 },
             });
         } catch (error: any) {
-            const message: string = error?.message ?? '';
-            const isMissingTable =
-                (error instanceof Prisma.PrismaClientKnownRequestError &&
-                    (error.code === 'P2021' || error.code === 'P2022')) ||
-                /does not exist in the current database/i.test(message) ||
-                /no such table/i.test(message);
-
-            if (isMissingTable) {
+            if (isMissingTableError(error)) {
                 await ensureCoreSchema();
                 // Retry sau khi tạo schema
                 project = await prisma.project.create({
@@ -664,14 +617,7 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
         console.error('Failed to create project:', error);
 
-        const message: string = error?.message ?? '';
-        const isMissingTable =
-            (error instanceof Prisma.PrismaClientKnownRequestError &&
-                (error.code === 'P2021' || error.code === 'P2022')) ||
-            /does not exist in the current database/i.test(message) ||
-            /no such table/i.test(message);
-
-        if (isMissingTable) {
+        if (isMissingTableError(error)) {
             // Tự động tạo schema và thử lại (nếu chưa thử)
             try {
                 await ensureCoreSchema();
