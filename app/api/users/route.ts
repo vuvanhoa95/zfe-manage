@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 /**
  * GET /api/users
@@ -9,6 +10,9 @@ import { authOptions } from '@/lib/auth';
  */
 export async function GET(request: NextRequest) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         // Kiểm tra authentication
         const session = await getServerSession(authOptions);
         if (!session?.user) {
@@ -33,20 +37,45 @@ export async function GET(request: NextRequest) {
             where.role = role;
         }
 
-        const users = await prisma.user.findMany({
-            where,
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-                createdAt: true,
-            },
-            orderBy: {
-                name: 'asc',
-            },
-            take: limit,
-        });
+        let users;
+        try {
+            users = await prisma.user.findMany({
+                where,
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                },
+                orderBy: {
+                    name: 'asc',
+                },
+                take: limit,
+            });
+        } catch (error: any) {
+            // Nếu table không tồn tại, đảm bảo schema và retry
+            if (isMissingTableError(error)) {
+                await ensureCoreSchema();
+                // Retry sau khi ensure schema
+                users = await prisma.user.findMany({
+                    where,
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        role: true,
+                        createdAt: true,
+                    },
+                    orderBy: {
+                        name: 'asc',
+                    },
+                    take: limit,
+                });
+            } else {
+                throw error;
+            }
+        }
 
         return NextResponse.json({
             success: true,
