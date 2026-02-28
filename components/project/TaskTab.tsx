@@ -1025,10 +1025,23 @@ export default function TaskTab({
                 finalDescription += 'Checklist:\n' + checklistLines.join('\n');
             }
 
+            // Normalize assignedToId: trim nếu có giá trị, null nếu empty
+            const normalizedAssignedToId = formData.assignedToId && formData.assignedToId.trim() ? formData.assignedToId.trim() : null;
+            
             const payload = {
                 ...formData,
                 description: finalDescription,
+                assignedToId: normalizedAssignedToId,
             };
+
+            // Debug logging (chỉ trong development)
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[TaskTab] Submitting task:', {
+                    editingTask: editingTask?.id,
+                    assignedToId: normalizedAssignedToId,
+                    payloadAssignedToId: payload.assignedToId,
+                });
+            }
 
             const res = await fetch(url, {
                 method,
@@ -1599,12 +1612,32 @@ export default function TaskTab({
     );
 
     const filteredAssigneeOptions = useMemo(() => {
+        // Thêm option "Chưa phân công" vào đầu danh sách
+        const unassignedOption: StaffOption = {
+            id: '',
+            name: 'Chưa phân công',
+            type: 'user',
+            discipline: null,
+        };
+        
         const keyword = assigneeSearchQuery.trim().toLowerCase();
-        if (!keyword) return staffOptions;
-        return staffOptions.filter((option) =>
+        if (!keyword) {
+            return [unassignedOption, ...staffOptions];
+        }
+        
+        const filtered = staffOptions.filter((option) =>
             option.name.toLowerCase().includes(keyword) ||
             (option.discipline ?? '').toLowerCase().includes(keyword),
         );
+        
+        // Luôn hiển thị "Chưa phân công" nếu search query match
+        const shouldShowUnassigned = 
+            'chưa phân công'.includes(keyword) || 
+            keyword === '' ||
+            keyword === 'chưa' ||
+            keyword === 'phân công';
+        
+        return shouldShowUnassigned ? [unassignedOption, ...filtered] : filtered;
     }, [staffOptions, assigneeSearchQuery]);
 
     // Helper: Toggle expand/collapse
@@ -1753,7 +1786,20 @@ export default function TaskTab({
                                                             type="button"
                                                             onMouseDown={(e) => {
                                                                 e.preventDefault();
-                                                                setFormData({ ...formData, assignedToId: option.id });
+                                                                // Nếu chọn "Chưa phân công" (id = ''), set assignedToId thành empty string để normalize thành null khi submit
+                                                                const assignedToId = option.id === '' ? '' : option.id;
+                                                                
+                                                                // Debug logging (chỉ trong development)
+                                                                if (process.env.NODE_ENV === 'development') {
+                                                                    console.log('[TaskTab] Selected assignee:', {
+                                                                        optionId: option.id,
+                                                                        optionName: option.name,
+                                                                        assignedToId,
+                                                                        isUuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(option.id),
+                                                                    });
+                                                                }
+                                                                
+                                                                setFormData({ ...formData, assignedToId });
                                                                 setAssigneeSearchQuery(option.name);
                                                                 setIsAssigneeDropdownOpen(false);
                                                             }}
@@ -2959,9 +3005,9 @@ export default function TaskTab({
                                                             )}
                                                         </button>
 
-                                                        {/* Task Title với Status Badge - Clickable to open edit form */}
+                                                        {/* Task Title - Clickable to open edit form */}
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <span 
+                                                            <span
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     handleOpenEdit(task);
@@ -2969,11 +3015,6 @@ export default function TaskTab({
                                                                 className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer truncate"
                                                             >
                                                                 {task.title}
-                                                            </span>
-                                                            {/* Status Badge - Làm nổi bật trạng thái */}
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${STATUS_CONFIG[task.status].color}`}>
-                                                                {STATUS_CONFIG[task.status].icon}
-                                                                {STATUS_CONFIG[task.status].label}
                                                             </span>
                                                         </div>
 
@@ -3284,7 +3325,7 @@ export default function TaskTab({
                                                                   )}
                                                               </button>
 
-                                                              {/* Task Title với Status Badge - Clickable to open edit form */}
+                                                              {/* Task Title - Clickable to open edit form */}
                                                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                                                   <span
                                                                       onClick={(e) => {
@@ -3294,11 +3335,6 @@ export default function TaskTab({
                                                                       className="font-medium text-gray-900 hover:text-blue-600 transition-colors cursor-pointer truncate"
                                                                   >
                                                                       {task.title}
-                                                                  </span>
-                                                                  {/* Status Badge - Làm nổi bật trạng thái */}
-                                                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide flex-shrink-0 ${STATUS_CONFIG[task.status].color}`}>
-                                                                      {STATUS_CONFIG[task.status].icon}
-                                                                      {STATUS_CONFIG[task.status].label}
                                                                   </span>
                                                               </div>
 

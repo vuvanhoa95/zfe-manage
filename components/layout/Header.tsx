@@ -64,11 +64,11 @@ export default function Header() {
 
         if (path === '/customers')
             return { title: 'Khách hàng', subtitle: 'Danh bạ khách hàng & đối tác', icon: 'customers' };
-        if (path === '/outsourcing-staff')
+        if (path === '/users')
             return {
-                title: 'Nhân sự outsource',
-                subtitle: 'Danh sách & chi phí nhân sự',
-                icon: 'outsourcingStaff',
+                title: 'Quản lý User',
+                subtitle: 'Danh sách tài khoản và phân quyền',
+                icon: 'user',
             };
         if (path === '/company-profile')
             return {
@@ -106,7 +106,7 @@ export default function Header() {
             if (segment === 'projects') return 'Dự án';
             if (segment === 'quotations') return 'Báo giá';
             if (segment === 'customers') return 'Khách hàng';
-            if (segment === 'outsourcing-staff') return 'Nhân sự outsource';
+            if (segment === 'users') return 'Quản lý User';
             if (segment === 'company-profile') return 'Hồ sơ công ty';
             if (segment === 'settings') return 'Cài đặt';
             if (segment === 'reports') return 'Báo cáo';

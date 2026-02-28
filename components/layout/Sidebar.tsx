@@ -17,7 +17,7 @@ const navItems: NavItem[] = [
     { href: '/projects', label: 'Dự án', icon: 'projects' },
     { href: '/quotations', label: 'Báo giá', icon: 'quotations' },
     { href: '/customers', label: 'Khách hàng', icon: 'customers' },
-    { href: '/outsourcing-staff', label: 'Nhân sự Outsource', icon: 'outsourcingStaff' },
+    { href: '/users', label: 'Quản lý User', icon: 'user' },
     { href: '/company-profile', label: 'Hồ sơ công ty', icon: 'companyProfile' },
     { href: '/settings', label: 'Cài đặt', icon: 'settings' },
 ];

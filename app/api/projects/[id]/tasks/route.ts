@@ -6,7 +6,19 @@ import { taskCreateSchema, TASK_PRIORITIES, TASK_STATUSES, type TaskCreateInput 
 
 async function resolveAssignedToId(input: { assignedToId?: string | null; assignedTo?: string | null }): Promise<string | null> {
     const direct = (input.assignedToId ?? '').trim();
-    if (direct) return direct;
+    if (direct) {
+        // Validate UUID format
+        if (isUuid(direct)) {
+            // Verify user exists
+            const user = await prisma.user.findUnique({
+                where: { id: direct },
+                select: { id: true },
+            });
+            return user?.id ?? null;
+        }
+        // Nếu không phải UUID hợp lệ, trả về null
+        return null;
+    }
 
     const name = (input.assignedTo ?? '').trim();
     if (!name) return null;
@@ -267,7 +279,25 @@ export async function POST(
             );
         }
 
+        // Debug logging (chỉ trong development)
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[API] Creating task with data:', {
+                assignedToId: rawBody.assignedToId,
+                assignedTo: rawBody.assignedTo,
+                parsedAssignedToId: parsed.data?.assignedToId,
+            });
+        }
+        
         const data: TaskCreateInput = parsed.data;
+        const assignedToId = await resolveAssignedToId({
+            assignedToId: data.assignedToId ?? null,
+            assignedTo: data.assignedTo ?? null,
+        });
+        
+        // Debug logging (chỉ trong development)
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[API] Resolved assignedToId:', assignedToId);
+        }
 
         let task;
         try {
@@ -282,9 +312,25 @@ export async function POST(
                     status: data.status,
                     priority: data.priority,
                     progress: data.progress,
-                    assignedToId: data.assignedToId ?? null,
+                    assignedToId: assignedToId ?? null,
                     parentId: data.parentId ?? null,
                     order: 0,
+                },
+                select: {
+                    id: true,
+                    projectId: true,
+                    title: true,
+                    description: true,
+                    startDate: true,
+                    endDate: true,
+                    status: true,
+                    priority: true,
+                    progress: true,
+                    assignedToId: true,
+                    assignee: { select: { name: true } },
+                    parentId: true,
+                    createdAt: true,
+                    updatedAt: true,
                 },
             });
         } catch (innerError) {
@@ -301,8 +347,23 @@ export async function POST(
                         status: data.status,
                         priority: data.priority,
                         progress: data.progress,
-                        assignedToId: data.assignedToId ?? null,
+                        assignedToId: assignedToId ?? null,
                         order: 0,
+                    },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
+                        createdAt: true,
+                        updatedAt: true,
                     },
                 });
             } else
@@ -324,9 +385,25 @@ export async function POST(
                         status: data.status,
                         priority: data.priority,
                         progress: data.progress,
-                        assignedToId: data.assignedToId ?? null,
+                        assignedToId: assignedToId ?? null,
                         parentId: data.parentId ?? null,
                         order: 0,
+                    },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
+                        parentId: true,
+                        createdAt: true,
+                        updatedAt: true,
                     },
                 });
             } else {
@@ -334,7 +411,13 @@ export async function POST(
             }
         }
 
-        return NextResponse.json({ success: true, data: task }, { status: 201 });
+        // Backward compatible: trả thêm assignedTo (tên) cho UI cũ
+        const taskWithAssignedTo = {
+            ...task,
+            assignedTo: (task as any)?.assignee?.name ?? null,
+        };
+
+        return NextResponse.json({ success: true, data: taskWithAssignedTo }, { status: 201 });
     } catch (error: unknown) {
         console.error('Failed to create task:', error);
 

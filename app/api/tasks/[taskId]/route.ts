@@ -2,12 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { taskUpdateSchema, type TaskUpdateInput } from '@/lib/validation/task';
 
+function isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 async function resolveAssignedToId(input: {
     assignedToId?: string | null;
     assignedTo?: string | null;
 }): Promise<string | null> {
     const direct = (input.assignedToId ?? '').trim();
-    if (direct) return direct;
+    if (direct) {
+        // Validate UUID format
+        if (isUuid(direct)) {
+            // Verify user exists
+            const user = await prisma.user.findUnique({
+                where: { id: direct },
+                select: { id: true },
+            });
+            return user?.id ?? null;
+        }
+        // Nếu không phải UUID hợp lệ, trả về null
+        return null;
+    }
 
     const name = (input.assignedTo ?? '').trim();
     if (!name) return null;
@@ -39,10 +55,15 @@ export async function PUT(
         }
 
         const data: TaskUpdateInput = parsed.data;
-        const assignedToId = await resolveAssignedToId({
-            assignedToId: data.assignedToId ?? null,
-            assignedTo: data.assignedTo ?? null,
-        });
+        
+        // Xử lý assignedToId: nếu có trong data thì resolve, nếu không thì không update
+        let resolvedAssignedToId: string | null | undefined = undefined;
+        if (data.assignedToId !== undefined || data.assignedTo !== undefined) {
+            resolvedAssignedToId = await resolveAssignedToId({
+                assignedToId: data.assignedToId ?? null,
+                assignedTo: data.assignedTo ?? null,
+            });
+        }
 
         let task;
         try {
@@ -72,7 +93,7 @@ export async function PUT(
                     status: data.status,
                     priority: data.priority,
                     progress: typeof data.progress === 'number' ? data.progress : undefined,
-                    assignedToId: assignedToId ?? undefined,
+                    assignedToId: resolvedAssignedToId,
                     parentId: data.parentId ?? undefined,
                 },
                 select: {
@@ -126,7 +147,7 @@ export async function PUT(
                         status: data.status,
                         priority: data.priority,
                         progress: typeof data.progress === 'number' ? data.progress : undefined,
-                        assignedToId: assignedToId ?? undefined,
+                        assignedToId: resolvedAssignedToId,
                     },
                     select: {
                         id: true,

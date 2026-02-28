@@ -2,7 +2,10 @@ import { prisma } from './prisma';
 import { Prisma } from '@prisma/client';
 
 /**
- * Tạo các bảng cơ bản nếu chưa tồn tại (users, customers, projects, quotations, cashFlows)
+ * Tạo các bảng cơ bản nếu chưa tồn tại
+ * - users, customers, projects
+ * - quotations, cash_flows
+ * - outsourcing_staff
  * Được gọi tự động khi detect lỗi "table does not exist"
  */
 export async function ensureCoreSchema() {
@@ -110,18 +113,61 @@ export async function ensureCoreSchema() {
         )
     `);
 
-    // 5. Tạo bảng cashFlows (phụ thuộc projects)
+    // 5. Tạo bảng cash_flows (phụ thuộc projects, outsourcing_staff)
     await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "cashFlows" (
+        CREATE TABLE IF NOT EXISTS "cash_flows" (
             "id" TEXT NOT NULL PRIMARY KEY,
             "projectId" TEXT,
             "type" TEXT NOT NULL,
+            "category" TEXT,
             "amount" REAL NOT NULL DEFAULT 0,
-            "date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "description" TEXT,
+            "description" TEXT NOT NULL,
+            "date" DATETIME NOT NULL,
+            "quotationId" TEXT,
+            "paymentMilestoneNo" INTEGER,
+            "paymentMilestonePercent" REAL,
+            "paymentMilestoneTitle" TEXT,
+            "outsourcingStaffId" TEXT,
+            "counterpartyName" TEXT,
+            "notes" TEXT,
+            "documentStatus" TEXT,
+            "documentNote" TEXT,
+            "createdById" TEXT NOT NULL,
             "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT "cashFlows_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE
+            CONSTRAINT "cash_flows_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
+        )
+    `);
+
+    // 6. Tạo bảng outsourcing_staff (dùng cho quản lý nhân sự outsource)
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "outsourcing_staff" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "name" TEXT NOT NULL,
+            "code" TEXT,
+            "position" TEXT,
+            "department" TEXT,
+            "discipline" TEXT,
+            "avatarUrl" TEXT,
+            "email" TEXT,
+            "phone" TEXT,
+            "address" TEXT,
+            "companyName" TEXT,
+            "companyTaxCode" TEXT,
+            "personalTaxCode" TEXT,
+            "bankAccount" TEXT,
+            "bankName" TEXT,
+            "skills" TEXT,
+            "experience" TEXT,
+            "certifications" TEXT,
+            "hourlyRate" REAL,
+            "dailyRate" REAL,
+            "monthlyRate" REAL,
+            "rateType" TEXT,
+            "isActive" BOOLEAN NOT NULL DEFAULT 1,
+            "notes" TEXT,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
@@ -130,25 +176,41 @@ export async function ensureCoreSchema() {
         await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_projectNo_idx" ON "projects"("projectNo")`);
     } catch {}
     try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_createdById_idx" ON "projects"("createdById")`);
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "projects_createdById_idx" ON "projects"("createdById")`,
+        );
     } catch {}
     try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_customerId_idx" ON "projects"("customerId")`);
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "projects_customerId_idx" ON "projects"("customerId")`,
+        );
     } catch {}
     try {
         await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects"("status")`);
     } catch {}
     try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "quotations_quotationNo_idx" ON "quotations"("quotationNo")`);
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "quotations_quotationNo_idx" ON "quotations"("quotationNo")`,
+        );
     } catch {}
     try {
         await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "quotations_status_idx" ON "quotations"("status")`);
     } catch {}
     try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "cashFlows_type_idx" ON "cashFlows"("type")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "cash_flows_type_idx" ON "cash_flows"("type")`);
     } catch {}
     try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "cashFlows_date_idx" ON "cashFlows"("date")`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "cash_flows_date_idx" ON "cash_flows"("date")`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "outsourcing_staff_isActive_idx" ON "outsourcing_staff"("isActive")`,
+        );
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "outsourcing_staff_code_idx" ON "outsourcing_staff"("code")`,
+        );
     } catch {}
 }
 
