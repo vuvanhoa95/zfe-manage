@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { formatVND } from '@/lib/number-to-words-vn';
 import PaymentMilestonesTimeline from '@/components/dashboard/PaymentMilestonesTimeline';
+import DashboardWorkOverview from '@/components/dashboard/DashboardWorkOverview';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import RevenueChart from '@/components/charts/RevenueChart';
 import QuotationChart from '@/components/charts/QuotationChart';
@@ -494,6 +495,9 @@ export default function DashboardPage() {
                                     <AlertsWidget />
                                 </div>
                             </div>
+
+                            {/* Work overview across all projects */}
+                            <DashboardWorkOverview />
                         </>
                     ) : tab === 'charts' ? (
                         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">

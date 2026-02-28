@@ -1,8 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { formatVND } from '@/lib/number-to-words-vn';
+import GroupTool, { type GroupConfig } from '@/components/ui/GroupTool';
+import {
+    groupAndSort,
+    getProjectFieldValue,
+    getProjectFieldLabel,
+} from '@/lib/utils/group-sort';
 import {
     RefreshCw,
     Plus,
@@ -73,6 +79,8 @@ export default function ProjectTab() {
     const [yearFilter, setYearFilter] = useState<string>('');
     const [isImporting, setIsImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [groupConfig, setGroupConfig] = useState<GroupConfig | null>(null);
+    const [activeTab, setActiveTab] = useState<'group' | 'subtasks' | 'columns'>('group');
 
     useEffect(() => {
         fetchProjects();
@@ -162,6 +170,25 @@ export default function ProjectTab() {
         );
     });
 
+    // Group và sort projects
+    const groupedProjects = useMemo(() => {
+        if (!groupConfig || groupConfig.field === 'none') {
+            return [
+                {
+                    groupKey: 'all',
+                    groupLabel: 'Tất cả',
+                    items: filteredProjects,
+                },
+            ];
+        }
+        return groupAndSort(
+            filteredProjects,
+            groupConfig,
+            (item, field) => getProjectFieldValue(item, field),
+            (field, value) => getProjectFieldLabel(field, value)
+        );
+    }, [filteredProjects, groupConfig]);
+
     const summary = {
         total: filteredProjects.length,
         hasQuotations: filteredProjects.filter((p) => (p._count?.quotations ?? 0) > 0).length,
@@ -170,9 +197,25 @@ export default function ProjectTab() {
         cancelled: filteredProjects.filter((p) => p.status === 'CANCELLED').length,
     };
 
+    const availableFields = [
+        { value: 'none' as const, label: 'Không nhóm' },
+        { value: 'status' as const, label: 'Trạng thái' },
+        { value: 'customer' as const, label: 'Khách hàng' },
+        { value: 'date' as const, label: 'Ngày tạo' },
+        { value: 'project' as const, label: 'Tên dự án' },
+    ];
+
     return (
         <div className="h-full flex flex-col bg-zf-bg-tertiary px-4 py-4 md:px-6 md:py-5 overflow-y-auto">
             <div className="w-full space-y-4">
+                {/* Group Tool */}
+                <GroupTool
+                    activeTab={activeTab}
+                    groupConfig={groupConfig || undefined}
+                    availableFields={availableFields}
+                    onTabChange={setActiveTab}
+                    onGroupChange={setGroupConfig}
+                />
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                         <div className="inline-flex items-center gap-1 rounded-full bg-zf-bg-secondary px-3 py-1 text-zf-text-secondary">
@@ -589,7 +632,21 @@ export default function ProjectTab() {
                     </div>
                 ) : (
                     <div className="grid gap-4">
-                        {filteredProjects.map((project, index) => {
+                        {groupedProjects.map((group) => (
+                            <React.Fragment key={group.groupKey}>
+                                {groupConfig && groupConfig.field !== 'none' && (
+                                    <div className="bg-white rounded-2xl shadow-sm border border-zf-bg-secondary p-4 mb-2">
+                                        <div className="font-semibold text-sm text-zf-graphite">
+                                            {group.groupLabel} ({group.items.length})
+                                        </div>
+                                    </div>
+                                )}
+                                {group.items.map((project, groupIndex) => {
+                                    // Tính index tổng thể cho numbering
+                                    const groupIdx = groupedProjects.findIndex(g => g.groupKey === group.groupKey);
+                                    const index = groupConfig && groupConfig.field !== 'none' 
+                                        ? groupIndex 
+                                        : groupedProjects.slice(0, groupIdx).reduce((acc, g) => acc + g.items.length, 0) + groupIndex;
                             const status = statusConfig[project.status] || statusConfig.PLANNING;
                             const orderNumber = index + 1;
                             return (
@@ -748,7 +805,9 @@ export default function ProjectTab() {
                                     </div>
                                 </div>
                             );
-                        })}
+                                })}
+                            </React.Fragment>
+                        ))}
                     </div>
                 )}
             </div>

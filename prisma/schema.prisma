@@ -3,10 +3,12 @@ generator client {
 }
 
 datasource db {
-  /// Local development: nên dùng cùng PostgreSQL với production (Neon/Vercel) để tránh lệch schema
-  /// Production/Staging: PostgreSQL (Neon/Vercel)
-  /// Ví dụ: DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
-  provider = "postgresql"
+  /// Local development: dùng SQLite file-based cho đơn giản và không phụ thuộc mạng
+  /// DATABASE_URL format: file:./prisma/dev.db
+  ///
+  /// Production/Staging: có thể chuyển sang PostgreSQL (Neon/Vercel/Postgres),
+  /// khi đó cần đổi `provider` sang `"postgresql"` và cập nhật lại DATABASE_URL + migrations.
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -22,6 +24,7 @@ model User {
   projects           Project[]
   quotationRevisions QuotationRevision[]
   quotations         Quotation[]
+  quotationTemplates QuotationTemplate[]
   projectMemberships ProjectMember[]
 
   @@map("users")
@@ -170,6 +173,8 @@ model Quotation {
   commissionCost      Float?
   status              String                   @default("DRAFT")
   notes               String?
+  /// UI theme for preview/export (e.g. blue/green/red or hex color)
+  theme               String?
   createdById         String
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
@@ -274,6 +279,90 @@ model QuotationRevision {
   @@map("quotation_revisions")
 }
 
+/// ================================
+/// QUOTATION TEMPLATES
+/// ================================
+
+model QuotationTemplate {
+  id             String   @id @default(uuid())
+  name           String
+  code           String?  @unique
+  description    String?
+
+  /// Loại dịch vụ / nhóm: ví dụ BIM_DESIGN, OUTSOURCE,...
+  category       String?
+  isActive       Boolean  @default(true)
+
+  /// Nội dung chính – tham chiếu cấu trúc Quotation
+  title          String   @default("BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM")
+  introText      String?
+  scopeText      String?
+  deliverablesText String @default("")
+  scheduleText   String?
+
+  vatRate        Float    @default(0.08)
+
+  /// Tuỳ chọn giao diện preview mặc định
+  theme          String?
+  layoutTemplate String?
+
+  createdById    String
+  createdBy      User     @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines             QuotationTemplateLine[]
+  paymentMilestones QuotationTemplatePaymentMilestone[]
+
+  @@index([category])
+  @@index([createdById])
+  @@index([isActive])
+  @@map("quotation_templates")
+}
+
+model QuotationTemplateLine {
+  id            String            @id @default(uuid())
+  templateId    String
+  template      QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  section       String?
+  itemNo        String?
+  title         String
+  qty           Float?
+  unit          String?
+  unitPrice     Float?
+  total         Float             @default(0)
+  note          String?
+  order         Int
+  isGroupHeader Boolean           @default(false)
+  isChargeable  Boolean           @default(true)
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([templateId])
+  @@map("quotation_template_lines")
+}
+
+model QuotationTemplatePaymentMilestone {
+  id           String            @id @default(uuid())
+  templateId   String
+  template     QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  no           Int
+  title        String
+  percent      Float
+  description  String?
+  expectedDate DateTime?
+  order        Int
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([templateId])
+  @@map("quotation_template_payment_milestones")
+}
+
 model CatalogItem {
   id           String   @id @default(uuid())
   category     String
@@ -346,6 +435,10 @@ model Task {
   id          String   @id @default(uuid())
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// Quan hệ cha - con giữa các công việc (subtask vô hạn)
+  parentId    String?
+  parent      Task?    @relation("TaskToSubtasks", fields: [parentId], references: [id])
+  subtasks    Task[]   @relation("TaskToSubtasks")
   title       String
   description String?
   startDate   DateTime?
@@ -367,6 +460,7 @@ model Task {
   updatedAt   DateTime @updatedAt
 
   @@index([projectId])
+  @@index([parentId])
   @@index([status])
   @@index([priority])
   @@index([assignedTo])
@@ -386,4 +480,88 @@ model ProjectMember {
 
   @@unique([projectId, userId])
   @@map("project_members")
+}
+
+/// Loại entity có thể gắn trường tuỳ chỉnh
+enum CustomFieldEntityType {
+  PROJECT
+  TASK
+}
+
+/// Kiểu dữ liệu của trường tuỳ chỉnh (tham khảo ClickUp: text, number, date, select, multi-select, boolean)
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  SELECT
+  MULTI_SELECT
+  BOOLEAN
+}
+
+/// Định nghĩa một trường tuỳ chỉnh cho Project hoặc Task
+model CustomField {
+  id          String                 @id @default(uuid())
+  name        String
+  key         String                 @unique
+  description String?
+  entityType  CustomFieldEntityType
+  fieldType   CustomFieldType
+  /// Nhóm/phân loại hiển thị (ví dụ: Thông tin hợp đồng, Vị trí, Kỹ thuật)
+  group       String?
+  /// Thứ tự hiển thị trong nhóm
+  sortOrder   Int                    @default(0)
+  /// Trường này có bắt buộc nhập hay không
+  isRequired  Boolean                @default(false)
+  /// Trường có đang được sử dụng (ẩn/hiện)
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  options     CustomFieldOption[]
+  values      CustomFieldValue[]
+
+  @@index([entityType])
+  @@index([isActive])
+  @@map("custom_fields")
+}
+
+/// Tuỳ chọn cho các trường dạng SELECT / MULTI_SELECT
+model CustomFieldOption {
+  id            String       @id @default(uuid())
+  customFieldId String
+  label         String
+  /// Giá trị nội bộ (nếu cần mapping), mặc định dùng giống label
+  value         String?
+  /// Màu hiển thị (optional), lưu hex hoặc token
+  color         String?
+  sortOrder     Int          @default(0)
+  customField   CustomField  @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@index([customFieldId])
+  @@map("custom_field_options")
+}
+
+/// Giá trị của trường tuỳ chỉnh cho từng entity (Project/Task)
+model CustomFieldValue {
+  id            String                @id @default(uuid())
+  customFieldId String
+  /// Loại entity (PROJECT/TASK)
+  entityType    CustomFieldEntityType
+  /// ID của entity tương ứng (project.id hoặc task.id)
+  entityId      String
+  /// Lưu giá trị linh hoạt theo kiểu field:
+  /// - TEXT / SELECT / MULTI_SELECT: dùng stringValue (MULTI_SELECT có thể là chuỗi JSON của mảng optionId)
+  /// - NUMBER: dùng numberValue
+  /// - DATE: dùng dateValue
+  /// - BOOLEAN: dùng boolValue
+  stringValue   String?
+  numberValue   Float?
+  dateValue     DateTime?
+  boolValue     Boolean?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  customField   CustomField           @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@index([customFieldId])
+  @@index([entityType, entityId])
+  @@map("custom_field_values")
 }

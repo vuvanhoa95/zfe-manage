@@ -111,8 +111,8 @@ export default function QuotationEditor({
             totalArea: undefined,
             title: 'BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM',
             introText: '',
-            scopeText: 'Phạm vi công việc bao gồm các dịch vụ BIM được cung cấp trong nhiều giai đoạn của dự án:\n\n1. GIAI ĐOẠN THIẾT KẾ SƠ BỘ:\n- Tư vấn và xây dựng chiến lược BIM cho dự án\n- Thiết lập BIM Execution Plan (BEP)\n- Xây dựng mô hình BIM 3D sơ bộ từ bản vẽ 2D\n- Phân tích không gian và xung đột sơ bộ\n- Tư vấn tối ưu hóa thiết kế\n\n2. GIAI ĐOẠN THIẾT KẾ KỸ THUẬT:\n- Phát triển mô hình BIM đầy đủ cho các hạng mục: Kiến trúc, Kết cấu, MEP (Điện, Nước, Điều hòa)\n- Mô hình hóa chi tiết các hệ thống kỹ thuật\n- Phân tích xung đột (Clash Detection) giữa các hệ thống\n- Tối ưu hóa tuyến ống, cáp và thiết bị\n- Tạo bản vẽ kỹ thuật tự động từ mô hình BIM\n- Báo cáo và đề xuất giải pháp xử lý xung đột\n\n3. GIAI ĐOẠN THIẾT KẾ THI CÔNG:\n- Phát triển mô hình BIM chi tiết phục vụ thi công\n- Lập kế hoạch thi công 4D (3D + Thời gian)\n- Mô phỏng trình tự thi công và logistics\n- Tối ưu hóa phương án thi công\n- Tạo bản vẽ shop drawing từ mô hình BIM\n- Tính toán khối lượng chính xác (5D)\n\n4. GIAI ĐOẠN THI CÔNG:\n- Hỗ trợ triển khai BIM tại công trường\n- Cập nhật mô hình theo tiến độ thực tế\n- Giám sát chất lượng thi công bằng BIM\n- Quản lý thay đổi và điều chỉnh thiết kế\n- Hỗ trợ giải quyết vấn đề phát sinh\n\n5. GIAI ĐOẠN NGHIỆM THU VÀ BÀN GIAO:\n- Hoàn thiện mô hình BIM as-built\n- Tạo tài liệu bàn giao số\n- Đào tạo sử dụng mô hình BIM cho vận hành\n- Chuyển giao dữ liệu BIM cho quản lý tài sản',
-            deliverablesText: '<li>Mô hình BIM 3D đầy đủ các hạng mục (Kiến trúc, Kết cấu, MEP) theo tiêu chuẩn quốc tế</li><li>BIM Execution Plan (BEP) và các tài liệu quy trình BIM</li><li>Báo cáo phân tích xung đột (Clash Report) với giải pháp xử lý</li><li>Bản vẽ kỹ thuật tự động từ mô hình BIM (2D drawings)</li><li>Bản vẽ shop drawing chi tiết phục vụ thi công</li><li>Mô hình BIM 4D (3D + Lịch trình thi công) và video mô phỏng</li><li>Báo cáo tính toán khối lượng (Quantity Take-off) từ mô hình BIM</li><li>Mô hình BIM as-built hoàn chỉnh sau khi nghiệm thu</li><li>Tài liệu hướng dẫn sử dụng mô hình BIM</li><li>File mô hình BIM định dạng IFC, NWD, NWC và các định dạng khác theo yêu cầu</li><li>Dữ liệu BIM phục vụ quản lý tài sản và vận hành (COBie, FM)</li><li>Tài liệu đào tạo và chuyển giao công nghệ BIM</li>',
+            scopeText: 'Phạm vi công việc BIM dự kiến bao gồm:\n\n- Tư vấn và thiết lập quy trình BIM cho dự án\n- Xây dựng và cập nhật mô hình BIM 3D cho các bộ môn chính\n- Phân tích xung đột, tối ưu tuyến và hỗ trợ điều chỉnh thiết kế\n- Chuẩn bị dữ liệu phục vụ thi công và nghiệm thu',
+            deliverablesText: '<li>Mô hình BIM 3D các bộ môn chính (Kiến trúc, Kết cấu, MEP)</li><li>Báo cáo tổng hợp xung đột chính kèm đề xuất xử lý</li><li>Bản vẽ và bảng khối lượng trích xuất từ mô hình (nếu có yêu cầu)</li><li>Bộ file mô hình BIM phục vụ quản lý và vận hành dự án</li>',
             scheduleText: 'Thời gian triển khai: ... ngày làm việc kể từ khi nhận đủ hồ sơ',
             vatRate: 0.08,
             outsourceCost: undefined,
@@ -176,6 +176,7 @@ export default function QuotationEditor({
     const [stepErrors, setStepErrors] = useState<Partial<Record<WizardStep, string[]>>>({});
     const [completedSteps, setCompletedSteps] = useState<Partial<Record<WizardStep, boolean>>>({});
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+    const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
 
     // Load existing quotation by id (ProjectEditor passes only id, not full quotation data)
     useEffect(() => {
@@ -357,6 +358,103 @@ export default function QuotationEditor({
     const handleExportPdf = () => {
         if (isNew || !id) return;
         window.open(`/api/quotations/${id}/export-pdf`, '_blank');
+    };
+
+    const handleSaveAsTemplate = async () => {
+        try {
+            const name = window.prompt('Nhập tên mẫu báo giá (ví dụ: BIM cơ bản, BIM cao cấp):', formData.title);
+            if (!name) return;
+
+            const description = window.prompt('Mô tả ngắn cho mẫu (tùy chọn):', '');
+
+            const payload = {
+                name,
+                description: description || undefined,
+                category: 'BIM_SERVICE',
+                vatRate: formData.vatRate,
+                title: formData.title,
+                introText: formData.introText,
+                scopeText: formData.scopeText,
+                deliverablesText: formData.deliverablesText,
+                scheduleText: formData.scheduleText,
+                theme: formData.theme,
+                layoutTemplate: formData.templateId,
+                lines: formData.lines,
+                paymentMilestones: formData.paymentMilestones,
+            };
+
+            const res = await fetch('/api/quotation-templates', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                throw new Error(result.error || 'Không thể lưu mẫu báo giá');
+            }
+
+            window.alert('Đã lưu báo giá hiện tại thành mẫu để tái sử dụng.');
+        } catch (error) {
+            console.error('Failed to save quotation as template:', error);
+            window.alert('Không thể lưu mẫu báo giá. Vui lòng thử lại.');
+        }
+    };
+
+    const handleApplyTemplate = async () => {
+        try {
+            setIsApplyingTemplate(true);
+            const res = await fetch('/api/quotation-templates');
+            const result = await res.json();
+
+            if (!res.ok || !result.success || !Array.isArray(result.data) || result.data.length === 0) {
+                window.alert('Chưa có mẫu báo giá nào. Hãy lưu một báo giá thành mẫu trước.');
+                return;
+            }
+
+            const names: string[] = result.data.map((t: any) => `${t.name}`);
+            const choice = window.prompt(
+                `Chọn mẫu báo giá bằng cách nhập số thứ tự:\n${names
+                    .map((n, idx) => `${idx + 1}. ${n}`)
+                    .join('\n')}`,
+            );
+
+            if (!choice) return;
+            const index = parseInt(choice, 10) - 1;
+            if (Number.isNaN(index) || index < 0 || index >= result.data.length) {
+                window.alert('Lựa chọn không hợp lệ.');
+                return;
+            }
+
+            const selected = result.data[index] as { id: string };
+
+            const applyRes = await fetch(`/api/quotation-templates/${selected.id}/apply`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ totalArea: formData.totalArea }),
+            });
+
+            const applyResult = await applyRes.json();
+            if (!applyRes.ok || !applyResult.success || !applyResult.data) {
+                throw new Error(applyResult.error || 'Không thể áp dụng mẫu báo giá');
+            }
+
+            setFormData((prev) => ({
+                ...prev,
+                ...applyResult.data,
+            }));
+
+            window.alert('Đã áp dụng mẫu báo giá. Anh/chị có thể chỉnh sửa thêm trước khi lưu.');
+        } catch (error) {
+            console.error('Failed to apply quotation template:', error);
+            window.alert('Không thể áp dụng mẫu báo giá. Vui lòng thử lại.');
+        } finally {
+            setIsApplyingTemplate(false);
+        }
     };
 
     const handleSave = async (isAutoSave = false) => {
@@ -777,6 +875,27 @@ export default function QuotationEditor({
                                 className="px-2 py-1 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-xs font-medium whitespace-nowrap"
                             >
                                 📥 DOCX
+                            </button>
+                        )}
+
+                        {!isNew && (
+                            <button
+                                type="button"
+                                onClick={() => void handleSaveAsTemplate()}
+                                className="px-2 py-1 border border-emerald-600 text-emerald-700 rounded hover:bg-emerald-50 transition-colors text-xs font-medium whitespace-nowrap"
+                            >
+                                Lưu thành mẫu
+                            </button>
+                        )}
+
+                        {isNew && (
+                            <button
+                                type="button"
+                                onClick={() => void handleApplyTemplate()}
+                                disabled={isApplyingTemplate}
+                                className="px-2 py-1 border border-purple-600 text-purple-700 rounded hover:bg-purple-50 disabled:opacity-50 transition-colors text-xs font-medium whitespace-nowrap"
+                            >
+                                {isApplyingTemplate ? 'Đang áp dụng mẫu...' : 'Chọn mẫu báo giá'}
                             </button>
                         )}
 

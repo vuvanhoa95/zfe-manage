@@ -22,43 +22,108 @@ export async function PUT(
 
         const data: TaskUpdateInput = parsed.data;
 
-        const task = await prisma.task.update({
-            where: { id: taskId },
-            data: {
-                title: data.title,
-                description: data.description ?? undefined,
-                startDate: data.startDate
-                    ? new Date(data.startDate as string | Date)
-                    : data.startDate === null
-                      ? null
-                      : undefined,
-                endDate: data.endDate
-                    ? new Date(data.endDate as string | Date)
-                    : data.endDate === null
-                      ? null
-                      : undefined,
-                // dueDate, phase, discipline, location sẽ được map sau khi cập nhật Prisma client/migrations
-                status: data.status,
-                priority: data.priority,
-                progress: typeof data.progress === 'number' ? data.progress : undefined,
-                assignedTo: data.assignedTo ?? undefined,
-            },
-            select: {
-                id: true,
-                projectId: true,
-                title: true,
-                description: true,
-                startDate: true,
-                endDate: true,
-                status: true,
-                priority: true,
-                progress: true,
-                assignedTo: true,
-                createdAt: true,
-                updatedAt: true,
-                // KHÔNG select phase, discipline, location, dueDate để tránh lỗi nếu DB chưa có
-            },
-        });
+        let task;
+        try {
+            task = await prisma.task.update({
+                where: { id: taskId },
+                data: {
+                    title: data.title,
+                    description: data.description ?? undefined,
+                    startDate: data.startDate
+                        ? new Date(data.startDate as string | Date)
+                        : data.startDate === null
+                          ? null
+                          : undefined,
+                    endDate: data.endDate
+                        ? new Date(data.endDate as string | Date)
+                        : data.endDate === null
+                          ? null
+                          : undefined,
+                    dueDate: data.dueDate
+                        ? new Date(data.dueDate as string | Date)
+                        : data.dueDate === null
+                          ? null
+                          : undefined,
+                    phase: data.phase ?? undefined,
+                    discipline: data.discipline ?? undefined,
+                    location: data.location ?? undefined,
+                    status: data.status,
+                    priority: data.priority,
+                    progress: typeof data.progress === 'number' ? data.progress : undefined,
+                    assignedTo: data.assignedTo ?? undefined,
+                    parentId: data.parentId ?? undefined,
+                },
+                select: {
+                    id: true,
+                    projectId: true,
+                    title: true,
+                    description: true,
+                    startDate: true,
+                    endDate: true,
+                    status: true,
+                    priority: true,
+                    progress: true,
+                    assignedTo: true,
+                    parentId: true,
+                    dueDate: true,
+                    phase: true,
+                    discipline: true,
+                    location: true,
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+        } catch (innerError) {
+            // Nếu Prisma Client đang cũ (chưa có parentId) thì retry bỏ parentId
+            if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
+                console.warn('Prisma Client missing parentId on UPDATE, retrying without parentId...');
+                task = await prisma.task.update({
+                    where: { id: taskId },
+                    data: {
+                        title: data.title,
+                        description: data.description ?? undefined,
+                        startDate: data.startDate
+                            ? new Date(data.startDate as string | Date)
+                            : data.startDate === null
+                              ? null
+                              : undefined,
+                        endDate: data.endDate
+                            ? new Date(data.endDate as string | Date)
+                            : data.endDate === null
+                              ? null
+                              : undefined,
+                        dueDate: data.dueDate
+                            ? new Date(data.dueDate as string | Date)
+                            : data.dueDate === null
+                              ? null
+                              : undefined,
+                        phase: data.phase ?? undefined,
+                        discipline: data.discipline ?? undefined,
+                        location: data.location ?? undefined,
+                        status: data.status,
+                        priority: data.priority,
+                        progress: typeof data.progress === 'number' ? data.progress : undefined,
+                        assignedTo: data.assignedTo ?? undefined,
+                    },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedTo: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+            } else {
+                throw innerError;
+            }
+        }
 
         return NextResponse.json({ success: true, data: task });
     } catch (error) {

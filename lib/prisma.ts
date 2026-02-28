@@ -20,6 +20,32 @@ function createPrismaClient() {
 
   const databaseUrl = process.env.DATABASE_URL || '';
 
+  // Validate DATABASE_URL format cho PostgreSQL
+  if (databaseUrl && !databaseUrl.startsWith('file:')) {
+    // Nếu không phải SQLite, phải là postgresql:// hoặc postgres://
+    if (
+      !databaseUrl.startsWith('postgresql://') &&
+      !databaseUrl.startsWith('postgres://') &&
+      !databaseUrl.startsWith('prisma://') &&
+      !databaseUrl.startsWith('prisma+postgres://')
+    ) {
+      const errorMsg = `DATABASE_URL không đúng format. Schema đang dùng provider="postgresql", nên DATABASE_URL phải bắt đầu bằng:
+- postgresql:// (cho PostgreSQL thông thường)
+- postgres:// (alias của postgresql://)
+- prisma:// (cho Prisma Accelerate)
+- prisma+postgres:// (cho Prisma Data Proxy)
+
+Format hiện tại: ${databaseUrl.substring(0, 20)}... (đã ẩn phần sau)
+
+Vui lòng kiểm tra file .env hoặc .env.local và sửa DATABASE_URL.`;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌', errorMsg);
+      }
+      // Vẫn tạo client để Prisma tự throw error với message rõ ràng hơn
+    }
+  }
+
   // For SQLite, check if database file exists (only on server-side)
   if (databaseUrl && databaseUrl.startsWith('file:')) {
     try {
@@ -45,14 +71,9 @@ function createPrismaClient() {
 
   // Use connection pooling for serverless (Vercel)
   // Neon provides pooled connections via ?pgbouncer=true or separate pooled connection string
+  // Không override datasources để Prisma tự đọc từ schema.prisma
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    // Optimize for serverless
-    datasources: {
-      db: {
-        url: databaseUrl,
-      },
-    },
   });
 
   // Verify model exists
@@ -74,6 +95,11 @@ function createPrismaClient() {
 
 // Singleton pattern for Prisma Client
 // In serverless (Vercel), we need to reuse the connection
+// Force recreate Prisma Client để đảm bảo dùng provider mới nhất từ schema
+if (process.env.NODE_ENV === 'development') {
+  // Trong development, không cache để force reload khi schema thay đổi
+  globalForPrisma.prisma = undefined;
+}
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {

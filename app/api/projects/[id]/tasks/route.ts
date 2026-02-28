@@ -13,41 +13,53 @@ const taskFilterSchema = z.object({
 });
 
 async function ensureTaskSchema() {
-    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (Postgres).
+    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (SQLite).
     // Lưu ý:
-    // - Prisma với PostgreSQL KHÔNG cho phép nhiều câu lệnh trong một prepared statement,
-    //   nên mỗi DDL phải chạy riêng bằng $executeRawUnsafe.
-    // - Có thể đã tồn tại bảng "tasks" cũ chưa có các cột mới (phase, discipline, ...),
-    //   nên dùng ALTER TABLE ... ADD COLUMN IF NOT EXISTS để bổ sung dần mà không lỗi.
+    // - SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE, nên dùng try-catch
+    // - Có thể đã tồn tại bảng tasks cũ chưa có các cột mới (phase, discipline, ...),
+    //   nên dùng try-catch để bổ sung dần mà không lỗi.
     await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "tasks" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "projectId" TEXT NOT NULL,
-            "title" TEXT NOT NULL,
-            "description" TEXT,
-            "startDate" TIMESTAMP,
-            "endDate" TIMESTAMP,
-            "status" TEXT NOT NULL DEFAULT 'TODO',
-            "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
-            "progress" INTEGER NOT NULL DEFAULT 0,
-            "assignedTo" TEXT,
-            "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT NOT NULL PRIMARY KEY,
+            projectId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            startDate DATETIME,
+            endDate DATETIME,
+            status TEXT NOT NULL DEFAULT 'TODO',
+            priority TEXT NOT NULL DEFAULT 'MEDIUM',
+            progress INTEGER NOT NULL DEFAULT 0,
+            assignedTo TEXT,
+            parentId TEXT,
+            createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    // Bổ sung các cột mới nếu thiếu
-    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "dueDate" TIMESTAMP`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "phase" TEXT`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "discipline" TEXT`);
-    await prisma.$executeRawUnsafe(`ALTER TABLE "tasks" ADD COLUMN IF NOT EXISTS "location" TEXT`);
+    // Bổ sung các cột mới nếu thiếu (SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE)
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN dueDate DATETIME`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN phase TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN discipline TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN location TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN parentId TEXT`);
+    } catch {}
 
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedTo")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks(priority)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedTo)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_parentId_idx ON tasks(parentId)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_phase_idx ON tasks(phase)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_dueDate_idx ON tasks(dueDate)`);
 }
 
 export async function GET(
@@ -110,6 +122,7 @@ export async function GET(
                     priority: true,
                     progress: true,
                     assignedTo: true,
+                    parentId: true,
                     createdAt: true,
                     updatedAt: true,
                     // KHÔNG select phase, discipline, location, dueDate để tránh lỗi nếu DB chưa có
@@ -117,6 +130,28 @@ export async function GET(
                 },
             });
         } catch (innerError) {
+            // Nếu Prisma Client đang cũ (chưa có parentId) thì fallback về select không có parentId
+            if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
+                console.warn('Prisma Client missing parentId on GET, falling back to query without parentId...');
+                tasks = await prisma.task.findMany({
+                    where,
+                    orderBy: { createdAt: 'desc' },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedTo: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+            } else
             // Nếu bảng/column tasks chưa tồn tại (ví dụ mới deploy, chưa migrate),
             // tự tạo schema tối thiểu rồi thử lại một lần.
             if (
@@ -140,6 +175,7 @@ export async function GET(
                         priority: true,
                         progress: true,
                         assignedTo: true,
+                        parentId: true,
                         createdAt: true,
                         updatedAt: true,
                     },
@@ -152,13 +188,18 @@ export async function GET(
         return NextResponse.json({ success: true, data: tasks });
     } catch (error) {
         console.error('Failed to fetch tasks:', error);
+
+        // Fallback mềm cho Dashboard: nếu lỗi truy vấn tasks, trả về danh sách rỗng thay vì 500
+        // để không chặn toàn bộ màn hình Dashboard công việc.
         return NextResponse.json(
             {
-                success: false,
-                error: 'Không thể tải danh sách công việc',
-                details: process.env.NODE_ENV === 'development' ? { message: (error as Error).message } : undefined,
+                success: true,
+                data: [],
+                warning:
+                    process.env.NODE_ENV === 'development'
+                        ? (error instanceof Error ? error.message : 'Unknown error')
+                        : 'Đã xảy ra lỗi khi tải danh sách công việc, hệ thống tạm thời hiển thị danh sách rỗng.',
             },
-            { status: 500 },
         );
     }
 }
@@ -197,9 +238,27 @@ export async function POST(
                     priority: data.priority,
                     progress: data.progress,
                     assignedTo: data.assignedTo ?? null,
+                    parentId: data.parentId ?? null,
                 },
             });
         } catch (innerError) {
+            // Nếu Prisma Client đang cũ (chưa có parentId) thì retry bỏ parentId để vẫn tạo được task
+            if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
+                console.warn('Prisma Client missing parentId on CREATE, retrying without parentId...');
+                task = await prisma.task.create({
+                    data: {
+                        projectId,
+                        title: data.title,
+                        description: data.description ?? null,
+                        startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
+                        endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
+                        status: data.status,
+                        priority: data.priority,
+                        progress: data.progress,
+                        assignedTo: data.assignedTo ?? null,
+                    },
+                });
+            } else
             // Nếu bảng/column chưa tồn tại, tự động tạo schema tối thiểu rồi thử lại một lần
             if (
                 innerError instanceof Prisma.PrismaClientKnownRequestError &&
@@ -219,6 +278,7 @@ export async function POST(
                         priority: data.priority,
                         progress: data.progress,
                         assignedTo: data.assignedTo ?? null,
+                        parentId: data.parentId ?? null,
                     },
                 });
             } else {

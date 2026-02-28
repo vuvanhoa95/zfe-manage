@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
+import CustomFieldsSettings from '@/components/settings/CustomFieldsSettings';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'export' | 'users'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'export' | 'users' | 'customFields'>('general');
     const [settings, setSettings] = useState({
         // General settings
         defaultVatRate: 8,
@@ -98,6 +99,7 @@ export default function SettingsPage() {
                         { id: 'general', label: 'Chung', icon: '⚙️' },
                         { id: 'quotations', label: 'Báo giá', icon: '📄' },
                         { id: 'export', label: 'Xuất file', icon: '📤' },
+                        { id: 'customFields', label: 'Trường tuỳ chỉnh', icon: '🧩' },
                         { id: 'users', label: 'Người dùng', icon: '👥' },
                     ].map((tab) => (
                         <button
@@ -120,7 +122,7 @@ export default function SettingsPage() {
                 <AnimatedTabPanels
                     activeKey={activeTab}
                     variant="ios"
-                    orderedKeys={['general', 'quotations', 'export', 'users'] as const}
+                    orderedKeys={['general', 'quotations', 'export', 'customFields', 'users'] as const}
                     render={(tab) =>
                         tab === 'general' ? (
                             <div className="space-y-6">
@@ -300,6 +302,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
+                        ) : tab === 'customFields' ? (
+                            <CustomFieldsSettings />
                         ) : (
                             <div className="space-y-6">
                         <h2 className="text-xl font-bold text-gray-900 mb-4">Quản lý Người dùng</h2>

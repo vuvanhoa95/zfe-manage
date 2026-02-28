@@ -96,15 +96,19 @@ export default function WorkTabsContainer({ projectId, isNew }: WorkTabsContaine
                 </div>
             )}
 
-            {/* Content area (card handled riêng cho từng tab) */}
-            <div>
-                {activeSubTab === 'dashboard' ? (
+            {/* Content area (card handled riêng cho từng tab)
+                Giữ tất cả các tab được mount để tránh phải fetch lại dữ liệu khi chuyển tab.
+                Chỉ ẩn/hiện bằng CSS để chuyển tab gần như tức thì sau lần tải đầu tiên. */}
+            <div className="relative">
+                <div style={{ display: activeSubTab === 'dashboard' ? 'block' : 'none' }}>
                     <WorkDashboard projectId={projectId} />
-                ) : activeSubTab === 'task' ? (
+                </div>
+                <div style={{ display: activeSubTab === 'task' ? 'block' : 'none' }}>
                     <TaskTab projectId={projectId} isNew={false} />
-                ) : (
+                </div>
+                <div style={{ display: activeSubTab === 'report' ? 'block' : 'none' }}>
                     <WorkReportTab projectId={projectId} />
-                )}
+                </div>
             </div>
         </div>
     );

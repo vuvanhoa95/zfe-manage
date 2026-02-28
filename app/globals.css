@@ -802,8 +802,7 @@ code,
    PRINT LAYOUT (A4) - Work Report
    ======================================== */
 @media print {
-  /* Hide navigation, sidebar, tabs, filters, buttons */
-  body > *:not(.print-content),
+  /* Hide navigation, sidebar, tabs, filters, buttons (giữ lại nội dung trong .print-content) */
   nav,
   aside,
   header:not(.print-header),

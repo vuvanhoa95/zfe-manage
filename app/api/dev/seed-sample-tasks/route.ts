@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 const seedSchema = z.object({
     projectId: z.string().trim().min(1),
@@ -8,6 +9,61 @@ const seedSchema = z.object({
 });
 
 type SeedRequest = z.infer<typeof seedSchema>;
+
+async function ensureTaskSchema() {
+    // Tạo bảng tasks tối thiểu cho SQLite (đồng bộ với các API tasks khác)
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT NOT NULL PRIMARY KEY,
+            projectId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            startDate DATETIME,
+            endDate DATETIME,
+            dueDate DATETIME,
+            phase TEXT,
+            discipline TEXT,
+            location TEXT,
+            status TEXT NOT NULL DEFAULT 'TODO',
+            priority TEXT NOT NULL DEFAULT 'MEDIUM',
+            progress INTEGER NOT NULL DEFAULT 0,
+            assignedTo TEXT,
+            parentId TEXT,
+            createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Bổ sung các cột mới nếu thiếu (an toàn khi bảng cũ tồn tại)
+    // SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE, nên dùng try-catch
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN dueDate DATETIME`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN phase TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN discipline TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN location TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN parentId TEXT`);
+    } catch {}
+
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks(priority)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedTo)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_phase_idx ON tasks(phase)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_dueDate_idx ON tasks(dueDate)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_parentId_idx ON tasks(parentId)`);
+}
+
+function escapeSqlString(input: string) {
+    return input.replace(/'/g, "''");
+}
 
 function buildSampleTasks(projectId: string) {
     const now = new Date();
@@ -204,6 +260,15 @@ export async function POST(request: NextRequest) {
 
         const body: SeedRequest = parsed.data;
 
+        // Đảm bảo bảng tasks tồn tại (tránh trường hợp chưa từng mở tab công việc)
+        try {
+            await ensureTaskSchema();
+            console.log('[DEV_SEED_SAMPLE_TASKS] Schema đã được đảm bảo');
+        } catch (schemaError) {
+            console.error('[DEV_SEED_SAMPLE_TASKS] ensureTaskSchema failed:', schemaError);
+            // Vẫn tiếp tục, có thể bảng đã tồn tại
+        }
+
         const project = await prisma.project.findUnique({
             where: { id: body.projectId },
             select: { id: true },
@@ -221,14 +286,14 @@ export async function POST(request: NextRequest) {
 
         // Nếu replace, xóa task mẫu cũ trước bằng raw SQL (không phụ thuộc Prisma model "task")
         if (body.replace) {
+            const escapedProjectId = escapeSqlString(body.projectId);
             const deleted = await prisma.$executeRawUnsafe(
-                `DELETE FROM tasks WHERE projectId = '${body.projectId}' AND title LIKE '[MẪU]%'`,
+                `DELETE FROM tasks WHERE projectId = '${escapedProjectId}' AND title LIKE '[MẪU]%'`,
             );
             console.log(`[DEV_SEED_SAMPLE_TASKS] Đã xóa ${deleted} task mẫu cũ`);
         }
 
-        // Đơn giản hóa: luôn tạo với field cơ bản trước (không có phase/discipline/location/dueDate)
-        // Vì DB có thể chưa migrate các field mới. Dùng raw SQL trực tiếp, không cần transaction phức tạp.
+        // Dùng raw SQL để tránh phụ thuộc Prisma model khi DB chưa migrate.
         let createdCount = 0;
         const errors: string[] = [];
 
@@ -249,23 +314,33 @@ export async function POST(request: NextRequest) {
                 const descriptionStr = taskData.description ? `'${taskData.description.replace(/'/g, "''")}'` : 'NULL';
                 const assignedToStr = taskData.assignedTo ? `'${taskData.assignedTo.replace(/'/g, "''")}'` : 'NULL';
                 const titleStr = taskData.title.replace(/'/g, "''");
+                const dueDateStr = taskData.dueDate ? `'${taskData.dueDate.toISOString()}'` : 'NULL';
+                const phaseStr = taskData.phase ? `'${escapeSqlString(taskData.phase)}'` : 'NULL';
+                const disciplineStr = taskData.discipline ? `'${escapeSqlString(taskData.discipline)}'` : 'NULL';
+                const locationStr = taskData.location ? `'${escapeSqlString(taskData.location)}'` : 'NULL';
 
                 await prisma.$executeRawUnsafe(`
                     INSERT INTO tasks (
-                        id, projectId, title, description, startDate, endDate,
-                        status, priority, progress, assignedTo,
+                        id, projectId, title, description,
+                        startDate, endDate, dueDate, phase, discipline, location,
+                        status, priority, progress, assignedTo, parentId,
                         createdAt, updatedAt
                     ) VALUES (
                         '${taskId}',
-                        '${taskData.projectId}',
+                        '${escapeSqlString(taskData.projectId)}',
                         '${titleStr}',
                         ${descriptionStr},
                         ${startDateStr},
                         ${endDateStr},
+                        ${dueDateStr},
+                        ${phaseStr},
+                        ${disciplineStr},
+                        ${locationStr},
                         '${taskData.status}',
                         '${taskData.priority}',
                         ${taskData.progress},
                         ${assignedToStr},
+                        NULL,
                         datetime('now'),
                         datetime('now')
                     )
@@ -300,19 +375,46 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('[DEV_SEED_SAMPLE_TASKS]:', error);
+        console.error('[DEV_SEED_SAMPLE_TASKS] Unexpected error:', error);
+        
+        // Nếu lỗi do bảng/cột chưa tồn tại, thử ensure schema để lần sau chạy được
+        let isSchemaError = false;
+        try {
+            if (error && typeof error === 'object' && 'code' in error) {
+                const prismaError = error as { code?: string };
+                if (prismaError.code === 'P2021' || prismaError.code === 'P2022') {
+                    isSchemaError = true;
+                    try {
+                        await ensureTaskSchema();
+                        console.log('[DEV_SEED_SAMPLE_TASKS] Schema đã được tạo, vui lòng thử lại');
+                    } catch (schemaError) {
+                        console.error('[DEV_SEED_SAMPLE_TASKS] Không thể tạo schema:', schemaError);
+                    }
+                }
+            }
+        } catch {
+            // ignore error checking
+        }
+        
         const errorMessage =
             error instanceof Error
                 ? error.message
                 : typeof error === 'string'
                   ? error
                   : 'Lỗi không xác định';
+        
         return NextResponse.json(
             {
                 success: false,
                 error: 'Không thể tạo task mẫu',
                 message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-                details: process.env.NODE_ENV === 'development' ? { stack: error instanceof Error ? error.stack : undefined } : undefined,
+                details: process.env.NODE_ENV === 'development' 
+                    ? { 
+                        stack: error instanceof Error ? error.stack : undefined,
+                        isSchemaError,
+                        hint: isSchemaError ? 'Schema đã được tạo, vui lòng thử lại' : undefined
+                    } 
+                    : undefined,
             },
             { status: 500 },
         );

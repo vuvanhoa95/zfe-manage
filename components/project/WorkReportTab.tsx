@@ -111,6 +111,14 @@ type GroupRow = {
     percentCompleted: number;
 };
 
+type TimeBucketStats = {
+    overdue: number;
+    dueSoon: number;
+    future: number;
+    noDueDate: number;
+    totalPending: number;
+};
+
 type ReportGroupsResponse = {
     success: boolean;
     data?: {
@@ -339,6 +347,43 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
     const completedCount = filteredTasks.filter((t) => t.status === 'COMPLETED').length;
     const inProgressCount = filteredTasks.filter((t) => t.status === 'IN_PROGRESS').length;
     const overdueCount = filteredTasks.filter((t) => isTaskOverdue(t, now)).length;
+
+    const timeBuckets = useMemo<TimeBucketStats>(() => {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const msPerDay = 24 * 60 * 60 * 1000;
+
+        let overdue = 0;
+        let dueSoon = 0;
+        let future = 0;
+        let noDueDate = 0;
+        let totalPending = 0;
+
+        filteredTasks.forEach((task) => {
+            if (task.status === 'COMPLETED') return;
+
+            const due = getEffectiveDueDate(task);
+            if (!due) {
+                noDueDate += 1;
+                totalPending += 1;
+                return;
+            }
+
+            const dueDate = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+            const diffDays = Math.floor((dueDate.getTime() - today.getTime()) / msPerDay);
+
+            totalPending += 1;
+
+            if (diffDays < 0) {
+                overdue += 1;
+            } else if (diffDays <= 7) {
+                dueSoon += 1;
+            } else {
+                future += 1;
+            }
+        });
+
+        return { overdue, dueSoon, future, noDueDate, totalPending };
+    }, [filteredTasks, now]);
 
     const topRiskTasks = useMemo(
         () =>
@@ -895,6 +940,139 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
                         </div>
                     </div>
                 )}
+
+                {/* Dashboard thời gian & tiến độ tổng quan */}
+                <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3">
+                            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                Tổng công việc trong phạm vi lọc
+                            </p>
+                            <p className="mt-1 text-xl font-bold text-zf-primary">{totalTasks}</p>
+                            <p className="mt-1 text-[11px] text-gray-500">
+                                Bao gồm tất cả trạng thái & bộ lọc hiện tại.
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3">
+                            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                Tỷ lệ hoàn thành
+                            </p>
+                            <p className="mt-1 text-xl font-bold text-emerald-600">
+                                {totalTasks === 0 ? 0 : Math.round((completedCount / totalTasks) * 100)}%
+                            </p>
+                            <p className="mt-1 text-[11px] text-gray-500">
+                                Dựa trên số công việc đã được đánh dấu hoàn thành.
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3">
+                            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                Sắp đến hạn (≤ 7 ngày)
+                            </p>
+                            <p className="mt-1 text-xl font-bold text-zf-accent">{timeBuckets.dueSoon}</p>
+                            <p className="mt-1 text-[11px] text-gray-500">
+                                Công việc chưa hoàn thành, có hạn trong 7 ngày tới.
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-3">
+                            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                Công việc quá hạn
+                            </p>
+                            <p className="mt-1 text-xl font-bold text-red-600">{overdueCount}</p>
+                            <p className="mt-1 text-[11px] text-gray-500">
+                                Dùng để nhận diện rủi ro tiến độ ngay lập tức.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <div>
+                                <p className="text-xs font-semibold text-gray-800">
+                                    Phân bổ công việc theo thời gian
+                                </p>
+                                <p className="text-[11px] text-gray-500">
+                                    Tập trung vào các công việc CHƯA hoàn thành theo hạn chót.
+                                </p>
+                            </div>
+                            <div className="text-[11px] text-gray-500 hidden sm:block">
+                                Tổng chưa hoàn thành: {timeBuckets.totalPending}
+                            </div>
+                        </div>
+                        {timeBuckets.totalPending === 0 ? (
+                            <p className="text-[11px] text-gray-500">
+                                Hiện không có công việc nào đang mở trong phạm vi lọc (tất cả đã hoàn thành hoặc chưa
+                                được tạo).
+                            </p>
+                        ) : (
+                            <>
+                                <div className="w-full h-3 rounded-full bg-white overflow-hidden flex">
+                                    {timeBuckets.overdue > 0 && (
+                                        <div
+                                            className="h-full bg-red-500"
+                                            style={{
+                                                width: `${Math.max(
+                                                    5,
+                                                    (timeBuckets.overdue / timeBuckets.totalPending) * 100,
+                                                )}%`,
+                                            }}
+                                        />
+                                    )}
+                                    {timeBuckets.dueSoon > 0 && (
+                                        <div
+                                            className="h-full bg-amber-400"
+                                            style={{
+                                                width: `${Math.max(
+                                                    5,
+                                                    (timeBuckets.dueSoon / timeBuckets.totalPending) * 100,
+                                                )}%`,
+                                            }}
+                                        />
+                                    )}
+                                    {timeBuckets.future > 0 && (
+                                        <div
+                                            className="h-full bg-emerald-500"
+                                            style={{
+                                                width: `${Math.max(
+                                                    5,
+                                                    (timeBuckets.future / timeBuckets.totalPending) * 100,
+                                                )}%`,
+                                            }}
+                                        />
+                                    )}
+                                    {timeBuckets.noDueDate > 0 && (
+                                        <div
+                                            className="h-full bg-slate-300"
+                                            style={{
+                                                width: `${Math.max(
+                                                    5,
+                                                    (timeBuckets.noDueDate / timeBuckets.totalPending) * 100,
+                                                )}%`,
+                                            }}
+                                        />
+                                    )}
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-600">
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="inline-block w-3 h-3 rounded-full bg-red-500" />
+                                        Quá hạn: {timeBuckets.overdue}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="inline-block w-3 h-3 rounded-full bg-amber-400" />
+                                        Đến hạn ≤ 7 ngày: {timeBuckets.dueSoon}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" />
+                                        Hạn sau 7 ngày: {timeBuckets.future}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                        <span className="inline-block w-3 h-3 rounded-full bg-slate-300" />
+                                        Chưa có hạn: {timeBuckets.noDueDate}
+                                    </span>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
 
                 {renderReportBody()}
             </div>

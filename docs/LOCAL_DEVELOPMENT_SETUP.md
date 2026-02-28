@@ -27,13 +27,13 @@ Chuyển sang sử dụng **SQLite** cho local development để:
 
 ```prisma
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 ```
 
-> 💡 **Lưu ý:** Để tránh lỗi validate kiểu `the URL must start with the protocol 'file:'` trên production,  
-> schema trong repo hiện tại luôn để `provider = "postgresql"`. Khi chạy local, anh nên dùng luôn `DATABASE_URL` PostgreSQL (Neon) nếu có thể.
+> 💡 **Lưu ý:** Local development dùng **SQLite** cho đơn giản, nên `DATABASE_URL` phải bắt đầu bằng `file:`.
+> Nếu sau này anh muốn dùng PostgreSQL (Neon) cho production, cần đổi lại `provider = "postgresql"` và cập nhật `DATABASE_URL` tương ứng trước khi deploy.
 
 ### 2. Tạo file `.env.development`
 **File:** `.env.development`

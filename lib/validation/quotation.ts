@@ -91,6 +91,12 @@ export const createQuotationSchema = z
     status: quotationStatusSchema,
     notes: z.string().optional(),
 
+  // Presentation / UI options (optional)
+  theme: z.string().trim().max(100).optional(),
+  templateId: z.string().trim().max(100).optional(),
+  media: z.array(z.unknown()).optional(),
+  sectionOrder: z.array(z.string()).optional(),
+
     // Lines & milestones
     lines: z.array(quotationLineSchema).min(1, 'Báo giá cần ít nhất một dòng công việc'),
     paymentMilestones: z

@@ -20,7 +20,7 @@ const baseTaskSchema = z.object({
     description: z
         .string()
         .trim()
-        .max(2000, 'Mô tả tối đa 2000 ký tự')
+        .max(8000, 'Mô tả tối đa 8000 ký tự')
         .optional()
         .nullable(),
     startDate: normalizeEmptyString(
@@ -79,6 +79,14 @@ const baseTaskSchema = z.object({
             .string()
             .trim()
             .max(255, 'Vị trí tối đa 255 ký tự')
+            .optional()
+            .nullable(),
+    ),
+    parentId: normalizeEmptyString(
+        z
+            .string()
+            .trim()
+            .max(255)
             .optional()
             .nullable(),
     ),

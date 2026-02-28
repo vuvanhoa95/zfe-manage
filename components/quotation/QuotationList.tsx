@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { type QuotationListItem, type QuotationStatus } from '@/types/quotation';
 import TechnicalBadge from '@/components/technical/TechnicalBadge';
+import GroupTool, { type GroupConfig } from '@/components/ui/GroupTool';
+import {
+    groupAndSort,
+    getQuotationFieldValue,
+    getQuotationFieldLabel,
+    type GroupedData,
+} from '@/lib/utils/group-sort';
 
 type FetchState<T> =
     | { status: 'idle' | 'loading'; data: null; error: null }
@@ -33,6 +40,8 @@ export default function QuotationList() {
         error: null,
     });
     const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+    const [groupConfig, setGroupConfig] = useState<GroupConfig | null>(null);
+    const [activeTab, setActiveTab] = useState<'group' | 'subtasks' | 'columns'>('group');
 
     useEffect(() => {
         const controller = new AbortController();
@@ -102,6 +111,25 @@ export default function QuotationList() {
 
     const isLoading = fetchState.status === 'loading' && items.length === 0;
 
+    // Group và sort items
+    const groupedItems = useMemo(() => {
+        if (!groupConfig || groupConfig.field === 'none') {
+            return [
+                {
+                    groupKey: 'all',
+                    groupLabel: 'Tất cả',
+                    items: items,
+                },
+            ];
+        }
+        return groupAndSort(
+            items,
+            groupConfig,
+            (item, field) => getQuotationFieldValue(item, field),
+            (field, value) => getQuotationFieldLabel(field, value)
+        );
+    }, [items, groupConfig]);
+
     const handleDuplicate = async (id: string) => {
         setDuplicatingId(id);
         try {
@@ -127,8 +155,27 @@ export default function QuotationList() {
         }
     };
 
+    const availableFields = [
+        { value: 'none' as const, label: 'Không nhóm' },
+        { value: 'status' as const, label: 'Trạng thái' },
+        { value: 'customer' as const, label: 'Khách hàng' },
+        { value: 'date' as const, label: 'Ngày' },
+        { value: 'project' as const, label: 'Dự án' },
+    ];
+
     return (
         <div className="h-full flex flex-col bg-gray-50">
+            {/* Group Tool */}
+            <div className="px-4 pt-3">
+                <GroupTool
+                    activeTab={activeTab}
+                    groupConfig={groupConfig || undefined}
+                    availableFields={availableFields}
+                    onTabChange={setActiveTab}
+                    onGroupChange={setGroupConfig}
+                />
+            </div>
+
             <div className="px-4 pt-3 pb-3 flex items-center justify-end gap-3">
                     <input
                         aria-label="Tìm kiếm báo giá"
@@ -207,66 +254,79 @@ export default function QuotationList() {
                                     </td>
                                 </tr>
                             ) : (
-                                items.map((q) => (
-                                    <tr key={q.id} className="border-t border-zf-graphite/10 hover:bg-zf-bg-secondary">
-                                        <td className="px-4 py-3 align-middle">
-                                            <div className="font-technical text-technical-primary">
-                                                <span className="technical-code">{q.quotationNo}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 align-middle">
-                                            <div className="text-zf-graphite">{q.projectName}</div>
-                                        </td>
-                                        <td className="px-4 py-3 align-middle">
-                                            <div className="text-zf-graphite">
-                                                {q.customer.name || '—'}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 align-middle">
-                                            <TechnicalBadge
-                                                status={q.status}
-                                                timestamp={q.updatedAt.toISOString()}
-                                            />
-                                        </td>
-                                        <td className="px-4 py-3 align-middle text-right">
-                                            <div className="text-zf-graphite font-semibold technical-number">
-                                                {Math.round(q.totalAfterVat).toLocaleString(
-                                                    'vi-VN',
-                                                )}{' '}
-                                                đ
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 align-middle">
-                                            <div className="text-xs text-technical-secondary font-technical">
-                                                {q.updatedAt.toLocaleDateString('vi-VN')}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 align-middle text-right">
-                                            <div className="inline-flex gap-2">
-                                                <a
-                                                    href={`/quotations/${q.id}/edit`}
-                                                    className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
-                                                >
-                                                    Sửa
-                                                </a>
-                                                <a
-                                                    href={`/quotations/${q.id}/versions`}
-                                                    className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                                >
-                                                    Lịch sử
-                                                </a>
-                                                <button
-                                                    type="button"
-                                                    aria-label="Nhân bản báo giá"
-                                                    onClick={() => void handleDuplicate(q.id)}
-                                                    disabled={duplicatingId === q.id}
-                                                    className="text-xs px-2.5 py-1.5 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
-                                                >
-                                                    {duplicatingId === q.id ? 'Đang nhân bản...' : 'Nhân bản'}
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                groupedItems.map((group) => (
+                                    <React.Fragment key={group.groupKey}>
+                                        {groupConfig && groupConfig.field !== 'none' && (
+                                            <tr className="bg-gray-100 border-t border-b border-zf-graphite/20">
+                                                <td colSpan={7} className="px-4 py-2">
+                                                    <div className="font-semibold text-sm text-zf-graphite">
+                                                        {group.groupLabel} ({group.items.length})
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                        {group.items.map((q) => (
+                                            <tr key={q.id} className="border-t border-zf-graphite/10 hover:bg-zf-bg-secondary">
+                                                <td className="px-4 py-3 align-middle">
+                                                    <div className="font-technical text-technical-primary">
+                                                        <span className="technical-code">{q.quotationNo}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 align-middle">
+                                                    <div className="text-zf-graphite">{q.projectName}</div>
+                                                </td>
+                                                <td className="px-4 py-3 align-middle">
+                                                    <div className="text-zf-graphite">
+                                                        {q.customer.name || '—'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 align-middle">
+                                                    <TechnicalBadge
+                                                        status={q.status}
+                                                        timestamp={q.updatedAt.toISOString()}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3 align-middle text-right">
+                                                    <div className="text-zf-graphite font-semibold technical-number">
+                                                        {Math.round(q.totalAfterVat).toLocaleString(
+                                                            'vi-VN',
+                                                        )}{' '}
+                                                        đ
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 align-middle">
+                                                    <div className="text-xs text-technical-secondary font-technical">
+                                                        {q.updatedAt.toLocaleDateString('vi-VN')}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 align-middle text-right">
+                                                    <div className="inline-flex gap-2">
+                                                        <a
+                                                            href={`/quotations/${q.id}/edit`}
+                                                            className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
+                                                        >
+                                                            Sửa
+                                                        </a>
+                                                        <a
+                                                            href={`/quotations/${q.id}/versions`}
+                                                            className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                                        >
+                                                            Lịch sử
+                                                        </a>
+                                                        <button
+                                                            type="button"
+                                                            aria-label="Nhân bản báo giá"
+                                                            onClick={() => void handleDuplicate(q.id)}
+                                                            disabled={duplicatingId === q.id}
+                                                            className="text-xs px-2.5 py-1.5 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                                                        >
+                                                            {duplicatingId === q.id ? 'Đang nhân bản...' : 'Nhân bản'}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>

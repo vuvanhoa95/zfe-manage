@@ -4,21 +4,42 @@ let resendClient: Resend | null = null;
 
 function getResendClient(): Resend {
   if (!resendClient) {
-    if (!process.env.RESEND_API_KEY) {
-      // For build time, create a dummy client that won't throw
-      // This allows the build to succeed even without API key
-      resendClient = new Resend(process.env.RESEND_API_KEY || 'dummy_key_for_build');
+    const apiKey = process.env.RESEND_API_KEY;
+
+    if (!apiKey) {
+      // Nếu không có RESEND_API_KEY, tạo client giả để tránh crash API routes.
+      // Email sẽ không được gửi, nhưng app vẫn chạy bình thường.
+      // Các hàm send* trong lib/email/send.ts đã tự log lỗi khi gọi.
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[email] RESEND_API_KEY không được cấu hình. Email sẽ không được gửi trong môi trường hiện tại.',
+      );
+
+      const noopClient = {
+        emails: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async send(..._args: any[]) {
+            const error = new Error('RESEND_API_KEY is not configured. Email sending is disabled.');
+            // eslint-disable-next-line no-console
+            console.error('[email] Thử gửi email khi chưa cấu hình RESEND_API_KEY:', error);
+            return { data: null, error };
+          },
+        },
+      } as unknown as Resend;
+
+      resendClient = noopClient;
     } else {
-      resendClient = new Resend(process.env.RESEND_API_KEY);
+      resendClient = new Resend(apiKey);
     }
   }
+
   return resendClient;
 }
 
 export const resend = new Proxy({} as Resend, {
-  get(target, prop) {
+  get(_target, prop) {
     return getResendClient()[prop as keyof Resend];
-  }
+  },
 });
 
 // Default sender email

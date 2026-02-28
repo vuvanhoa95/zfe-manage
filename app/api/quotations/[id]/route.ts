@@ -182,6 +182,8 @@ export async function PUT(
                 totalInWords,
                 status: body.status,
                 notes: body.notes,
+                theme: body.theme ?? null,
+                templateId: body.templateId ?? null,
                 lines: {
                     create: enrichedLines.map((line) => ({
                         section: line.section,
