@@ -9,70 +9,22 @@ export async function GET(
         const resolvedParams = params instanceof Promise ? await params : params;
         const projectId = resolvedParams.id;
 
-        // Lấy báo giá chốt của dự án (nếu có) và các dòng outsource
-        const projectWithQuotation = await prisma.project.findUnique({
-            where: { id: projectId },
-            select: {
-                finalQuotationId: true,
-                finalQuotation: {
-                    select: {
-                        id: true,
-                        outsourceLines: {
-                            select: {
-                                id: true,
-                                staffName: true,
-                                discipline: true,
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        const quotationStaff: Array<{ id: string; name: string; type: 'quotation'; discipline?: string | null }> = [];
-
-        if (projectWithQuotation?.finalQuotation) {
-            for (const line of projectWithQuotation.finalQuotation.outsourceLines) {
-                if (!line.staffName) continue;
-                quotationStaff.push({
-                    id: line.id,
-                    name: line.staffName,
-                    type: 'quotation',
-                    discipline: line.discipline ?? null,
-                });
-            }
-        }
-
-        // Lấy danh sách nhân sự outsource đang active
-        const outsourcingStaff = await prisma.outsourcingStaff.findMany({
-            where: { isActive: true },
+        // Phase 1: Task Assignment uses System Users
+        const systemUsers = await prisma.user.findMany({
             select: {
                 id: true,
                 name: true,
-                discipline: true,
+                role: true,
             },
             orderBy: { name: 'asc' },
         });
 
-        const outsourcingStaffOptions = outsourcingStaff.map((staff: { id: string; name: string; discipline: string | null }) => ({
-            id: staff.id,
-            name: staff.name,
-            type: 'outsourcing' as const,
-            discipline: staff.discipline,
+        const data = systemUsers.map(user => ({
+            id: user.id,
+            name: user.name,
+            type: 'user',
+            discipline: user.role === 'ADMIN' ? 'Quản trị viên' : 'Nhân sự',
         }));
-
-        // Gộp & loại bỏ trùng theo (name, type, discipline)
-        const combined = [...quotationStaff, ...outsourcingStaffOptions];
-        const uniqueMap = new Map<string, (typeof combined)[number]>();
-
-        for (const item of combined) {
-            const key = `${item.type}:${item.name}:${item.discipline ?? ''}`;
-            if (!uniqueMap.has(key)) {
-                uniqueMap.set(key, item);
-            }
-        }
-
-        const data = Array.from(uniqueMap.values());
 
         return NextResponse.json({ success: true, data });
     } catch (error) {

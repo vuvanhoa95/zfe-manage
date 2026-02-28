@@ -27,7 +27,8 @@ async function ensureTaskSchema() {
             status TEXT NOT NULL DEFAULT 'TODO',
             priority TEXT NOT NULL DEFAULT 'MEDIUM',
             progress INTEGER NOT NULL DEFAULT 0,
-            assignedTo TEXT,
+            assignedToId TEXT,
+            "order" REAL NOT NULL DEFAULT 0,
             parentId TEXT,
             createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -55,7 +56,7 @@ async function ensureTaskSchema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks(priority)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedTo)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedToId)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_phase_idx ON tasks(phase)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_dueDate_idx ON tasks(dueDate)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_parentId_idx ON tasks(parentId)`);
@@ -87,7 +88,8 @@ function buildSampleTasks(projectId: string) {
             status: 'COMPLETED',
             priority: 'MEDIUM',
             progress: 100,
-            assignedTo: 'Nguyễn Văn An',
+            assignedToId: null,
+            order: 0,
             phase: 'Khảo sát',
             discipline: 'ARC',
             location: 'Hiện trường',
@@ -103,7 +105,8 @@ function buildSampleTasks(projectId: string) {
             status: 'IN_PROGRESS',
             priority: 'HIGH',
             progress: 45,
-            assignedTo: 'Nguyễn Văn An',
+            assignedToId: null,
+            order: 1,
             phase: 'Lập kế hoạch',
             discipline: 'OTHER',
             location: null,
@@ -119,7 +122,8 @@ function buildSampleTasks(projectId: string) {
             status: 'IN_PROGRESS',
             priority: 'MEDIUM',
             progress: 25,
-            assignedTo: 'Trần Minh Khoa',
+            assignedToId: null,
+            order: 2,
             phase: 'Thiết kế',
             discipline: 'OTHER',
             location: null,
@@ -135,7 +139,8 @@ function buildSampleTasks(projectId: string) {
             status: 'TODO',
             priority: 'HIGH',
             progress: 0,
-            assignedTo: 'Lê Thu Hà',
+            assignedToId: null,
+            order: 3,
             phase: 'Thiết kế',
             discipline: 'ARC',
             location: 'Tầng 1',
@@ -151,7 +156,8 @@ function buildSampleTasks(projectId: string) {
             status: 'TODO',
             priority: 'MEDIUM',
             progress: 0,
-            assignedTo: 'Nguyễn Văn An',
+            assignedToId: null,
+            order: 4,
             phase: 'Thiết kế',
             discipline: 'STR',
             location: 'Toàn bộ',
@@ -167,7 +173,8 @@ function buildSampleTasks(projectId: string) {
             status: 'TODO',
             priority: 'CRITICAL',
             progress: 0,
-            assignedTo: 'Phạm Quốc Huy',
+            assignedToId: null,
+            order: 5,
             phase: 'Thiết kế',
             discipline: 'MEP',
             location: 'Toàn bộ',
@@ -183,7 +190,8 @@ function buildSampleTasks(projectId: string) {
             status: 'DELAYED',
             priority: 'HIGH',
             progress: 60,
-            assignedTo: 'Trần Minh Khoa',
+            assignedToId: null,
+            order: 6,
             phase: 'Phối hợp',
             discipline: 'OTHER',
             location: null,
@@ -199,7 +207,8 @@ function buildSampleTasks(projectId: string) {
             status: 'TODO',
             priority: 'MEDIUM',
             progress: 0,
-            assignedTo: null,
+            assignedToId: null,
+            order: 7,
             phase: 'Xuất bản vẽ',
             discipline: 'OTHER',
             location: null,
@@ -215,7 +224,8 @@ function buildSampleTasks(projectId: string) {
             status: 'IN_PROGRESS',
             priority: 'MEDIUM',
             progress: 30,
-            assignedTo: 'Lê Thu Hà',
+            assignedToId: null,
+            order: 8,
             phase: 'QC',
             discipline: 'OTHER',
             location: null,
@@ -231,7 +241,8 @@ function buildSampleTasks(projectId: string) {
             status: 'TODO',
             priority: 'LOW',
             progress: 0,
-            assignedTo: null,
+            assignedToId: null,
+            order: 9,
             phase: 'Báo cáo',
             discipline: 'OTHER',
             location: null,
@@ -312,7 +323,7 @@ export async function POST(request: NextRequest) {
                 const startDateStr = taskData.startDate ? `'${taskData.startDate.toISOString()}'` : 'NULL';
                 const endDateStr = taskData.endDate ? `'${taskData.endDate.toISOString()}'` : 'NULL';
                 const descriptionStr = taskData.description ? `'${taskData.description.replace(/'/g, "''")}'` : 'NULL';
-                const assignedToStr = taskData.assignedTo ? `'${taskData.assignedTo.replace(/'/g, "''")}'` : 'NULL';
+                const assignedToIdStr = 'NULL';
                 const titleStr = taskData.title.replace(/'/g, "''");
                 const dueDateStr = taskData.dueDate ? `'${taskData.dueDate.toISOString()}'` : 'NULL';
                 const phaseStr = taskData.phase ? `'${escapeSqlString(taskData.phase)}'` : 'NULL';
@@ -323,7 +334,7 @@ export async function POST(request: NextRequest) {
                     INSERT INTO tasks (
                         id, projectId, title, description,
                         startDate, endDate, dueDate, phase, discipline, location,
-                        status, priority, progress, assignedTo, parentId,
+                        status, priority, progress, assignedToId, "order", parentId,
                         createdAt, updatedAt
                     ) VALUES (
                         '${taskId}',
@@ -339,7 +350,8 @@ export async function POST(request: NextRequest) {
                         '${taskData.status}',
                         '${taskData.priority}',
                         ${taskData.progress},
-                        ${assignedToStr},
+                        ${assignedToIdStr},
+                        ${taskData.order},
                         NULL,
                         datetime('now'),
                         datetime('now')

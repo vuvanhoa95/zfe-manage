@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { existsSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const globalForPrisma = globalThis as unknown as {
@@ -7,7 +7,66 @@ const globalForPrisma = globalThis as unknown as {
   prismaConnectionTested?: boolean;
 };
 
+function parseSqliteFilePath(databaseUrl: string): string | null {
+  if (!databaseUrl.startsWith('file:')) return null;
+  const dbPath = databaseUrl.replace('file:', '').trim();
+  if (!dbPath) return null;
+  // Absolute Windows: C:\..., Absolute *nix: /...
+  const isAbsolute =
+    dbPath.startsWith('/') || /^[A-Z]:\\/i.test(dbPath) || /^[A-Z]:\//i.test(dbPath);
+  return isAbsolute ? dbPath : join(process.cwd(), dbPath);
+}
+
+function ensureProductionSqliteDbReady(): void {
+  // Mục tiêu: tránh 500 trên Vercel khi DATABASE_URL bị set sai format (không có `file:`)
+  // và tránh lỗi read-only khi trỏ vào file nằm trong bundle.
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const currentUrl = process.env.DATABASE_URL || '';
+  const isSqliteUrl = currentUrl.startsWith('file:');
+
+  // Luôn dùng /tmp cho SQLite trên serverless vì writable.
+  const tmpDir = '/tmp';
+  const tmpDbPath = join(tmpDir, 'zfemanage.db');
+  const tmpUrl = `file:${tmpDbPath}`;
+
+  // Nếu DATABASE_URL đang thiếu hoặc sai format → ép về /tmp
+  if (!currentUrl || !isSqliteUrl) {
+    process.env.DATABASE_URL = tmpUrl;
+  } else {
+    // Nếu đã là sqlite nhưng không nằm trong /tmp → chuyển qua /tmp để tránh read-only.
+    const currentPath = parseSqliteFilePath(currentUrl);
+    if (currentPath && !currentPath.startsWith(tmpDir)) {
+      process.env.DATABASE_URL = tmpUrl;
+    }
+  }
+
+  // Chuẩn bị file DB trong /tmp (copy từ dev.db nếu có, nếu không thì tạo file rỗng)
+  try {
+    mkdirSync(tmpDir, { recursive: true });
+    if (!existsSync(tmpDbPath)) {
+      // Ưu tiên copy DB seed đã migrate sẵn trong repo (đang được commit) để app chạy ngay.
+      const candidateSources = [
+        join(process.cwd(), 'prisma', 'prisma', 'dev.db'),
+        join(process.cwd(), 'prisma', 'dev.db'),
+      ];
+      const source = candidateSources.find((p) => existsSync(p));
+      if (source) {
+        copyFileSync(source, tmpDbPath);
+      } else {
+        // Fallback: tạo file rỗng; Prisma/SQLite sẽ tạo file DB nhưng schema có thể chưa có tables.
+        writeFileSync(tmpDbPath, '');
+      }
+    }
+  } catch (error) {
+    // Không throw để tránh crash cold start; Prisma sẽ throw rõ hơn khi query nếu vẫn fail.
+    // Intentionally silent in production to avoid noisy logs on serverless cold starts.
+  }
+}
+
 function createPrismaClient() {
+  ensureProductionSqliteDbReady();
+
   // Check DATABASE_URL before creating client
   if (!process.env.DATABASE_URL) {
     const error = new Error('DATABASE_URL environment variable is not set');
@@ -29,7 +88,7 @@ function createPrismaClient() {
       !databaseUrl.startsWith('prisma://') &&
       !databaseUrl.startsWith('prisma+postgres://')
     ) {
-      const errorMsg = `DATABASE_URL không đúng format. Schema đang dùng provider="postgresql", nên DATABASE_URL phải bắt đầu bằng:
+      const errorMsg = `DATABASE_URL không đúng format. Nếu schema dùng provider="postgresql" thì DATABASE_URL phải bắt đầu bằng:
 - postgresql:// (cho PostgreSQL thông thường)
 - postgres:// (alias của postgresql://)
 - prisma:// (cho Prisma Accelerate)
@@ -49,18 +108,22 @@ Vui lòng kiểm tra file .env hoặc .env.local và sửa DATABASE_URL.`;
   // For SQLite, check if database file exists (only on server-side)
   if (databaseUrl && databaseUrl.startsWith('file:')) {
     try {
-      const dbPath = databaseUrl.replace('file:', '').trim();
-      const absolutePath = dbPath.startsWith('/') || dbPath.match(/^[A-Z]:/i) 
-        ? dbPath 
-        : join(process.cwd(), dbPath);
-      
-      if (!existsSync(absolutePath)) {
+      const absolutePath = parseSqliteFilePath(databaseUrl);
+      if (!absolutePath) {
+        // URL dạng file: nhưng không có path hợp lệ; để Prisma tự throw khi connect/query
         if (process.env.NODE_ENV === 'development') {
-          console.error(`⚠️ Database file not found: ${absolutePath}`);
+          console.error('⚠️ Invalid SQLite DATABASE_URL (missing path)');
         }
-        // Don't throw immediately - let Prisma handle it when connecting
-        // The error will be caught when actually using the client
+      } else {
+        if (!existsSync(absolutePath)) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error(`⚠️ Database file not found: ${absolutePath}`);
+          }
+          // Don't throw immediately - let Prisma handle it when connecting
+          // The error will be caught when actually using the client
+        }
       }
+      
     } catch (error: any) {
       // Log but don't throw - let Prisma handle connection errors
       if (process.env.NODE_ENV === 'development') {

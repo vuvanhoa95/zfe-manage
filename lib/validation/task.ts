@@ -49,11 +49,18 @@ const baseTaskSchema = z.object({
         .min(0, 'Tiến độ phải từ 0%')
         .max(100, 'Tiến độ tối đa 100%')
         .default(0),
+    assignedToId: normalizeEmptyString(
+        z
+            .string()
+            .trim()
+            .optional()
+            .nullable(),
+    ),
+    // Backward compatible: UI cũ vẫn gửi assignedTo (tên người phụ trách)
     assignedTo: normalizeEmptyString(
         z
             .string()
             .trim()
-            .max(255, 'Tên người phụ trách tối đa 255 ký tự')
             .optional()
             .nullable(),
     ),

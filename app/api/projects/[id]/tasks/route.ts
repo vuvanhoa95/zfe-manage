@@ -4,6 +4,25 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { taskCreateSchema, TASK_PRIORITIES, TASK_STATUSES, type TaskCreateInput } from '@/lib/validation/task';
 
+async function resolveAssignedToId(input: { assignedToId?: string | null; assignedTo?: string | null }): Promise<string | null> {
+    const direct = (input.assignedToId ?? '').trim();
+    if (direct) return direct;
+
+    const name = (input.assignedTo ?? '').trim();
+    if (!name) return null;
+
+    const user = await prisma.user.findFirst({
+        where: { name },
+        select: { id: true },
+    });
+
+    return user?.id ?? null;
+}
+
+function isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 const taskFilterSchema = z.object({
     status: z.enum(TASK_STATUSES).optional(),
     priority: z.enum(TASK_PRIORITIES).optional(),
@@ -29,7 +48,8 @@ async function ensureTaskSchema() {
             status TEXT NOT NULL DEFAULT 'TODO',
             priority TEXT NOT NULL DEFAULT 'MEDIUM',
             progress INTEGER NOT NULL DEFAULT 0,
-            assignedTo TEXT,
+            assignedToId TEXT,
+            "order" REAL NOT NULL DEFAULT 0,
             parentId TEXT,
             createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -56,7 +76,7 @@ async function ensureTaskSchema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks(priority)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedTo)`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedToId)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_parentId_idx ON tasks(parentId)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_phase_idx ON tasks(phase)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_dueDate_idx ON tasks(dueDate)`);
@@ -89,7 +109,7 @@ export async function GET(
             );
         }
 
-        const where: { projectId: string; status?: string; priority?: string; assignedTo?: string } = {
+        const where: { projectId: string; status?: string; priority?: string; assignedToId?: string } = {
             projectId,
         };
 
@@ -102,7 +122,23 @@ export async function GET(
         }
 
         if (parsedFilter.data.assignee) {
-            where.assignedTo = parsedFilter.data.assignee;
+            const rawAssignee = parsedFilter.data.assignee.trim();
+            if (rawAssignee) {
+                if (isUuid(rawAssignee)) {
+                    where.assignedToId = rawAssignee;
+                } else {
+                    const user = await prisma.user.findFirst({
+                        where: { name: rawAssignee },
+                        select: { id: true },
+                    });
+                    if (user?.id) {
+                        where.assignedToId = user.id;
+                    } else {
+                        // Không tìm thấy user theo tên → trả về rỗng để UI không bị 500
+                        return NextResponse.json({ success: true, data: [] });
+                    }
+                }
+            }
         }
 
         // Chỉ select các field cơ bản để tránh lỗi nếu DB chưa có field mới
@@ -121,7 +157,8 @@ export async function GET(
                     status: true,
                     priority: true,
                     progress: true,
-                    assignedTo: true,
+                    assignedToId: true,
+                    assignee: { select: { name: true } },
                     parentId: true,
                     createdAt: true,
                     updatedAt: true,
@@ -146,7 +183,8 @@ export async function GET(
                         status: true,
                         priority: true,
                         progress: true,
-                        assignedTo: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
                         createdAt: true,
                         updatedAt: true,
                     },
@@ -174,7 +212,8 @@ export async function GET(
                         status: true,
                         priority: true,
                         progress: true,
-                        assignedTo: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
                         parentId: true,
                         createdAt: true,
                         updatedAt: true,
@@ -185,7 +224,13 @@ export async function GET(
             }
         }
 
-        return NextResponse.json({ success: true, data: tasks });
+        const tasksWithAssignedTo = tasks.map((t: any) => ({
+            ...t,
+            // Backward compatible for UI cũ
+            assignedTo: t.assignee?.name ?? null,
+        }));
+
+        return NextResponse.json({ success: true, data: tasksWithAssignedTo });
     } catch (error) {
         console.error('Failed to fetch tasks:', error);
 
@@ -237,8 +282,9 @@ export async function POST(
                     status: data.status,
                     priority: data.priority,
                     progress: data.progress,
-                    assignedTo: data.assignedTo ?? null,
+                    assignedToId: data.assignedToId ?? null,
                     parentId: data.parentId ?? null,
+                    order: 0,
                 },
             });
         } catch (innerError) {
@@ -255,7 +301,8 @@ export async function POST(
                         status: data.status,
                         priority: data.priority,
                         progress: data.progress,
-                        assignedTo: data.assignedTo ?? null,
+                        assignedToId: data.assignedToId ?? null,
+                        order: 0,
                     },
                 });
             } else
@@ -277,8 +324,9 @@ export async function POST(
                         status: data.status,
                         priority: data.priority,
                         progress: data.progress,
-                        assignedTo: data.assignedTo ?? null,
+                        assignedToId: data.assignedToId ?? null,
                         parentId: data.parentId ?? null,
+                        order: 0,
                     },
                 });
             } else {

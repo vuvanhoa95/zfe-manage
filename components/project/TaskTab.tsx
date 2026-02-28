@@ -48,7 +48,8 @@ type Task = {
     status: TaskStatus;
     priority: TaskPriority;
     progress: number;
-    assignedTo: string | null;
+    assignedToId: string | null;
+    assignee?: { name: string } | null;
     parentId?: string | null;
     // Phân loại phục vụ quản lý tiến độ
     phase?: string | null;
@@ -429,7 +430,6 @@ function StatusDropdown({
             <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
-                aria-expanded={isOpen ? 'true' : 'false'}
                 className="w-full h-[46px] px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium pr-10 transition-all cursor-pointer flex items-center justify-between"
             >
                 <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${STATUS_CONFIG[value].color}`}>
@@ -497,7 +497,6 @@ function PriorityDropdown({
             <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
-                aria-expanded={isOpen}
                 className="w-full h-[46px] px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium pr-10 transition-all cursor-pointer flex items-center justify-between"
             >
                 <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${theme.pillBg} ${theme.pillBorder} ${theme.text}`}>
@@ -569,7 +568,7 @@ export default function TaskTab({
     const [groupActiveTab, setGroupActiveTab] = useState<'group' | 'subtasks' | 'columns'>('group');
     const [inlineEdit, setInlineEdit] = useState<{
         taskId: string;
-        field: 'status' | 'priority' | 'assignedTo' | 'dueDate' | 'progress';
+        field: 'status' | 'priority' | 'assignedToId' | 'dueDate' | 'progress';
     } | null>(null);
     const isDev = process.env.NODE_ENV === 'development';
     const [columnSettings, setColumnSettings] = useState<{
@@ -603,7 +602,7 @@ export default function TaskTab({
         status: 'TODO' as TaskStatus,
         priority: 'MEDIUM' as TaskPriority,
         progress: 0,
-        assignedTo: '',
+        assignedToId: '',
         phase: '',
         discipline: '',
         location: '',
@@ -648,7 +647,7 @@ export default function TaskTab({
     const handleInlineUpdate = useCallback(
         async (
             taskId: string,
-            patch: Partial<Pick<Task, 'status' | 'priority' | 'assignedTo' | 'progress' | 'dueDate'>>,
+            patch: Partial<Pick<Task, 'status' | 'priority' | 'assignedToId' | 'progress' | 'dueDate'>>,
         ) => {
             setTasks((prev) =>
                 prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
@@ -841,7 +840,7 @@ export default function TaskTab({
             status: 'TODO',
             priority: 'MEDIUM',
             progress: 0,
-            assignedTo: '',
+            assignedToId: '',
             phase: '',
             discipline: '',
             location: '',
@@ -981,7 +980,7 @@ export default function TaskTab({
             status: task.status,
             priority: task.priority,
             progress: task.progress,
-            assignedTo: task.assignedTo || '',
+            assignedToId: task.assignedToIdId || '',
             phase: task.phase || '',
             discipline: task.discipline || '',
             location: task.location || '',
@@ -1230,7 +1229,7 @@ export default function TaskTab({
             }
 
             if (assignee) {
-                const taskAssignee = (task.assignedTo ?? '').trim().toLowerCase();
+                const taskAssignee = (task.assignee?.name ?? '').trim().toLowerCase();
                 if (taskAssignee !== assignee) {
                     return false;
                 }
@@ -1281,7 +1280,7 @@ export default function TaskTab({
                     case 'status':
                         return task.status;
                     case 'assignee':
-                        return task.assignedTo ?? null;
+                        return task.assignee?.name ?? null;
                     case 'phase':
                         return task.phase ?? null;
                     case 'discipline':
@@ -1588,13 +1587,13 @@ export default function TaskTab({
     );
 
     const filteredAssigneeOptions = useMemo(() => {
-        const keyword = formData.assignedTo.trim().toLowerCase();
+        const keyword = formData.assignedToId.trim().toLowerCase();
         if (!keyword) return staffOptions;
         return staffOptions.filter((option) =>
             option.name.toLowerCase().includes(keyword) ||
             (option.discipline ?? '').toLowerCase().includes(keyword),
         );
-    }, [staffOptions, formData.assignedTo]);
+    }, [staffOptions, formData.assignedToId]);
 
     // Helper: Toggle expand/collapse
     const toggleExpand = (taskId: string) => {
@@ -1625,8 +1624,8 @@ export default function TaskTab({
     };
 
     // Helper: Preset màu hiện tại cho ô phân công trong form (nền sáng giống dropdown/table)
-    const activeAssigneePreset = formData.assignedTo.trim()
-        ? getAssigneePreset(formData.assignedTo)
+    const activeAssigneePreset = formData.assignedToId.trim()
+        ? getAssigneePreset(formData.assignedToId)
         : null;
 
     const taskModal = isFormOpen ? (
@@ -1710,9 +1709,9 @@ export default function TaskTab({
                                                     ? `${activeAssigneePreset.bg} ${activeAssigneePreset.border} ${activeAssigneePreset.text}`
                                                     : 'border-gray-200 bg-white text-gray-900'
                                             }`}
-                                            value={formData.assignedTo}
+                                            value={formData.assignedToId}
                                             onChange={(e) => {
-                                                setFormData({ ...formData, assignedTo: e.target.value });
+                                                setFormData({ ...formData, assignedToId: e.target.value });
                                                 setIsAssigneeDropdownOpen(true);
                                             }}
                                             onFocus={() => setIsAssigneeDropdownOpen(true)}
@@ -1738,7 +1737,7 @@ export default function TaskTab({
                                                             type="button"
                                                             onMouseDown={(e) => {
                                                                 e.preventDefault();
-                                                                setFormData({ ...formData, assignedTo: option.name });
+                                                                setFormData({ ...formData, assignedToId: option.id });
                                                                 setIsAssigneeDropdownOpen(false);
                                                             }}
                                                             className={`w-full flex items-center justify-between px-3 py-2 text-left transition-colors ${preset.bg} ${preset.border} border-l-4 hover:opacity-80`}
@@ -1803,11 +1802,17 @@ export default function TaskTab({
 
                                 <div className="space-y-1">
                                     <div className="flex items-center justify-between text-xs font-semibold uppercase text-gray-500">
-                                        <span>Tiến độ</span>
+                                        <label
+                                            htmlFor="task-progress-slider-main"
+                                            className="cursor-pointer"
+                                        >
+                                            Tiến độ
+                                        </label>
                                         <span className="text-blue-600">{formData.progress}%</span>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <input
+                                            id="task-progress-slider-main"
                                             type="range"
                                             min="0"
                                             max="100"
@@ -1820,6 +1825,7 @@ export default function TaskTab({
                                                     progress: Number.parseInt(e.target.value, 10) || 0,
                                                 })
                                             }
+                                            aria-label="Tiến độ công việc (%)"
                                         />
                                     </div>
                                 </div>
@@ -1863,10 +1869,14 @@ export default function TaskTab({
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                    <label
+                                        className="block text-xs font-semibold text-gray-600 mb-1"
+                                        htmlFor="task-parent-select"
+                                    >
                                         Công việc cha (tuỳ chọn)
                                     </label>
                                     <select
+                                        id="task-parent-select"
                                         value={formData.parentId}
                                         onChange={(e) =>
                                             setFormData({
@@ -2016,6 +2026,7 @@ export default function TaskTab({
                                                         )
                                                     }
                                                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                    aria-label="Đánh dấu hoàn thành mục checklist"
                                                 />
                                                 <input
                                                     type="text"
@@ -2366,10 +2377,14 @@ export default function TaskTab({
                         {taskNameRule.enabled && (
                             <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3 items-end">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                    <label
+                                        className="block text-xs font-semibold text-gray-600 mb-1"
+                                        htmlFor="task-name-prefix-input"
+                                    >
                                         Tiền tố mã (prefix)
                                     </label>
                                     <input
+                                        id="task-name-prefix-input"
                                         type="text"
                                         value={taskNameRule.prefix}
                                         onChange={(e) =>
@@ -2383,10 +2398,14 @@ export default function TaskTab({
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                    <label
+                                        className="block text-xs font-semibold text-gray-600 mb-1"
+                                        htmlFor="task-name-padding-input"
+                                    >
                                         Số chữ số
                                     </label>
                                     <input
+                                        id="task-name-padding-input"
                                         type="number"
                                         min={1}
                                         max={6}
@@ -2619,13 +2638,14 @@ export default function TaskTab({
                         />
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <select
-                            value={statusFilter}
-                            onChange={(e) =>
-                                setStatusFilter(e.target.value === 'ALL' ? 'ALL' : (e.target.value as TaskStatus))
-                            }
-                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        >
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) =>
+                                        setStatusFilter(e.target.value === 'ALL' ? 'ALL' : (e.target.value as TaskStatus))
+                                    }
+                                    aria-label="Lọc theo trạng thái công việc"
+                                    className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                >
                             <option value="ALL">Tất cả trạng thái</option>
                             {Object.entries(STATUS_CONFIG).map(([key, value]) => (
                                 <option key={key} value={key}>
@@ -2633,13 +2653,14 @@ export default function TaskTab({
                                 </option>
                             ))}
                         </select>
-                        <select
-                            value={priorityFilter}
-                            onChange={(e) =>
-                                setPriorityFilter(e.target.value === 'ALL' ? 'ALL' : (e.target.value as TaskPriority))
-                            }
-                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        >
+                                <select
+                                    value={priorityFilter}
+                                    onChange={(e) =>
+                                        setPriorityFilter(e.target.value === 'ALL' ? 'ALL' : (e.target.value as TaskPriority))
+                                    }
+                                    aria-label="Lọc theo mức độ ưu tiên"
+                                    className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                >
                             <option value="ALL">Tất cả ưu tiên</option>
                             {Object.entries(PRIORITY_CONFIG).map(([key, value]) => (
                                 <option key={key} value={key}>
@@ -2647,11 +2668,12 @@ export default function TaskTab({
                                 </option>
                             ))}
                         </select>
-                        <select
-                            value={assigneeFilter}
-                            onChange={(e) => setAssigneeFilter(e.target.value)}
-                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
-                        >
+                                <select
+                                    value={assigneeFilter}
+                                    onChange={(e) => setAssigneeFilter(e.target.value)}
+                                    aria-label="Lọc theo người phụ trách"
+                                    className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
+                                >
                             <option value="">Tất cả người phụ trách</option>
                             {staffOptions.map((option) => (
                                 <option key={`${option.type}-${option.id}`} value={option.name}>
@@ -2659,11 +2681,12 @@ export default function TaskTab({
                                 </option>
                             ))}
                         </select>
-                        <select
-                            value={phaseFilter}
-                            onChange={(e) => setPhaseFilter(e.target.value)}
-                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
-                        >
+                                <select
+                                    value={phaseFilter}
+                                    onChange={(e) => setPhaseFilter(e.target.value)}
+                                    aria-label="Lọc theo giai đoạn"
+                                    className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
+                                >
                             <option value="">Tất cả giai đoạn</option>
                             {phaseOptions.map((option) => (
                                 <option key={option} value={option}>
@@ -2671,11 +2694,12 @@ export default function TaskTab({
                                 </option>
                             ))}
                         </select>
-                        <select
-                            value={disciplineFilter}
-                            onChange={(e) => setDisciplineFilter(e.target.value)}
-                            className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
-                        >
+                                <select
+                                    value={disciplineFilter}
+                                    onChange={(e) => setDisciplineFilter(e.target.value)}
+                                    aria-label="Lọc theo bộ môn"
+                                    className="px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none min-w-[150px]"
+                                >
                             <option value="">Tất cả bộ môn</option>
                             {disciplineOptions.map((option) => (
                                 <option key={option} value={option}>
@@ -2973,17 +2997,18 @@ export default function TaskTab({
                                                 {/* Assignee Column */}
                                                 {columnSettings.showAssignee && (
                                                     <td className="px-4 py-3">
-                                                        {inlineEdit?.taskId === task.id && inlineEdit.field === 'assignedTo' ? (
+                                                        {inlineEdit?.taskId === task.id && inlineEdit.field === 'assignedToId' ? (
                                                             <select
                                                                 autoFocus
-                                                                value={task.assignedTo || ''}
+                                                                value={task.assignedToIdId || ''}
                                                                 onChange={(e) => {
                                                                     const value = e.target.value || null;
-                                                                    void handleInlineUpdate(task.id, { assignedTo: value });
+                                                                    void handleInlineUpdate(task.id, { assignedToId: value });
                                                                 }}
                                                                 onBlur={() => setInlineEdit(null)}
                                                                 className="px-2 py-1 rounded border border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                                                                 onClick={(e) => e.stopPropagation()}
+                                                                aria-label="Chọn người phụ trách"
                                                             >
                                                                 <option value="">Chưa phân công</option>
                                                                 {staffOptions.map((option) => (
@@ -2996,13 +3021,13 @@ export default function TaskTab({
                                                             <div
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setInlineEdit({ taskId: task.id, field: 'assignedTo' });
+                                                                    setInlineEdit({ taskId: task.id, field: 'assignedToId' });
                                                                 }}
                                                                 className="cursor-pointer hover:opacity-80 transition-opacity"
                                                             >
-                                                                {task.assignedTo ? (
+                                                                {task.assignee ? (
                                                                     <div className="flex items-center gap-2">
-                                                                        <AssigneePill name={task.assignedTo} />
+                                                                        <AssigneePill name={task.assignee?.name || ''} />
                                                                     </div>
                                                                 ) : (
                                                                     <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
@@ -3089,6 +3114,7 @@ export default function TaskTab({
                                                                 onBlur={() => setInlineEdit(null)}
                                                                 className="px-2 py-1 rounded border border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                                                                 onClick={(e) => e.stopPropagation()}
+                                                                aria-label="Chọn mức ưu tiên"
                                                             >
                                                                 {Object.entries(PRIORITY_CONFIG).map(([key, value]) => (
                                                                     <option key={key} value={key}>
@@ -3120,7 +3146,7 @@ export default function TaskTab({
                                                 {columnSettings.showProgress && (
                                                     <td className="px-4 py-3">
                                                         {inlineEdit?.taskId === task.id && inlineEdit.field === 'progress' ? (
-                                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                                 <input
                                                                     type="number"
                                                                     min="0"
@@ -3132,6 +3158,7 @@ export default function TaskTab({
                                                                     }}
                                                                     onBlur={() => setInlineEdit(null)}
                                                                     autoFocus
+                                                                    aria-label="Tiến độ công việc (%)"
                                                                     className="w-16 px-2 py-1 rounded border border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-center"
                                                                 />
                                                                 <span className="text-xs text-gray-500">%</span>
@@ -3189,7 +3216,7 @@ export default function TaskTab({
                                                   >
                                                       {/* Name Column */}
                                                       <td className="px-4 py-3">
-                                                          <div
+                                                              <div
                                                               className="flex items-center gap-2"
                                                               style={{ paddingLeft: `${level * 24}px` }}
                                                           >
@@ -3296,19 +3323,20 @@ export default function TaskTab({
                                                       {columnSettings.showAssignee && (
                                                           <td className="px-4 py-3">
                                                               {inlineEdit?.taskId === task.id &&
-                                                              inlineEdit.field === 'assignedTo' ? (
+                                                              inlineEdit.field === 'assignedToId' ? (
                                                                   <select
                                                                       autoFocus
-                                                                      value={task.assignedTo || ''}
+                                                                      value={task.assignedToIdId || ''}
                                                                       onChange={(e) => {
                                                                           const value = e.target.value || null;
                                                                           void handleInlineUpdate(task.id, {
-                                                                              assignedTo: value,
+                                                                              assignedToId: value,
                                                                           });
                                                                       }}
                                                                       onBlur={() => setInlineEdit(null)}
                                                                       className="px-2 py-1 rounded border border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                                                                       onClick={(e) => e.stopPropagation()}
+                                                                      aria-label="Chọn người phụ trách"
                                                                   >
                                                                       <option value="">Chưa phân công</option>
                                                                       {staffOptions.map((option) => (
@@ -3326,14 +3354,14 @@ export default function TaskTab({
                                                                           e.stopPropagation();
                                                                           setInlineEdit({
                                                                               taskId: task.id,
-                                                                              field: 'assignedTo',
+                                                                              field: 'assignedToId',
                                                                           });
                                                                       }}
                                                                       className="cursor-pointer hover:opacity-80 transition-opacity"
                                                                   >
-                                                                      {task.assignedTo ? (
+                                                                      {task.assignee ? (
                                                                           <div className="flex items-center gap-2">
-                                                                              <AssigneePill name={task.assignedTo} />
+                                                                              <AssigneePill name={task.assignee?.name || ''} />
                                                                           </div>
                                                                       ) : (
                                                                           <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
@@ -3618,18 +3646,18 @@ export default function TaskTab({
                                             {columnSettings.showAssignee && (
                                                 <td className="px-4 py-2 align-top">
                                                     {inlineEdit?.taskId === task.id &&
-                                                    inlineEdit.field === 'assignedTo' ? (
+                                                    inlineEdit.field === 'assignedToId' ? (
                                                         <div className="relative min-w-[160px]">
                                                             <input
                                                                 autoFocus
                                                                 type="text"
-                                                                defaultValue={task.assignedTo || ''}
+                                                                defaultValue={task.assignedToIdId || ''}
                                                                 list={`task-assignees-inline-${projectId}`}
                                                                 className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                                                 placeholder="Nhập tên hoặc chọn từ danh sách"
                                                                 onBlur={(e) =>
                                                                     void handleInlineUpdate(task.id, {
-                                                                        assignedTo: e.target.value,
+                                                                        assignedToId: e.target.value,
                                                                     })
                                                                 }
                                                                 onKeyDown={(e) => {
@@ -3657,17 +3685,18 @@ export default function TaskTab({
                                                                 </datalist>
                                                             )}
                                                         </div>
-                                                    ) : task.assignedTo ? (
+                                                    ) : task.assignedToId ? (
                                                         <button
                                                             type="button"
                                                             onClick={() =>
                                                                 setInlineEdit({
                                                                     taskId: task.id,
-                                                                    field: 'assignedTo',
+                                                                    field: 'assignedToId',
                                                                 })
                                                             }
+                                                            aria-label="Chỉnh sửa người phụ trách"
                                                         >
-                                                            <AssigneePill name={task.assignedTo} />
+                                                            <AssigneePill name={task.assignee?.name || ''} />
                                                         </button>
                                                     ) : (
                                                         <button
@@ -3675,7 +3704,7 @@ export default function TaskTab({
                                                             onClick={() =>
                                                                 setInlineEdit({
                                                                     taskId: task.id,
-                                                                    field: 'assignedTo',
+                                                                    field: 'assignedToId',
                                                                 })
                                                             }
                                                             className="text-xs text-gray-400 hover:text-blue-600"
@@ -3803,9 +3832,9 @@ export default function TaskTab({
                                                 <div className="font-semibold text-gray-900 truncate">
                                                     {task.title}
                                                 </div>
-                                                {columnSettings.showAssignee && task.assignedTo && (
+                                                {columnSettings.showAssignee && task.assignee && (
                                                     <div className="mt-0.5">
-                                                        <AssigneePill name={task.assignedTo} />
+                                                        <AssigneePill name={task.assignee?.name || ''} />
                                                     </div>
                                                 )}
                                             </div>
@@ -3916,8 +3945,8 @@ export default function TaskTab({
                                                                 </div>
                                                                 <div className="flex items-center gap-1">
                                                                     <UserIcon className="w-3 h-3" />
-                                                                    {task.assignedTo ? (
-                                                                        <AssigneePill name={task.assignedTo} />
+                                                                    {task.assignee ? (
+                                                                        <AssigneePill name={task.assignee?.name || ''} />
                                                                     ) : (
                                                                         <span className="truncate max-w-[80px]">
                                                                             Chưa phân công
@@ -4025,9 +4054,15 @@ export default function TaskTab({
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Bắt đầu</label>
+                                    <label
+                                        className="block text-sm font-semibold text-gray-700 mb-1"
+                                        htmlFor="task-start-date-inline"
+                                    >
+                                        Bắt đầu
+                                    </label>
                                         <div className="relative">
                                             <input
+                                            id="task-start-date-inline"
                                                 type="date"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
                                                 value={formData.startDate}
@@ -4036,9 +4071,15 @@ export default function TaskTab({
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">Kết thúc</label>
+                                    <label
+                                        className="block text-sm font-semibold text-gray-700 mb-1"
+                                        htmlFor="task-end-date-inline"
+                                    >
+                                        Kết thúc
+                                    </label>
                                         <div className="relative">
                                             <input
+                                            id="task-end-date-inline"
                                                 type="date"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
                                                 value={formData.endDate}
@@ -4067,11 +4108,15 @@ export default function TaskTab({
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                    <label
+                                            className="block text-sm font-semibold text-gray-700 mb-1"
+                                            htmlFor="task-progress-inline-slider"
+                                        >
                                             Tiến độ ({formData.progress}%)
                                         </label>
                                         <div className="flex items-center gap-3 h-[46px]">
                                             <input
+                                                id="task-progress-inline-slider"
                                                 type="range"
                                                 min="0"
                                                 max="100"
@@ -4084,6 +4129,7 @@ export default function TaskTab({
                                                         progress: Number.parseInt(e.target.value, 10) || 0,
                                                     })
                                                 }
+                                                aria-label="Tiến độ công việc (%)"
                                             />
                                             <span className="text-sm font-bold text-blue-600 w-10 text-right">
                                                 {formData.progress}%
@@ -4102,9 +4148,9 @@ export default function TaskTab({
                                                     ? `${activeAssigneePreset.bg} ${activeAssigneePreset.border} ${activeAssigneePreset.text}`
                                                     : 'border-gray-200 bg-white text-gray-900'
                                             }`}
-                                            value={formData.assignedTo}
+                                            value={formData.assignedToId}
                                             onChange={(e) =>
-                                                setFormData({ ...formData, assignedTo: e.target.value })
+                                                setFormData({ ...formData, assignedToId: e.target.value })
                                             }
                                         />
                                             {isLoadingStaffOptions && (

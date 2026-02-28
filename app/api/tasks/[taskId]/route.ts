@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { taskUpdateSchema, type TaskUpdateInput } from '@/lib/validation/task';
 
+async function resolveAssignedToId(input: {
+    assignedToId?: string | null;
+    assignedTo?: string | null;
+}): Promise<string | null> {
+    const direct = (input.assignedToId ?? '').trim();
+    if (direct) return direct;
+
+    const name = (input.assignedTo ?? '').trim();
+    if (!name) return null;
+
+    const user = await prisma.user.findFirst({
+        where: { name },
+        select: { id: true },
+    });
+
+    return user?.id ?? null;
+}
+
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ taskId: string }> | { taskId: string } },
@@ -21,6 +39,10 @@ export async function PUT(
         }
 
         const data: TaskUpdateInput = parsed.data;
+        const assignedToId = await resolveAssignedToId({
+            assignedToId: data.assignedToId ?? null,
+            assignedTo: data.assignedTo ?? null,
+        });
 
         let task;
         try {
@@ -50,7 +72,7 @@ export async function PUT(
                     status: data.status,
                     priority: data.priority,
                     progress: typeof data.progress === 'number' ? data.progress : undefined,
-                    assignedTo: data.assignedTo ?? undefined,
+                    assignedToId: assignedToId ?? undefined,
                     parentId: data.parentId ?? undefined,
                 },
                 select: {
@@ -63,7 +85,8 @@ export async function PUT(
                     status: true,
                     priority: true,
                     progress: true,
-                    assignedTo: true,
+                    assignedToId: true,
+                    assignee: { select: { name: true } },
                     parentId: true,
                     dueDate: true,
                     phase: true,
@@ -103,7 +126,7 @@ export async function PUT(
                         status: data.status,
                         priority: data.priority,
                         progress: typeof data.progress === 'number' ? data.progress : undefined,
-                        assignedTo: data.assignedTo ?? undefined,
+                        assignedToId: assignedToId ?? undefined,
                     },
                     select: {
                         id: true,
@@ -115,7 +138,8 @@ export async function PUT(
                         status: true,
                         priority: true,
                         progress: true,
-                        assignedTo: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
                         createdAt: true,
                         updatedAt: true,
                     },
@@ -125,7 +149,13 @@ export async function PUT(
             }
         }
 
-        return NextResponse.json({ success: true, data: task });
+        // Backward compatible: trả thêm assignedTo (tên) cho UI cũ
+        const taskWithAssignedTo = {
+            ...task,
+            assignedTo: (task as any)?.assignee?.name ?? null,
+        };
+
+        return NextResponse.json({ success: true, data: taskWithAssignedTo });
     } catch (error) {
         console.error('Failed to update task:', error);
         return NextResponse.json(

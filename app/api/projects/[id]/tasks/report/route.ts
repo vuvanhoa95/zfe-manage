@@ -21,7 +21,8 @@ type ReportTask = {
     progress: number;
     phase: string | null;
     discipline: string | null;
-    assignedTo: string | null;
+    assignedToId: string | null;
+    assignee: { name: string } | null;
     dueDate: Date | null;
     endDate: Date | null;
 };
@@ -51,7 +52,8 @@ async function ensureTaskSchema() {
             status TEXT NOT NULL DEFAULT 'TODO',
             priority TEXT NOT NULL DEFAULT 'MEDIUM',
             progress INTEGER NOT NULL DEFAULT 0,
-            assignedTo TEXT,
+            assignedToId TEXT,
+            "order" REAL NOT NULL DEFAULT 0,
             parentId TEXT,
             createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -78,7 +80,7 @@ async function ensureTaskSchema() {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedTo")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedToId")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate")`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_parentId_idx" ON "tasks"("parentId")`);
@@ -182,7 +184,8 @@ export async function GET(
                     progress: true,
                     phase: true,
                     discipline: true,
-                    assignedTo: true,
+                    assignedToId: true,
+                    assignee: { select: { name: true } },
                     dueDate: true,
                     endDate: true,
                 },
@@ -209,7 +212,8 @@ export async function GET(
                         progress: true,
                         phase: true,
                         discipline: true,
-                        assignedTo: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
                         dueDate: true,
                         endDate: true,
                     },
@@ -250,7 +254,8 @@ export async function GET(
             progress: task.progress ?? 0,
             phase: typeof task.phase === 'string' ? task.phase : null,
             discipline: typeof task.discipline === 'string' ? task.discipline : null,
-            assignedTo: typeof task.assignedTo === 'string' ? task.assignedTo : null,
+            assignedToId: typeof task.assignedToId === 'string' ? task.assignedToId : null,
+            assignee: task.assignee,
             dueDate: task.dueDate ?? null,
             endDate: task.endDate ?? null,
         }));
@@ -268,7 +273,7 @@ export async function GET(
                 const raw = (task.discipline ?? '').trim() || 'Khác';
                 return { key: raw, label: raw };
             }
-            const raw = (task.assignedTo ?? '').trim() || 'Chưa phân công';
+            const raw = task.assignee?.name || 'Chưa phân công';
             return { key: raw, label: raw };
         };
 

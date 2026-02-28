@@ -16,7 +16,8 @@ type ReportTask = {
     status: TaskStatus;
     priority: TaskPriority;
     progress: number;
-    assignedTo: string | null;
+    assignedToId: string | null;
+    assignee: { name: string } | null;
     phase?: string | null;
     discipline?: string | null;
     location?: string | null;
@@ -725,7 +726,7 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
                                             {STATUS_LABELS[task.status]}
                                         </td>
                                         <td className="px-4 py-2 text-xs text-gray-800">
-                                            {task.assignedTo || 'Chưa phân công'}
+                                            {task.assignee?.name || 'Chưa phân công'}
                                         </td>
                                         <td className="px-4 py-2 text-xs text-red-600 font-semibold">
                                             {formatViDate(task.dueDate ?? task.endDate)}

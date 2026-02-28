@@ -25,7 +25,11 @@ model User {
   quotationRevisions QuotationRevision[]
   quotations         Quotation[]
   quotationTemplates QuotationTemplate[]
-  projectMemberships ProjectMember[]
+  customFieldValues  CustomFieldValue[]
+  assignedTasks      Task[]              @relation("TaskAssignee")
+  taskComments       TaskComment[]
+  taskAttachments    TaskAttachment[]
+  projectMembers     ProjectMember[]
 
   @@map("users")
 }
@@ -67,31 +71,31 @@ model Customer {
 }
 
 model Project {
-  id               String      @id @default(uuid())
-  projectNo        String      @unique
+  id               String          @id @default(uuid())
+  projectNo        String          @unique
   name             String
   code             String?
   description      String?
   customerId       String?
-  location         String      @default("Hà Nội")
+  location         String          @default("Hà Nội")
   startDate        DateTime?
   endDate          DateTime?
   totalArea        Float?
-  totalBudget      Float       @default(0)
-  totalRevenue     Float       @default(0)
-  totalCost        Float       @default(0)
-  totalProfit      Float       @default(0)
-  status           String      @default("PLANNING")
+  totalBudget      Float           @default(0)
+  totalRevenue     Float           @default(0)
+  totalCost        Float           @default(0)
+  totalProfit      Float           @default(0)
+  status           String          @default("PLANNING")
   notes            String?
   imageUrl         String?
   createdById      String
-  finalQuotationId String?     @unique
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  finalQuotationId String?         @unique
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
   cashFlows        CashFlow[]
-  createdBy        User        @relation(fields: [createdById], references: [id])
-  customer         Customer?   @relation(fields: [customerId], references: [id])
-  finalQuotation   Quotation?  @relation("FinalQuotation", fields: [finalQuotationId], references: [id])
+  createdBy        User            @relation(fields: [createdById], references: [id])
+  customer         Customer?       @relation(fields: [customerId], references: [id])
+  finalQuotation   Quotation?      @relation("FinalQuotation", fields: [finalQuotationId], references: [id])
   quotations       Quotation[]
   tasks            Task[]
   members          ProjectMember[]
@@ -284,32 +288,32 @@ model QuotationRevision {
 /// ================================
 
 model QuotationTemplate {
-  id             String   @id @default(uuid())
-  name           String
-  code           String?  @unique
-  description    String?
+  id          String  @id @default(uuid())
+  name        String
+  code        String? @unique
+  description String?
 
   /// Loại dịch vụ / nhóm: ví dụ BIM_DESIGN, OUTSOURCE,...
-  category       String?
-  isActive       Boolean  @default(true)
+  category String?
+  isActive Boolean @default(true)
 
   /// Nội dung chính – tham chiếu cấu trúc Quotation
-  title          String   @default("BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM")
-  introText      String?
-  scopeText      String?
-  deliverablesText String @default("")
-  scheduleText   String?
+  title            String  @default("BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM")
+  introText        String?
+  scopeText        String?
+  deliverablesText String  @default("")
+  scheduleText     String?
 
-  vatRate        Float    @default(0.08)
+  vatRate Float @default(0.08)
 
   /// Tuỳ chọn giao diện preview mặc định
   theme          String?
   layoutTemplate String?
 
-  createdById    String
-  createdBy      User     @relation(fields: [createdById], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   lines             QuotationTemplateLine[]
   paymentMilestones QuotationTemplatePaymentMilestone[]
@@ -321,9 +325,9 @@ model QuotationTemplate {
 }
 
 model QuotationTemplateLine {
-  id            String            @id @default(uuid())
-  templateId    String
-  template      QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id         String            @id @default(uuid())
+  templateId String
+  template   QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   section       String?
   itemNo        String?
@@ -331,23 +335,23 @@ model QuotationTemplateLine {
   qty           Float?
   unit          String?
   unitPrice     Float?
-  total         Float             @default(0)
+  total         Float   @default(0)
   note          String?
   order         Int
-  isGroupHeader Boolean           @default(false)
-  isChargeable  Boolean           @default(true)
+  isGroupHeader Boolean @default(false)
+  isChargeable  Boolean @default(true)
 
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([templateId])
   @@map("quotation_template_lines")
 }
 
 model QuotationTemplatePaymentMilestone {
-  id           String            @id @default(uuid())
-  templateId   String
-  template     QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id         String            @id @default(uuid())
+  templateId String
+  template   QuotationTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   no           Int
   title        String
@@ -356,8 +360,8 @@ model QuotationTemplatePaymentMilestone {
   expectedDate DateTime?
   order        Int
 
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([templateId])
   @@map("quotation_template_payment_milestones")
@@ -432,41 +436,80 @@ model OutsourcingStaff {
 }
 
 model Task {
-  id          String   @id @default(uuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   /// Quan hệ cha - con giữa các công việc (subtask vô hạn)
-  parentId    String?
-  parent      Task?    @relation("TaskToSubtasks", fields: [parentId], references: [id])
-  subtasks    Task[]   @relation("TaskToSubtasks")
-  title       String
-  description String?
-  startDate   DateTime?
-  endDate     DateTime?
+  parentId     String?
+  parent       Task?     @relation("TaskToSubtasks", fields: [parentId], references: [id])
+  subtasks     Task[]    @relation("TaskToSubtasks")
+  title        String
+  description  String?
+  startDate    DateTime?
+  endDate      DateTime?
   /// Hạn hoàn thành công việc – dùng cho logic quá hạn
-  dueDate     DateTime?
-  status      String   @default("TODO")   // TODO, IN_PROGRESS, COMPLETED, DELAYED
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  progress    Int      @default(0)        // 0-100
-  /// Tên người phụ trách (hiển thị trực tiếp, không relation User ở Phase 1)
-  assignedTo  String?
+  dueDate      DateTime?
+  status       String    @default("TODO") // TODO, IN_PROGRESS, COMPLETED, DELAYED
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  progress     Int       @default(0) // 0-100
+  /// Người chịu trách nhiệm chính
+  assignedToId String?
+  assignee     User?     @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  /// Thứ tự hiển thị (Dùng cho kéo thả Kanban/List)
+  order        Float     @default(0)
   /// Giai đoạn triển khai (Khảo sát, Thiết kế, Shopdrawing, Thi công, ...)
-  phase       String?
+  phase        String?
   /// Bộ môn: ARC / STR / MEP / OTHER
-  discipline  String?
+  discipline   String?
   /// Vị trí/tầng/khu vực (text tự do)
-  location    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  location     String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  comments    TaskComment[]
+  attachments TaskAttachment[]
 
   @@index([projectId])
   @@index([parentId])
   @@index([status])
   @@index([priority])
-  @@index([assignedTo])
+  @@index([assignedToId])
   @@index([phase])
   @@index([dueDate])
   @@map("tasks")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  isEdited  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+  @@index([userId])
+  @@map("task_comments")
+}
+
+model TaskAttachment {
+  id           String   @id @default(uuid())
+  taskId       String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  fileName     String
+  fileUrl      String
+  fileSize     Int /// Byte
+  mimeType     String?
+  createdAt    DateTime @default(now())
+
+  @@index([taskId])
+  @@index([uploadedById])
+  @@map("task_attachments")
 }
 
 model ProjectMember {
@@ -500,22 +543,22 @@ enum CustomFieldType {
 
 /// Định nghĩa một trường tuỳ chỉnh cho Project hoặc Task
 model CustomField {
-  id          String                 @id @default(uuid())
+  id          String                @id @default(uuid())
   name        String
-  key         String                 @unique
+  key         String                @unique
   description String?
   entityType  CustomFieldEntityType
   fieldType   CustomFieldType
   /// Nhóm/phân loại hiển thị (ví dụ: Thông tin hợp đồng, Vị trí, Kỹ thuật)
   group       String?
   /// Thứ tự hiển thị trong nhóm
-  sortOrder   Int                    @default(0)
+  sortOrder   Int                   @default(0)
   /// Trường này có bắt buộc nhập hay không
-  isRequired  Boolean                @default(false)
+  isRequired  Boolean               @default(false)
   /// Trường có đang được sử dụng (ẩn/hiện)
-  isActive    Boolean                @default(true)
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
   options     CustomFieldOption[]
   values      CustomFieldValue[]
 
@@ -526,15 +569,15 @@ model CustomField {
 
 /// Tuỳ chọn cho các trường dạng SELECT / MULTI_SELECT
 model CustomFieldOption {
-  id            String       @id @default(uuid())
+  id            String      @id @default(uuid())
   customFieldId String
   label         String
   /// Giá trị nội bộ (nếu cần mapping), mặc định dùng giống label
   value         String?
   /// Màu hiển thị (optional), lưu hex hoặc token
   color         String?
-  sortOrder     Int          @default(0)
-  customField   CustomField  @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  sortOrder     Int         @default(0)
+  customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
 
   @@index([customFieldId])
   @@map("custom_field_options")
@@ -560,6 +603,8 @@ model CustomFieldValue {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   customField   CustomField           @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  user          User?                 @relation(fields: [userId], references: [id])
+  userId        String?
 
   @@index([customFieldId])
   @@index([entityType, entityId])
