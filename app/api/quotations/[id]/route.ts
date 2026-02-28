@@ -149,9 +149,9 @@ export async function PUT(
         });
 
         // Update quotation
-        const quotation = await prisma.quotation.update({
-            where: { id: resolvedParams.id },
-            data: {
+        // Note: theme and templateId are added conditionally because Prisma client
+        // may not have been regenerated yet after schema changes
+        const updateData = {
                 projectId: body.projectId,
                 date: new Date(body.date),
                 location: body.location,
@@ -182,8 +182,14 @@ export async function PUT(
                 totalInWords,
                 status: body.status,
                 notes: body.notes,
-                theme: body.theme ?? null,
-                templateId: body.templateId ?? null,
+                ...(body.theme !== undefined && { theme: body.theme ?? null }),
+                ...(body.templateId !== undefined && { templateId: body.templateId ?? null }),
+        } as Parameters<typeof prisma.quotation.update>[0]['data'];
+
+        const quotation = await prisma.quotation.update({
+            where: { id: resolvedParams.id },
+            data: {
+                ...updateData,
                 lines: {
                     create: enrichedLines.map((line) => ({
                         section: line.section,
