@@ -17,29 +17,15 @@ function parseSqliteFilePath(databaseUrl: string): string | null {
   return isAbsolute ? dbPath : join(process.cwd(), dbPath);
 }
 
-function ensureProductionSqliteDbReady(): void {
+function ensureProductionSqliteDbReady(): string | null {
   // Mục tiêu: tránh 500 trên Vercel khi DATABASE_URL bị set sai format (không có `file:`)
   // và tránh lỗi read-only khi trỏ vào file nằm trong bundle.
-  if (process.env.NODE_ENV !== 'production') return;
-
-  const currentUrl = process.env.DATABASE_URL || '';
-  const isSqliteUrl = currentUrl.startsWith('file:');
+  if (process.env.NODE_ENV !== 'production') return null;
 
   // Luôn dùng /tmp cho SQLite trên serverless vì writable.
   const tmpDir = '/tmp';
   const tmpDbPath = join(tmpDir, 'zfemanage.db');
   const tmpUrl = `file:${tmpDbPath}`;
-
-  // Nếu DATABASE_URL đang thiếu hoặc sai format → ép về /tmp
-  if (!currentUrl || !isSqliteUrl) {
-    process.env.DATABASE_URL = tmpUrl;
-  } else {
-    // Nếu đã là sqlite nhưng không nằm trong /tmp → chuyển qua /tmp để tránh read-only.
-    const currentPath = parseSqliteFilePath(currentUrl);
-    if (currentPath && !currentPath.startsWith(tmpDir)) {
-      process.env.DATABASE_URL = tmpUrl;
-    }
-  }
 
   // Chuẩn bị file DB trong /tmp (copy từ dev.db nếu có, nếu không thì tạo file rỗng)
   try {
@@ -62,13 +48,16 @@ function ensureProductionSqliteDbReady(): void {
     // Không throw để tránh crash cold start; Prisma sẽ throw rõ hơn khi query nếu vẫn fail.
     // Intentionally silent in production to avoid noisy logs on serverless cold starts.
   }
+
+  // Trả về URL SQLite đã chuẩn hoá để PrismaClient dùng trực tiếp (không phụ thuộc env runtime)
+  return tmpUrl;
 }
 
 function createPrismaClient() {
-  ensureProductionSqliteDbReady();
+  const forcedDatasourceUrl = ensureProductionSqliteDbReady();
 
   // Check DATABASE_URL before creating client
-  if (!process.env.DATABASE_URL) {
+  if (!forcedDatasourceUrl && !process.env.DATABASE_URL) {
     const error = new Error('DATABASE_URL environment variable is not set');
     (error as any).code = 'DATABASE_URL_MISSING';
     // Log warning but still create client - error will be thrown when connecting
@@ -77,7 +66,7 @@ function createPrismaClient() {
     }
   }
 
-  const databaseUrl = process.env.DATABASE_URL || '';
+  const databaseUrl = forcedDatasourceUrl ?? process.env.DATABASE_URL ?? '';
 
   // Validate DATABASE_URL format cho PostgreSQL
   if (databaseUrl && !databaseUrl.startsWith('file:')) {
@@ -136,12 +125,12 @@ Vui lòng kiểm tra file .env hoặc .env.local và sửa DATABASE_URL.`;
   // Neon provides pooled connections via ?pgbouncer=true or separate pooled connection string
   // Không override datasources để Prisma tự đọc từ schema.prisma
   const client = new PrismaClient({
-    // Override datasource URL explicitly để tránh trường hợp env bị set sai trên production
-    // hoặc Prisma engine cache giá trị env trước khi ta kịp chỉnh.
-    ...(process.env.DATABASE_URL
+    // Override datasource URL explicitly để tránh case env bị set sai trên production
+    // và đảm bảo Prisma luôn dùng URL đã chuẩn hoá.
+    ...(databaseUrl
       ? {
           datasources: {
-            db: { url: process.env.DATABASE_URL },
+            db: { url: databaseUrl },
           },
         }
       : {}),
