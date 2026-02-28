@@ -24,7 +24,7 @@ export async function GET(
 
         // Now fetch related data separately to handle errors gracefully
         try {
-            const [createdBy, quotations, cashFlows] = await Promise.all([
+            const [createdBy, quotations, cashFlows, members] = await Promise.all([
                 // Fetch createdBy user
                 prisma.user.findUnique({
                     where: { id: project.createdById },
@@ -81,6 +81,21 @@ export async function GET(
                         return [];
                     });
                 }),
+                
+                // Fetch project members
+                prisma.projectMember.findMany({
+                    where: { projectId: resolvedParams.id },
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            },
+                        },
+                    },
+                    orderBy: { createdAt: 'asc' },
+                }).catch(() => []), // Return empty array on error
             ]);
 
             // If createdBy is null but we have a createdById, try to get a fallback user
@@ -104,6 +119,13 @@ export async function GET(
             // Attach related data
             (project as any).quotations = quotations || [];
             (project as any).cashFlows = cashFlows || [];
+            (project as any).members = (members || []).map((member: any) => ({
+                id: member.id,
+                userId: member.userId,
+                role: member.role,
+                user: member.user,
+                createdAt: member.createdAt,
+            }));
 
             return NextResponse.json({ success: true, data: project });
         } catch (relationError: any) {
@@ -111,6 +133,7 @@ export async function GET(
             // Return project with minimal data if relations fail
             (project as any).quotations = [];
             (project as any).cashFlows = [];
+            (project as any).members = [];
             return NextResponse.json({ success: true, data: project });
         }
     } catch (error: any) {
