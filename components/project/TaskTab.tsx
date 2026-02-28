@@ -429,7 +429,7 @@ function StatusDropdown({
             <button
                 type="button"
                 onClick={() => setIsOpen((prev) => !prev)}
-                aria-expanded={isOpen}
+                aria-expanded={isOpen ? 'true' : 'false'}
                 className="w-full h-[46px] px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium pr-10 transition-all cursor-pointer flex items-center justify-between"
             >
                 <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] leading-none font-extrabold border whitespace-nowrap ${STATUS_CONFIG[value].color}`}>
