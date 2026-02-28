@@ -980,7 +980,7 @@ export default function TaskTab({
             status: task.status,
             priority: task.priority,
             progress: task.progress,
-            assignedToId: task.assignedToIdId || '',
+            assignedToId: task.assignedToId || '',
             phase: task.phase || '',
             discipline: task.discipline || '',
             location: task.location || '',
@@ -3000,7 +3000,7 @@ export default function TaskTab({
                                                         {inlineEdit?.taskId === task.id && inlineEdit.field === 'assignedToId' ? (
                                                             <select
                                                                 autoFocus
-                                                                value={task.assignedToIdId || ''}
+                                                                value={task.assignedToId || ''}
                                                                 onChange={(e) => {
                                                                     const value = e.target.value || null;
                                                                     void handleInlineUpdate(task.id, { assignedToId: value });
@@ -3326,7 +3326,7 @@ export default function TaskTab({
                                                               inlineEdit.field === 'assignedToId' ? (
                                                                   <select
                                                                       autoFocus
-                                                                      value={task.assignedToIdId || ''}
+                                                                      value={task.assignedToId || ''}
                                                                       onChange={(e) => {
                                                                           const value = e.target.value || null;
                                                                           void handleInlineUpdate(task.id, {
@@ -3651,7 +3651,7 @@ export default function TaskTab({
                                                             <input
                                                                 autoFocus
                                                                 type="text"
-                                                                defaultValue={task.assignedToIdId || ''}
+                                                                defaultValue={task.assignedToId || ''}
                                                                 list={`task-assignees-inline-${projectId}`}
                                                                 className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                                                                 placeholder="Nhập tên hoặc chọn từ danh sách"
