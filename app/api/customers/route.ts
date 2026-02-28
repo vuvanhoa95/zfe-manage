@@ -1,6 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { customerCreateSchema, type CustomerCreateInput } from '@/lib/validation/customer';
+
+async function ensureCustomerSchema() {
+    // Tạo bảng customers tối thiểu nếu chưa tồn tại (SQLite)
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "customers" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "name" TEXT NOT NULL,
+            "taxCode" TEXT,
+            "address" TEXT,
+            "location" TEXT,
+            "contactName" TEXT,
+            "email" TEXT,
+            "phone" TEXT,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Index cơ bản để search nhanh hơn, nếu đã tồn tại thì bỏ qua
+    try {
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "customers_name_idx" ON "customers"("name")`
+        );
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS "customers_taxCode_idx" ON "customers"("taxCode")`
+        );
+    } catch {}
+}
 
 // GET /api/customers - List all customers
 export async function GET(request: NextRequest) {
@@ -18,15 +49,45 @@ export async function GET(request: NextRequest) {
             ];
         }
 
-        const customers = await prisma.customer.findMany({
-            where,
-            orderBy: { name: 'asc' },
-            include: {
-                _count: {
-                    select: { projects: true },
+        let customers: {
+            id: string;
+            name: string;
+            taxCode: string | null;
+            address: string | null;
+            location: string | null;
+            contactName: string | null;
+            email: string | null;
+            phone: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            _count: { projects: number };
+        }[];
+        try {
+            customers = await prisma.customer.findMany({
+                where,
+                orderBy: { name: 'asc' },
+                include: {
+                    _count: {
+                        select: { projects: true },
+                    },
                 },
-            },
-        });
+            });
+        } catch (innerError: any) {
+            const isPrismaKnownError = innerError instanceof Prisma.PrismaClientKnownRequestError;
+            const message: string = innerError?.message ?? '';
+            const isMissingTable =
+                (isPrismaKnownError && (innerError.code === 'P2021' || innerError.code === 'P2022')) ||
+                /does not exist in the current database/i.test(message) ||
+                /no such table/i.test(message);
+
+            if (isMissingTable) {
+                // CSDL mới, chưa có bảng customers → tạo schema tối thiểu rồi trả về danh sách rỗng
+                await ensureCustomerSchema();
+                customers = [];
+            } else {
+                throw innerError;
+            }
+        }
 
         const data = customers.map((c: {
             id: string;
@@ -82,17 +143,45 @@ export async function POST(request: NextRequest) {
 
         const body: CustomerCreateInput = parsed.data;
 
-        const customer = await prisma.customer.create({
-            data: {
-                name: body.name,
-                taxCode: body.taxCode,
-                address: body.address,
-                location: body.location,
-                contactName: body.contactName,
-                email: body.email,
-                phone: body.phone,
-            },
-        });
+        let customer;
+        try {
+            customer = await prisma.customer.create({
+                data: {
+                    name: body.name,
+                    taxCode: body.taxCode,
+                    address: body.address,
+                    location: body.location,
+                    contactName: body.contactName,
+                    email: body.email,
+                    phone: body.phone,
+                },
+            });
+        } catch (innerError: any) {
+            const isPrismaKnownError = innerError instanceof Prisma.PrismaClientKnownRequestError;
+            const message: string = innerError?.message ?? '';
+            const isMissingTable =
+                (isPrismaKnownError && (innerError.code === 'P2021' || innerError.code === 'P2022')) ||
+                /does not exist in the current database/i.test(message) ||
+                /no such table/i.test(message);
+
+            if (isMissingTable) {
+                // Nếu bảng customers chưa tồn tại, tạo schema tối thiểu rồi retry một lần
+                await ensureCustomerSchema();
+                customer = await prisma.customer.create({
+                    data: {
+                        name: body.name,
+                        taxCode: body.taxCode,
+                        address: body.address,
+                        location: body.location,
+                        contactName: body.contactName,
+                        email: body.email,
+                        phone: body.phone,
+                    },
+                });
+            } else {
+                throw innerError;
+            }
+        }
 
         return NextResponse.json({
             success: true,

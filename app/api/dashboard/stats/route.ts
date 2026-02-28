@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { cache, cacheKeys } from '@/lib/cache';
+
+function getEmptyDashboardStats() {
+    const quotationsByStatus = { draft: 0, sent: 0, accepted: 0, rejected: 0 };
+
+    return {
+        totalQuotations: 0,
+        quotationsByStatus,
+        projectedRevenue: {
+            beforeVat: 0,
+            afterVat: 0,
+        },
+        costs: {
+            outsource: 0,
+            tax: 0,
+            commission: 0,
+            total: 0,
+        },
+        profit: {
+            amount: 0,
+            margin: 0,
+        },
+        monthlyChartData: [],
+        recentQuotations: [],
+        paymentMilestones: [],
+    };
+}
 
 // GET /api/dashboard/stats - Get dashboard statistics
 export async function GET(request: NextRequest) {
@@ -293,6 +320,26 @@ export async function GET(request: NextRequest) {
             stack: error?.stack,
             name: error?.name,
         });
+
+        const isPrismaKnownError = error instanceof Prisma.PrismaClientKnownRequestError;
+        const message: string = error?.message ?? '';
+
+        const isMissingTable =
+            (isPrismaKnownError && (error.code === 'P2021' || error.code === 'P2022')) ||
+            /does not exist in the current database/i.test(message) ||
+            /no such table/i.test(message);
+
+        if (isMissingTable) {
+            // DB / bảng báo giá chưa được khởi tạo → coi như "chưa có dữ liệu", không phải lỗi 500.
+            const emptyResult = getEmptyDashboardStats();
+            return NextResponse.json({
+                success: true,
+                data: emptyResult,
+                hasData: false,
+                warning: 'Cơ sở dữ liệu chưa có báo giá nào, Dashboard đang hiển thị dữ liệu trống.',
+            });
+        }
+
         return NextResponse.json(
             {
                 success: false,
