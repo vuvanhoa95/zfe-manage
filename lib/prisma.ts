@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const globalForPrisma = globalThis as unknown as {
@@ -20,6 +20,7 @@ function parseSqliteFilePath(databaseUrl: string): string | null {
 function ensureProductionSqliteDbReady(): string | null {
   // Mục tiêu: tránh 500 trên Vercel khi DATABASE_URL bị set sai format (không có `file:`)
   // và tránh lỗi read-only khi trỏ vào file nằm trong bundle.
+  // ⚠️ KHÔNG copy dữ liệu local lên production - chỉ tạo DB trống mới.
   if (process.env.NODE_ENV !== 'production') return null;
 
   // Luôn dùng /tmp cho SQLite trên serverless vì writable.
@@ -27,23 +28,19 @@ function ensureProductionSqliteDbReady(): string | null {
   const tmpDbPath = join(tmpDir, 'zfemanage.db');
   const tmpUrl = `file:${tmpDbPath}`;
 
-  // Chuẩn bị file DB trong /tmp (copy từ dev.db nếu có, nếu không thì tạo file rỗng)
+  // Chuẩn bị file DB trống trong /tmp (KHÔNG copy từ local)
   try {
     mkdirSync(tmpDir, { recursive: true });
-    if (!existsSync(tmpDbPath)) {
-      // Ưu tiên copy DB seed đã migrate sẵn trong repo (đang được commit) để app chạy ngay.
-      const candidateSources = [
-        join(process.cwd(), 'prisma', 'prisma', 'dev.db'),
-        join(process.cwd(), 'prisma', 'dev.db'),
-      ];
-      const source = candidateSources.find((p) => existsSync(p));
-      if (source) {
-        copyFileSync(source, tmpDbPath);
-      } else {
-        // Fallback: tạo file rỗng; Prisma/SQLite sẽ tạo file DB nhưng schema có thể chưa có tables.
-        writeFileSync(tmpDbPath, '');
+    // Xóa DB cũ nếu có để reset database trên production
+    if (existsSync(tmpDbPath)) {
+      try {
+        unlinkSync(tmpDbPath);
+      } catch (unlinkError) {
+        // Ignore nếu không xóa được (có thể đang được dùng)
       }
     }
+    // Tạo file DB trống mới - Prisma sẽ tự tạo schema khi chạy migrations/queries
+    writeFileSync(tmpDbPath, '');
   } catch (error) {
     // Không throw để tránh crash cold start; Prisma sẽ throw rõ hơn khi query nếu vẫn fail.
     // Intentionally silent in production to avoid noisy logs on serverless cold starts.
