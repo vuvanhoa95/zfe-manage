@@ -589,36 +589,102 @@ export async function POST(request: NextRequest) {
                 },
             });
         } catch (error: any) {
+            // Log error để debug
+            if (process.env.NODE_ENV === 'development') {
+                console.error('[API] Error creating project:', {
+                    error: error?.message,
+                    code: error?.code,
+                    projectNo,
+                    name,
+                    finalUserId,
+                });
+            }
+
             if (isMissingTableError(error)) {
                 await ensureCoreSchema();
                 // Retry sau khi tạo schema
-                project = await prisma.project.create({
-                    data: {
-                        projectNo,
-                        name,
-                        code,
-                        description,
-                        customerId: customerId || null,
-                        location: location || 'Hà Nội',
-                        startDate: startDate ? new Date(startDate) : null,
-                        endDate: endDate ? new Date(endDate) : null,
-                        totalArea,
-                        notes,
-                        imageUrl: imageUrl || null,
-                        createdById: finalUserId,
-                    },
-                    include: {
-                        customer: true,
-                    },
-                });
+                try {
+                    project = await prisma.project.create({
+                        data: {
+                            projectNo,
+                            name,
+                            code,
+                            description,
+                            customerId: customerId || null,
+                            location: location || 'Hà Nội',
+                            startDate: startDate ? new Date(startDate) : null,
+                            endDate: endDate ? new Date(endDate) : null,
+                            totalArea,
+                            notes,
+                            imageUrl: imageUrl || null,
+                            createdById: finalUserId,
+                        },
+                        include: {
+                            customer: true,
+                        },
+                    });
+                } catch (retryError: any) {
+                    // Nếu vẫn lỗi sau khi ensure schema, log và throw
+                    console.error('[API] Error creating project after schema ensure:', retryError);
+                    throw retryError;
+                }
             } else {
-                throw error;
+                // Nếu là lỗi unique constraint (projectNo đã tồn tại), thử generate lại
+                if (error?.code === 'P2002' && error?.meta?.target?.includes('projectNo')) {
+                    // ProjectNo đã tồn tại, thử tăng số sequence
+                    const maxRetries = 10;
+                    for (let i = 1; i <= maxRetries; i++) {
+                        try {
+                            const newSeq = parseInt(projectNo.split('-')[2]) + i;
+                            const newProjectNo = `PRJ-${currentYear}-${newSeq.toString().padStart(4, '0')}`;
+                            
+                            project = await prisma.project.create({
+                                data: {
+                                    projectNo: newProjectNo,
+                                    name,
+                                    code,
+                                    description,
+                                    customerId: customerId || null,
+                                    location: location || 'Hà Nội',
+                                    startDate: startDate ? new Date(startDate) : null,
+                                    endDate: endDate ? new Date(endDate) : null,
+                                    totalArea,
+                                    notes,
+                                    imageUrl: imageUrl || null,
+                                    createdById: finalUserId,
+                                },
+                                include: {
+                                    customer: true,
+                                },
+                            });
+                            break; // Thành công, thoát loop
+                        } catch (retryError: any) {
+                            if (i === maxRetries) {
+                                // Đã thử hết, throw lỗi
+                                throw new Error('Không thể tạo số dự án duy nhất. Vui lòng thử lại.');
+                            }
+                            // Tiếp tục thử với số tiếp theo
+                        }
+                    }
+                } else {
+                    throw error;
+                }
             }
         }
 
         return NextResponse.json({ success: true, data: project }, { status: 201 });
     } catch (error: any) {
         console.error('Failed to create project:', error);
+        
+        // Log chi tiết trong development
+        if (process.env.NODE_ENV === 'development') {
+            console.error('[API] Project creation error details:', {
+                message: error?.message,
+                code: error?.code,
+                meta: error?.meta,
+                stack: error?.stack,
+            });
+        }
 
         if (isMissingTableError(error)) {
             // Tự động tạo schema và thử lại (nếu chưa thử)
@@ -644,13 +710,43 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Xử lý các loại lỗi cụ thể
+        let errorMessage = error?.message || 'Không thể tạo dự án. Vui lòng thử lại.';
+        let statusCode = 500;
+
+        // Prisma error codes
+        if (error?.code === 'P2002') {
+            // Unique constraint violation
+            const target = error?.meta?.target;
+            if (Array.isArray(target) && target.includes('projectNo')) {
+                errorMessage = 'Số dự án đã tồn tại. Vui lòng thử lại.';
+            } else if (Array.isArray(target) && target.includes('code')) {
+                errorMessage = 'Mã dự án đã tồn tại. Vui lòng sử dụng mã khác.';
+            } else {
+                errorMessage = 'Dữ liệu đã tồn tại trong hệ thống.';
+            }
+            statusCode = 400;
+        } else if (error?.code === 'P2003') {
+            // Foreign key constraint violation
+            errorMessage = 'Dữ liệu tham chiếu không hợp lệ (khách hàng hoặc người dùng không tồn tại).';
+            statusCode = 400;
+        } else if (error?.message && (error.message.includes('validation') || error.message.includes('invalid'))) {
+            // Validation errors
+            errorMessage = error.message;
+            statusCode = 400;
+        }
+
         return NextResponse.json(
             {
                 success: false,
-                error: error?.message || 'Không thể tạo dự án. Vui lòng thử lại.',
-                details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error?.message,
+                    code: error?.code,
+                    meta: error?.meta,
+                } : undefined,
             },
-            { status: 500 }
+            { status: statusCode }
         );
     }
 }
