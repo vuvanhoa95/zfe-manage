@@ -53,7 +53,9 @@ export function groupAndSort<T>(
             getFieldValue(item, config.field)
         );
         
-        const firstValue = getFieldValue(sorted[0] || null, config.field);
+        const firstValue = sorted.length > 0 
+            ? getFieldValue(sorted[0], config.field)
+            : null;
         groupValues.set(groupKey, firstValue);
         
         const groupLabel = getFieldLabel
