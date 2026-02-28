@@ -26,7 +26,7 @@ const INITIAL_FORM: UserFormState = {
 };
 
 export default function UsersPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const currentUser: any = session?.user || { role: 'GUEST' };
 
     const [users, setUsers] = useState<AppUser[]>([]);
@@ -36,16 +36,23 @@ export default function UsersPage() {
     const [editingUser, setEditingUser] = useState<AppUser | null>(null);
     const [form, setForm] = useState<UserFormState>(INITIAL_FORM);
 
-    const isAdmin = currentUser.role === 'ADMIN';
+    // Chỉ check isAdmin sau khi session đã load xong
+    const sessionLoading = status === 'loading';
+    const isAdmin = !sessionLoading && currentUser.role === 'ADMIN';
 
     useEffect(() => {
+        // Chờ session load xong trước khi check admin
+        if (sessionLoading) {
+            return;
+        }
+
         if (isAdmin) {
             void fetchUsers();
         } else {
             setIsLoading(false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin]);
+    }, [isAdmin, sessionLoading]);
 
     const fetchUsers = async () => {
         setIsLoading(true);
@@ -146,6 +153,21 @@ export default function UsersPage() {
         }
     };
 
+    // Hiển thị loading khi session đang load
+    if (sessionLoading || (isLoading && isAdmin)) {
+        return (
+            <div className="px-4 py-4 md:px-6 md:py-5">
+                <div className="max-w-xl mx-auto bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zf-primary"></div>
+                        <span className="ml-3 text-gray-700">Đang tải...</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Hiển thị message nếu không phải admin (sau khi session đã load xong)
     if (!isAdmin) {
         return (
             <div className="px-4 py-4 md:px-6 md:py-5">
@@ -155,6 +177,11 @@ export default function UsersPage() {
                         Chức năng <span className="font-semibold">Quản lý User</span> chỉ dành cho tài khoản{' '}
                         <span className="font-semibold">Admin</span>. Vui lòng đăng nhập bằng tài khoản có quyền phù hợp.
                     </p>
+                    {process.env.NODE_ENV === 'development' && (
+                        <p className="text-xs text-gray-500 mt-2">
+                            Debug: Session status: {status}, Role: {currentUser.role || 'undefined'}
+                        </p>
+                    )}
                 </div>
             </div>
         );
