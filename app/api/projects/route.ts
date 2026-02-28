@@ -239,23 +239,45 @@ export async function GET(request: NextRequest) {
     } catch (error: unknown) {
         console.error('Failed to fetch projects:', error);
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            const knownError = error as Prisma.PrismaClientKnownRequestError;
-            if (knownError.code === 'P2021') {
+        // Kiểm tra xem có phải lỗi "table does not exist" không
+        const message: string = error instanceof Error ? error.message : '';
+        const isMissingTable =
+            (error instanceof Prisma.PrismaClientKnownRequestError &&
+                (error.code === 'P2021' || error.code === 'P2022')) ||
+            /does not exist in the current database/i.test(message) ||
+            /no such table/i.test(message);
+
+        if (isMissingTable) {
+            // Tự động tạo schema và trả về danh sách rỗng
+            try {
+                await ensureCoreSchema();
+                return NextResponse.json({
+                    success: true,
+                    data: [],
+                    pagination: {
+                        page: parseInt(new URL(request.url).searchParams.get('page') || '1'),
+                        pageSize: parseInt(new URL(request.url).searchParams.get('pageSize') || '20'),
+                        total: 0,
+                        totalPages: 0,
+                    },
+                    hasData: false,
+                    warning: 'Cơ sở dữ liệu chưa có dự án nào, đang hiển thị danh sách trống.',
+                });
+            } catch (schemaError: any) {
+                console.error('Failed to create schema:', schemaError);
                 return NextResponse.json(
                     {
                         success: false,
-                        error:
-                            'Cơ sở dữ liệu chưa được khởi tạo/migrate. Vui lòng chạy migrate (và seed nếu cần) rồi thử lại.',
-                        details:
-                            process.env.NODE_ENV === 'development'
-                                ? { code: knownError.code, meta: knownError.meta, message: knownError.message }
-                                : undefined,
+                        error: 'Không thể khởi tạo cơ sở dữ liệu. Vui lòng liên hệ admin.',
+                        details: process.env.NODE_ENV === 'development' ? schemaError?.message : undefined,
                     },
                     { status: 500 }
                 );
             }
+        }
 
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            const knownError = error as Prisma.PrismaClientKnownRequestError;
             return NextResponse.json(
                 {
                     success: false,
@@ -269,24 +291,12 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        if (error instanceof Error && /no such table/i.test(error.message)) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    error:
-                        'Cơ sở dữ liệu chưa có bảng cần thiết. Vui lòng chạy migrate/seed để tạo schema trước khi sử dụng.',
-                    details: process.env.NODE_ENV === 'development' ? { message: error.message } : undefined,
-                },
-                { status: 500 }
-            );
-        }
-
-        const message = error instanceof Error ? error.message : 'Internal Server Error';
+        const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
         return NextResponse.json(
             {
                 success: false,
                 error: 'Lỗi hệ thống. Vui lòng thử lại.',
-                details: process.env.NODE_ENV === 'development' ? { message } : undefined,
+                details: process.env.NODE_ENV === 'development' ? { message: errorMessage } : undefined,
             },
             { status: 500 }
         );
@@ -295,6 +305,17 @@ export async function GET(request: NextRequest) {
 
 async function getUserIdFromSessionOrFallback(explicitUserId?: string | null): Promise<string | null> {
     try {
+        // Đảm bảo schema tồn tại trước khi query (tránh lỗi "table does not exist")
+        // Gọi ensureCoreSchema() một lần để đảm bảo các bảng cơ bản đã tồn tại
+        // Function này sẽ không làm gì nếu schema đã tồn tại (CREATE TABLE IF NOT EXISTS)
+        try {
+            await ensureCoreSchema();
+        } catch (schemaError: any) {
+            // Ignore schema errors - có thể schema đã tồn tại một phần
+            // Nếu thực sự thiếu bảng, các query sau sẽ catch và handle
+            console.warn('ensureCoreSchema warning (may be safe to ignore):', schemaError?.message);
+        }
+
         // 1. Nếu client truyền lên createdById thì ưu tiên dùng, nhưng phải tồn tại trong DB
         if (explicitUserId) {
             try {
@@ -389,10 +410,32 @@ async function getUserIdFromSessionOrFallback(explicitUserId?: string | null): P
  */
 async function ensureDefaultUser(): Promise<string | null> {
     try {
+        // Đảm bảo schema đã tồn tại trước khi query
+        await ensureCoreSchema();
+
         // Kiểm tra xem đã có user nào chưa
-        const existingUser = await prisma.user.findFirst({
-            select: { id: true },
-        });
+        let existingUser;
+        try {
+            existingUser = await prisma.user.findFirst({
+                select: { id: true },
+            });
+        } catch (error: any) {
+            const message: string = error?.message ?? '';
+            const isMissingTable =
+                (error instanceof Prisma.PrismaClientKnownRequestError &&
+                    (error.code === 'P2021' || error.code === 'P2022')) ||
+                /does not exist in the current database/i.test(message) ||
+                /no such table/i.test(message);
+
+            if (isMissingTable) {
+                // Schema vừa tạo nhưng có thể chưa sync, thử lại
+                await ensureCoreSchema();
+                existingUser = null;
+            } else {
+                throw error;
+            }
+        }
+
         if (existingUser) {
             return existingUser.id;
         }
@@ -415,6 +458,35 @@ async function ensureDefaultUser(): Promise<string | null> {
         return defaultUser.id;
     } catch (error: any) {
         console.error('Failed to create default user:', error);
+        // Nếu vẫn lỗi sau khi đã ensure schema, có thể là lỗi khác
+        const message: string = error?.message ?? '';
+        const isMissingTable =
+            (error instanceof Prisma.PrismaClientKnownRequestError &&
+                (error.code === 'P2021' || error.code === 'P2022')) ||
+            /does not exist in the current database/i.test(message) ||
+            /no such table/i.test(message);
+
+        if (isMissingTable) {
+            // Thử lại một lần nữa với schema mới
+            try {
+                await ensureCoreSchema();
+                const bcrypt = require('bcryptjs');
+                const hashedPassword = await bcrypt.hash('admin123', 10);
+                const defaultUser = await prisma.user.create({
+                    data: {
+                        email: 'admin@zfenix.local',
+                        password: hashedPassword,
+                        name: 'Admin',
+                        role: 'ADMIN',
+                    },
+                    select: { id: true },
+                });
+                return defaultUser.id;
+            } catch (retryError) {
+                console.error('Failed to create default user after retry:', retryError);
+                return null;
+            }
+        }
         return null;
     }
 }
