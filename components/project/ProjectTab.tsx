@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -72,8 +72,7 @@ const getProjectImageUrl = (imageUrl?: string | null): string | null => {
     return `/${trimmed}`;
 };
 
-function ProjectTabContent() {
-    const searchParams = useSearchParams();
+export default function ProjectTab() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -84,19 +83,21 @@ function ProjectTabContent() {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [groupConfig, setGroupConfig] = useState<GroupConfig | null>(null);
     const [activeTab, setActiveTab] = useState<'group' | 'subtasks' | 'columns'>('group');
+    const searchParams = useSearchParams();
 
+    // Fetch projects khi component mount hoặc khi filter thay đổi
     useEffect(() => {
         fetchProjects();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusFilter, yearFilter]);
 
-    // Xá»­ lÃ½ query param _refresh Ä‘á»ƒ force refresh danh sÃ¡ch
+    // Xử lý query param _refresh để force refresh danh sách
     useEffect(() => {
         const refreshParam = searchParams?.get('_refresh');
         if (refreshParam) {
-            // Force refresh danh sÃ¡ch khi cÃ³ query param _refresh
+            // Force refresh danh sách khi có query param _refresh
             fetchProjects();
-            // XÃ³a query param sau khi refresh Ä‘á»ƒ trÃ¡nh refresh láº¡i khi user navigate
+            // Xóa query param sau khi refresh để tránh refresh lại khi user navigate
             if (typeof window !== 'undefined') {
                 const url = new URL(window.location.href);
                 url.searchParams.delete('_refresh');
@@ -108,16 +109,21 @@ function ProjectTabContent() {
 
     const fetchProjects = async () => {
         setIsLoading(true);
+        setProjectsError(null); // Clear error trước khi fetch mới
         try {
             let url = '/api/projects?';
             if (statusFilter) url += `status=${statusFilter}&`;
             if (yearFilter) url += `year=${yearFilter}&`;
             if (searchQuery) url += `search=${searchQuery}&`;
+            // Thêm timestamp để bypass browser cache
+            url += `_t=${Date.now()}`;
 
             const res = await fetch(url, {
                 cache: 'no-store',
                 headers: {
-                    'Cache-Control': 'no-cache',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
                 },
             });
             
@@ -135,10 +141,13 @@ function ProjectTabContent() {
                 'data' in result &&
                 Array.isArray((result as { data?: Project[] }).data)
             ) {
-                setProjects((result as { data: Project[] }).data);
+                const projectsData = (result as { data: Project[] }).data;
+                // Luôn cập nhật state, kể cả khi mảng rỗng (để đảm bảo sync với DB)
+                setProjects(projectsData);
                 setProjectsError(null);
             } else {
                 console.error('API returned unexpected payload when fetching projects:', result);
+                // Nếu response không đúng format, chỉ set error, không xóa projects cũ
                 setProjectsError('Phản hồi từ server không đúng định dạng. Vui lòng thử lại sau.');
             }
         } catch (err: unknown) {
@@ -147,6 +156,7 @@ function ProjectTabContent() {
                 console.error('Error details:', err.message, err.stack);
             }
             // Không xóa danh sách cũ để tránh cảm giác "mất dự án" khi có lỗi tạm thời
+            // Chỉ set error, giữ nguyên projects state
             setProjectsError(
                 err instanceof Error
                     ? err.message
@@ -847,19 +857,3 @@ function ProjectTabContent() {
     );
 }
 
-import { Suspense } from 'react';
-
-export default function ProjectTab() {
-    return (
-        <Suspense fallback={
-            <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Äang táº£i...</p>
-                </div>
-            </div>
-        }>
-            <ProjectTabContent />
-        </Suspense>
-    );
-}

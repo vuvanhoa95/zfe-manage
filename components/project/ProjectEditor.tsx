@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -215,7 +215,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                             // Ignore localStorage errors
                         }
                     }
-                    // Redirect vá»›i timestamp Ä‘á»ƒ force refresh danh sÃ¡ch dá»± Ã¡n
+                    // Redirect với timestamp để force refresh danh sách dự án
                     router.push(`/projects?_refresh=${Date.now()}`);
                     return;
                 }
@@ -376,6 +376,24 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
             const result = await res.json();
 
             if (!res.ok) {
+                // Nếu project không tồn tại (404), redirect về danh sách dự án
+                if (res.status === 404) {
+                    console.warn('Project not found when saving, redirecting to /projects');
+                    // Clear any cached project data
+                    if (typeof window !== 'undefined') {
+                        try {
+                            const cacheKeys = Object.keys(localStorage).filter(key => 
+                                key.startsWith('project:') || key.startsWith('projects:')
+                            );
+                            cacheKeys.forEach(key => localStorage.removeItem(key));
+                        } catch (e) {
+                            // Ignore localStorage errors
+                        }
+                    }
+                    // Redirect với timestamp để force refresh danh sách dự án
+                    router.push(`/projects?_refresh=${Date.now()}`);
+                    return;
+                }
                 throw new Error(result.error || `HTTP error! status: ${res.status}`);
             }
 

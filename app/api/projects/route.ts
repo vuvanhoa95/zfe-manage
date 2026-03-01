@@ -94,13 +94,14 @@ export async function GET(request: NextRequest) {
         const yearParam = searchParams.get('year');
         
         // Check cache (only for non-search queries to avoid stale data)
-        if (!search) {
-            const cacheKey = cacheKeys.projectList(searchParams.toString());
-            const cached = cache.get(cacheKey);
-            if (cached) {
-                return NextResponse.json({ ...cached, cached: true });
-            }
-        }
+        // DISABLED: Cache có thể gây ra race condition và hiển thị data rỗng khi reload
+        // if (!search) {
+        //     const cacheKey = cacheKeys.projectList(searchParams.toString());
+        //     const cached = cache.get(cacheKey);
+        //     if (cached) {
+        //         return NextResponse.json({ ...cached, cached: true });
+        //     }
+        // }
 
         const where: Prisma.ProjectWhereInput = {};
 
@@ -231,11 +232,12 @@ export async function GET(request: NextRequest) {
             },
         };
 
+        // DISABLED: Cache có thể gây ra race condition và hiển thị data rỗng khi reload
         // Cache for 30 seconds (only if no search)
-        if (!search) {
-            const cacheKey = cacheKeys.projectList(searchParams.toString());
-            cache.set(cacheKey, result, 30000);
-        }
+        // if (!search) {
+        //     const cacheKey = cacheKeys.projectList(searchParams.toString());
+        //     cache.set(cacheKey, result, 30000);
+        // }
 
         return NextResponse.json(result);
     } catch (error: unknown) {
