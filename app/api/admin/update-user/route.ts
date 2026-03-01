@@ -110,6 +110,27 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Verify user was created/updated
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[API] User created/updated successfully:', {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+            });
+            
+            // Double-check by querying
+            const verify = await prisma.user.findUnique({
+                where: { id: user.id },
+                select: { id: true, email: true, name: true, role: true },
+            });
+            if (!verify) {
+                console.error('[API] WARNING: User was created but cannot be found in database!');
+            } else {
+                console.log('[API] Verified: User exists in database');
+            }
+        }
+
         return NextResponse.json({
             success: true,
             message: existingUser ? 'Đã cập nhật user thành công' : 'Đã tạo user mới thành công',

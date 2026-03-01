@@ -595,6 +595,26 @@ export async function POST(request: NextRequest) {
                     customer: true,
                 },
             });
+
+            // Verify project was created
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[API] Project created successfully:', {
+                    id: project.id,
+                    projectNo: project.projectNo,
+                    name: project.name,
+                });
+                
+                // Double-check by querying
+                const verify = await prisma.project.findUnique({
+                    where: { id: project.id },
+                    select: { id: true, projectNo: true, name: true },
+                });
+                if (!verify) {
+                    console.error('[API] WARNING: Project was created but cannot be found in database!');
+                } else {
+                    console.log('[API] Verified: Project exists in database');
+                }
+            }
         } catch (error: any) {
             // Log error để debug
             if (process.env.NODE_ENV === 'development') {
