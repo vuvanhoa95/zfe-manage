@@ -79,6 +79,22 @@ class SimpleCache {
     size(): number {
         return this.cache.size;
     }
+
+    /**
+     * Clear all cache entries matching a pattern
+     * @param pattern - String pattern to match (e.g., 'projects:list:')
+     */
+    clearByPattern(pattern: string): void {
+        const keysToDelete: string[] = [];
+        for (const key of this.cache.keys()) {
+            if (key.includes(pattern)) {
+                keysToDelete.push(key);
+            }
+        }
+        for (const key of keysToDelete) {
+            this.cache.delete(key);
+        }
+    }
 }
 
 export const cache = new SimpleCache();
