@@ -5,6 +5,9 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["sin1"],
+  "env": {
+    "SKIP_MIGRATIONS": "true"
+  },
   "functions": {
     "app/api/quotations/[id]/export-pdf/route.ts": {
       "maxDuration": 60
