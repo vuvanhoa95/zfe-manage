@@ -72,7 +72,7 @@ const getProjectImageUrl = (imageUrl?: string | null): string | null => {
     return `/${trimmed}`;
 };
 
-export default function ProjectTab() {
+function ProjectTabContent() {
     const searchParams = useSearchParams();
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -844,5 +844,22 @@ export default function ProjectTab() {
                 )}
             </div>
         </div>
+    );
+}
+
+import { Suspense } from 'react';
+
+export default function ProjectTab() {
+    return (
+        <Suspense fallback={
+            <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Äang táº£i...</p>
+                </div>
+            </div>
+        }>
+            <ProjectTabContent />
+        </Suspense>
     );
 }
