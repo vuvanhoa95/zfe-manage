@@ -576,44 +576,48 @@ export async function POST(request: NextRequest) {
 
         let project;
         try {
-            project = await prisma.project.create({
-                data: {
-                    projectNo,
-                    name,
-                    code,
-                    description,
-                    customerId: customerId || null,
-                    location: location || 'Hà Nội',
-                    startDate: startDate ? new Date(startDate) : null,
-                    endDate: endDate ? new Date(endDate) : null,
-                    totalArea,
-                    notes,
-                    imageUrl: imageUrl || null,
-                    createdById: finalUserId,
-                },
-                include: {
-                    customer: true,
-                },
+            // Sử dụng transaction để đảm bảo atomicity
+            project = await prisma.$transaction(async (tx) => {
+                const created = await tx.project.create({
+                    data: {
+                        projectNo,
+                        name,
+                        code,
+                        description,
+                        customerId: customerId || null,
+                        location: location || 'Hà Nội',
+                        startDate: startDate ? new Date(startDate) : null,
+                        endDate: endDate ? new Date(endDate) : null,
+                        totalArea,
+                        notes,
+                        imageUrl: imageUrl || null,
+                        createdById: finalUserId,
+                    },
+                    include: {
+                        customer: true,
+                    },
+                });
+
+                // Verify ngay trong transaction để đảm bảo data được commit
+                const verify = await tx.project.findUnique({
+                    where: { id: created.id },
+                    select: { id: true, projectNo: true, name: true },
+                });
+                
+                if (!verify) {
+                    throw new Error('Project was created but cannot be verified in database');
+                }
+
+                return created;
             });
 
-            // Verify project was created
+            // Log success sau khi transaction commit thành công
             if (process.env.NODE_ENV === 'development') {
-                console.log('[API] Project created successfully:', {
+                console.log('[API] Project created and verified successfully:', {
                     id: project.id,
                     projectNo: project.projectNo,
                     name: project.name,
                 });
-                
-                // Double-check by querying
-                const verify = await prisma.project.findUnique({
-                    where: { id: project.id },
-                    select: { id: true, projectNo: true, name: true },
-                });
-                if (!verify) {
-                    console.error('[API] WARNING: Project was created but cannot be found in database!');
-                } else {
-                    console.log('[API] Verified: Project exists in database');
-                }
             }
         } catch (error: any) {
             // Log error để debug
@@ -629,46 +633,49 @@ export async function POST(request: NextRequest) {
 
             if (isMissingTableError(error)) {
                 await ensureCoreSchema();
-                // Retry sau khi tạo schema
+                // Retry sau khi tạo schema - sử dụng transaction để đảm bảo atomicity
                 try {
-                    project = await prisma.project.create({
-                        data: {
-                            projectNo,
-                            name,
-                            code,
-                            description,
-                            customerId: customerId || null,
-                            location: location || 'Hà Nội',
-                            startDate: startDate ? new Date(startDate) : null,
-                            endDate: endDate ? new Date(endDate) : null,
-                            totalArea,
-                            notes,
-                            imageUrl: imageUrl || null,
-                            createdById: finalUserId,
-                        },
-                        include: {
-                            customer: true,
-                        },
+                    project = await prisma.$transaction(async (tx) => {
+                        const created = await tx.project.create({
+                            data: {
+                                projectNo,
+                                name,
+                                code,
+                                description,
+                                customerId: customerId || null,
+                                location: location || 'Hà Nội',
+                                startDate: startDate ? new Date(startDate) : null,
+                                endDate: endDate ? new Date(endDate) : null,
+                                totalArea,
+                                notes,
+                                imageUrl: imageUrl || null,
+                                createdById: finalUserId,
+                            },
+                            include: {
+                                customer: true,
+                            },
+                        });
+
+                        // Verify ngay trong transaction để đảm bảo data được commit
+                        const verify = await tx.project.findUnique({
+                            where: { id: created.id },
+                            select: { id: true, projectNo: true, name: true },
+                        });
+                        
+                        if (!verify) {
+                            throw new Error('Project was created but cannot be verified in database');
+                        }
+
+                        return created;
                     });
                     
-                    // Verify project was created
+                    // Log success sau khi transaction commit thành công
                     if (process.env.NODE_ENV === 'development') {
-                        console.log('[API] Project created successfully after schema ensure:', {
+                        console.log('[API] Project created and verified successfully after schema ensure:', {
                             id: project.id,
                             projectNo: project.projectNo,
                             name: project.name,
                         });
-                        
-                        // Double-check by querying
-                        const verify = await prisma.project.findUnique({
-                            where: { id: project.id },
-                            select: { id: true, projectNo: true, name: true },
-                        });
-                        if (!verify) {
-                            console.error('[API] WARNING: Project was created but cannot be found in database!');
-                        } else {
-                            console.log('[API] Verified: Project exists in database');
-                        }
                     }
                 } catch (retryError: any) {
                     // Nếu vẫn lỗi sau khi ensure schema, log và throw

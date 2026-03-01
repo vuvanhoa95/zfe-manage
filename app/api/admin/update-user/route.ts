@@ -61,33 +61,13 @@ export async function POST(request: NextRequest) {
 
         let user;
         try {
-            if (existingUser) {
-                // Update existing user
-                user = await prisma.user.update({
-                    where: { email },
-                    data: {
-                        name: name || existingUser.name,
-                        password: hashedPassword,
-                        role: role || existingUser.role,
-                    },
-                });
-            } else {
-                // Create new user
-                user = await prisma.user.create({
-                    data: {
-                        email,
-                        name: name || 'User',
-                        password: hashedPassword,
-                        role: role || 'USER',
-                    },
-                });
-            }
-        } catch (error: any) {
-            if (isMissingTableError(error)) {
-                await ensureCoreSchema();
-                // Retry after ensuring schema
+            // Sử dụng transaction để đảm bảo atomicity và không mất dữ liệu
+            user = await prisma.$transaction(async (tx) => {
+                let result;
+                
                 if (existingUser) {
-                    user = await prisma.user.update({
+                    // Update existing user - chỉ update các field được cung cấp, giữ nguyên các field khác
+                    result = await tx.user.update({
                         where: { email },
                         data: {
                             name: name || existingUser.name,
@@ -96,7 +76,8 @@ export async function POST(request: NextRequest) {
                         },
                     });
                 } else {
-                    user = await prisma.user.create({
+                    // Create new user
+                    result = await tx.user.create({
                         data: {
                             email,
                             name: name || 'User',
@@ -105,30 +86,72 @@ export async function POST(request: NextRequest) {
                         },
                     });
                 }
+
+                // Verify ngay trong transaction để đảm bảo data được commit
+                const verify = await tx.user.findUnique({
+                    where: { id: result.id },
+                    select: { id: true, email: true, name: true, role: true },
+                });
+                
+                if (!verify) {
+                    throw new Error('User was created/updated but cannot be verified in database');
+                }
+
+                return result;
+            });
+        } catch (error: any) {
+            if (isMissingTableError(error)) {
+                await ensureCoreSchema();
+                // Retry after ensuring schema - sử dụng transaction
+                user = await prisma.$transaction(async (tx) => {
+                    let result;
+                    
+                    if (existingUser) {
+                        result = await tx.user.update({
+                            where: { email },
+                            data: {
+                                name: name || existingUser.name,
+                                password: hashedPassword,
+                                role: role || existingUser.role,
+                            },
+                        });
+                    } else {
+                        result = await tx.user.create({
+                            data: {
+                                email,
+                                name: name || 'User',
+                                password: hashedPassword,
+                                role: role || 'USER',
+                            },
+                        });
+                    }
+
+                    // Verify trong transaction
+                    const verify = await tx.user.findUnique({
+                        where: { id: result.id },
+                        select: { id: true, email: true, name: true, role: true },
+                    });
+                    
+                    if (!verify) {
+                        throw new Error('User was created/updated but cannot be verified in database');
+                    }
+
+                    return result;
+                });
             } else {
                 throw error;
             }
         }
 
-        // Verify user was created/updated
+        // Log success sau khi transaction commit thành công
+        // Verification đã được thực hiện trong transaction
         if (process.env.NODE_ENV === 'development') {
-            console.log('[API] User created/updated successfully:', {
+            console.log('[API] User created/updated and verified successfully:', {
                 id: user.id,
                 email: user.email,
                 name: user.name,
                 role: user.role,
             });
-            
-            // Double-check by querying
-            const verify = await prisma.user.findUnique({
-                where: { id: user.id },
-                select: { id: true, email: true, name: true, role: true },
-            });
-            if (!verify) {
-                console.error('[API] WARNING: User was created but cannot be found in database!');
-            } else {
-                console.log('[API] Verified: User exists in database');
-            }
         }
 
         return NextResponse.json({

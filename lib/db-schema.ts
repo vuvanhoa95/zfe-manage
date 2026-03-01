@@ -7,6 +7,8 @@ import { Prisma } from '@prisma/client';
  * - quotations, cash_flows
  * - outsourcing_staff
  * Được gọi tự động khi detect lỗi "table does not exist"
+ * 
+ * ⚠️ AN TOÀN: Chỉ dùng CREATE TABLE IF NOT EXISTS - KHÔNG xóa hoặc thay đổi dữ liệu hiện có
  */
 export async function ensureCoreSchema() {
     // 1. Tạo bảng users (cần thiết cho createdById)
