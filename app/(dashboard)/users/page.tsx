@@ -57,7 +57,7 @@ export default function UsersPage() {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch('/api/users?limit=200', {
+            const res = await fetch('/api/users?limit=1000', {
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache',
