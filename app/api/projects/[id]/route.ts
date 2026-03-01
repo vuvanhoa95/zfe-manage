@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { projectUpdateSchema, type ProjectUpdateInput } from '@/lib/validation/project';
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 export async function GET(
     request: NextRequest,
@@ -167,6 +169,9 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         // Handle both sync and async params (Next.js 15+)
         const resolvedParams = params instanceof Promise ? await params : params;
 
@@ -174,8 +179,23 @@ export async function PUT(
         const parsed = projectUpdateSchema.safeParse(json);
 
         if (!parsed.success) {
+            const errors = parsed.error.flatten();
+            const errorMessages = Object.entries(errors.fieldErrors)
+                .map(([field, messages]) => {
+                    if (messages && messages.length > 0) {
+                        return `${field}: ${messages.join(', ')}`;
+                    }
+                    return null;
+                })
+                .filter(Boolean)
+                .join('; ');
+
             return NextResponse.json(
-                { success: false, error: 'Dữ liệu dự án không hợp lệ', details: parsed.error.flatten() },
+                {
+                    success: false,
+                    error: errorMessages || 'Dữ liệu dự án không hợp lệ',
+                    details: process.env.NODE_ENV === 'development' ? errors : undefined,
+                },
                 { status: 400 },
             );
         }
@@ -183,25 +203,188 @@ export async function PUT(
         const body: ProjectUpdateInput = parsed.data;
         const { name, code, description, customerId, location, startDate, endDate, totalArea, status, notes, imageUrl } = body;
 
-        const project = await prisma.project.update({
+        // Verify project exists before updating
+        const existingProject = await prisma.project.findUnique({
             where: { id: resolvedParams.id },
-            data: {
-                name,
-                code,
-                description,
-                customerId: customerId === undefined ? undefined : customerId || null,
-                location,
-                startDate: startDate === undefined ? undefined : startDate ? new Date(startDate) : null,
-                endDate: endDate === undefined ? undefined : endDate ? new Date(endDate) : null,
-                totalArea,
-                status,
-                notes,
-                imageUrl: imageUrl === undefined ? undefined : typeof imageUrl === 'string' ? imageUrl : imageUrl === null ? null : undefined,
-            },
-            include: {
-                customer: true,
-            },
+            select: { id: true },
         });
+
+        if (!existingProject) {
+            return NextResponse.json(
+                { success: false, error: 'Dự án không tồn tại' },
+                { status: 404 },
+            );
+        }
+
+        // Verify customer exists if provided
+        if (customerId) {
+            try {
+                const customer = await prisma.customer.findUnique({
+                    where: { id: customerId },
+                });
+                if (!customer) {
+                    return NextResponse.json({ success: false, error: 'Khách hàng không tồn tại' }, { status: 400 });
+                }
+            } catch (error: any) {
+                if (isMissingTableError(error)) {
+                    console.warn('[API] Customers table missing, attempting to create schema and retry...');
+                    await ensureCoreSchema();
+                    // Sau khi tạo schema, customer vẫn không tồn tại → trả lỗi
+                    return NextResponse.json({ success: false, error: 'Khách hàng không tồn tại' }, { status: 400 });
+                }
+                throw error;
+            }
+        }
+
+        let project;
+        try {
+            // Sử dụng transaction để đảm bảo atomicity
+            project = await prisma.$transaction(async (tx) => {
+                const updated = await tx.project.update({
+                    where: { id: resolvedParams.id },
+                    data: {
+                        name,
+                        code,
+                        description,
+                        customerId: customerId === undefined ? undefined : customerId || null,
+                        location,
+                        startDate: startDate === undefined ? undefined : startDate ? new Date(startDate) : null,
+                        endDate: endDate === undefined ? undefined : endDate ? new Date(endDate) : null,
+                        totalArea,
+                        status,
+                        notes,
+                        imageUrl: imageUrl === undefined ? undefined : typeof imageUrl === 'string' ? imageUrl : imageUrl === null ? null : undefined,
+                    },
+                    include: {
+                        customer: true,
+                    },
+                });
+
+                // Verify ngay trong transaction để đảm bảo data được commit
+                const verify = await tx.project.findUnique({
+                    where: { id: updated.id },
+                    select: { id: true, name: true, code: true },
+                });
+
+                if (!verify) {
+                    throw new Error('Project was updated but cannot be verified in database');
+                }
+
+                return updated;
+            });
+
+            // Log success sau khi transaction commit thành công
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[API] Project updated and verified successfully:', {
+                    id: project.id,
+                    name: project.name,
+                    code: project.code,
+                });
+            }
+        } catch (error: any) {
+            // Log error để debug
+            if (process.env.NODE_ENV === 'development') {
+                console.error('[API] Error updating project:', {
+                    error: error?.message,
+                    code: error?.code,
+                    projectId: resolvedParams.id,
+                });
+            }
+
+            if (isMissingTableError(error)) {
+                console.warn('[API] Projects table missing, attempting to create schema and retry...');
+                await ensureCoreSchema();
+                // Retry sau khi tạo schema - sử dụng transaction
+                try {
+                    project = await prisma.$transaction(async (tx) => {
+                        const updated = await tx.project.update({
+                            where: { id: resolvedParams.id },
+                            data: {
+                                name,
+                                code,
+                                description,
+                                customerId: customerId === undefined ? undefined : customerId || null,
+                                location,
+                                startDate: startDate === undefined ? undefined : startDate ? new Date(startDate) : null,
+                                endDate: endDate === undefined ? undefined : endDate ? new Date(endDate) : null,
+                                totalArea,
+                                status,
+                                notes,
+                                imageUrl: imageUrl === undefined ? undefined : typeof imageUrl === 'string' ? imageUrl : imageUrl === null ? null : undefined,
+                            },
+                            include: {
+                                customer: true,
+                            },
+                        });
+
+                        // Verify ngay trong transaction
+                        const verify = await tx.project.findUnique({
+                            where: { id: updated.id },
+                            select: { id: true, name: true, code: true },
+                        });
+
+                        if (!verify) {
+                            throw new Error('Project was updated but cannot be verified in database');
+                        }
+
+                        return updated;
+                    });
+
+                    // Log success sau khi transaction commit
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('[API] Project updated and verified successfully after schema ensure:', {
+                            id: project.id,
+                            name: project.name,
+                            code: project.code,
+                        });
+                    }
+                } catch (retryError: any) {
+                    // Nếu vẫn lỗi sau khi ensure schema, log và throw
+                    console.error('[API] Error updating project after schema ensure:', retryError);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[API] Retry error details:', {
+                            message: retryError?.message,
+                            code: retryError?.code,
+                            meta: retryError?.meta,
+                        });
+                    }
+                    throw retryError;
+                }
+            } else if (error?.code === 'P2025') {
+                // Record not found
+                return NextResponse.json(
+                    { success: false, error: 'Dự án không tồn tại hoặc đã bị xóa' },
+                    { status: 404 },
+                );
+            } else if (error?.code === 'P2002') {
+                // Unique constraint violation
+                if (error?.meta?.target?.includes('code')) {
+                    return NextResponse.json(
+                        { success: false, error: 'Mã dự án đã tồn tại. Vui lòng sử dụng mã khác.' },
+                        { status: 409 }, // Conflict
+                    );
+                } else if (error?.meta?.target?.includes('projectNo')) {
+                    return NextResponse.json(
+                        { success: false, error: 'Số dự án đã tồn tại. Vui lòng thử lại.' },
+                        { status: 409 }, // Conflict
+                    );
+                } else {
+                    throw error;
+                }
+            } else if (error?.code === 'P2003') {
+                // Foreign key constraint violation
+                if (error?.meta?.field_name?.includes('customerId')) {
+                    return NextResponse.json(
+                        { success: false, error: 'Khách hàng không hợp lệ. Vui lòng chọn khách hàng khác.' },
+                        { status: 400 },
+                    );
+                } else {
+                    throw error;
+                }
+            } else {
+                throw error;
+            }
+        }
 
         // Trigger email if endDate was updated and is defined
         if (endDate) {
@@ -223,6 +406,10 @@ export async function PUT(
             }
         }
 
+        // Clear project list cache sau khi update project
+        const { cache, cacheKeys } = await import('@/lib/cache');
+        cache.clearByPattern('projects:list:');
+
         return NextResponse.json({
             success: true,
             data: project,
@@ -230,14 +417,45 @@ export async function PUT(
         });
     } catch (error: any) {
         console.error('Failed to update project:', error);
+
+        if (process.env.NODE_ENV === 'development') {
+            console.error('[API] Project update error details:', {
+                message: error?.message,
+                code: error?.code,
+                meta: error?.meta,
+                stack: error?.stack,
+            });
+        }
+
+        if (isMissingTableError(error)) {
+            // Tự động tạo schema và thử lại (nếu chưa thử)
+            try {
+                await ensureCoreSchema();
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error:
+                            'Cơ sở dữ liệu đã được khởi tạo. Vui lòng thử lại cập nhật dự án. Nếu vẫn lỗi, vui lòng liên hệ admin.',
+                    },
+                    { status: 500 },
+                );
+            } catch (schemaError: any) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Không thể khởi tạo cơ sở dữ liệu. Vui lòng liên hệ admin.',
+                        details: process.env.NODE_ENV === 'development' ? schemaError?.message : undefined,
+                    },
+                    { status: 500 },
+                );
+            }
+        }
+
         return NextResponse.json(
             {
                 success: false,
-                error: 'Không thể cập nhật dự án',
-                details:
-                    process.env.NODE_ENV === 'development'
-                        ? { message: error?.message, code: error?.code, meta: error?.meta }
-                        : undefined,
+                error: error?.message || 'Không thể cập nhật dự án. Vui lòng thử lại.',
+                details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
             },
             { status: 500 },
         );
