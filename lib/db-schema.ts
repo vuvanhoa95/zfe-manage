@@ -141,7 +141,37 @@ export async function ensureCoreSchema() {
         )
     `);
 
-    // 6. Tạo bảng outsourcing_staff (dùng cho quản lý nhân sự outsource)
+    // 6. Tạo bảng tasks (phụ thuộc projects và users)
+    await prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS "tasks" (
+            "id" TEXT NOT NULL PRIMARY KEY,
+            "projectId" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "description" TEXT,
+            "startDate" DATETIME,
+            "endDate" DATETIME,
+            "dueDate" DATETIME,
+            "status" TEXT NOT NULL DEFAULT 'TODO',
+            "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
+            "progress" INTEGER NOT NULL DEFAULT 0,
+            "assignedToId" TEXT,
+            "parentId" TEXT,
+            "phase" TEXT,
+            "discipline" TEXT,
+            "location" TEXT,
+            "order" REAL NOT NULL DEFAULT 0,
+            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "tasks_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+            CONSTRAINT "tasks_assignedToId_fkey" FOREIGN KEY ("assignedToId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
+            CONSTRAINT "tasks_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "tasks"("id") ON DELETE SET NULL ON UPDATE CASCADE
+        )
+    `);
+    if (process.env.NODE_ENV === 'development') {
+        console.log('[DB Schema] "tasks" table ensured.');
+    }
+
+    // 7. Tạo bảng outsourcing_staff (dùng cho quản lý nhân sự outsource)
     await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "outsourcing_staff" (
             "id" TEXT NOT NULL PRIMARY KEY,
@@ -213,6 +243,18 @@ export async function ensureCoreSchema() {
         await prisma.$executeRawUnsafe(
             `CREATE INDEX IF NOT EXISTS "outsourcing_staff_code_idx" ON "outsourcing_staff"("code")`,
         );
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId")`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedToId_idx" ON "tasks"("assignedToId")`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_parentId_idx" ON "tasks"("parentId")`);
     } catch {}
 }
 

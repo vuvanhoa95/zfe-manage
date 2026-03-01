@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { taskUpdateSchema, type TaskUpdateInput } from '@/lib/validation/task';
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 function isUuid(value: string): boolean {
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -41,6 +43,9 @@ export async function PUT(
     { params }: { params: Promise<{ taskId: string }> | { taskId: string } },
 ) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         const resolvedParams = params instanceof Promise ? await params : params;
         const taskId = resolvedParams.taskId;
         const rawBody = await request.json();
@@ -48,13 +53,41 @@ export async function PUT(
         const parsed = taskUpdateSchema.safeParse(rawBody);
 
         if (!parsed.success) {
+            const errors = parsed.error.flatten();
+            const errorMessages = Object.entries(errors.fieldErrors)
+                .map(([field, messages]) => {
+                    if (messages && messages.length > 0) {
+                        return `${field}: ${messages.join(', ')}`;
+                    }
+                    return null;
+                })
+                .filter(Boolean)
+                .join('; ');
+
             return NextResponse.json(
-                { success: false, error: 'Dữ liệu công việc không hợp lệ', details: parsed.error.flatten() },
+                {
+                    success: false,
+                    error: errorMessages || 'Dữ liệu công việc không hợp lệ',
+                    details: process.env.NODE_ENV === 'development' ? errors : undefined,
+                },
                 { status: 400 },
             );
         }
 
         const data: TaskUpdateInput = parsed.data;
+        
+        // Verify task exists before updating
+        const existingTask = await prisma.task.findUnique({
+            where: { id: taskId },
+            select: { id: true },
+        });
+
+        if (!existingTask) {
+            return NextResponse.json(
+                { success: false, error: 'Công việc không tồn tại' },
+                { status: 404 },
+            );
+        }
         
         // Xử lý assignedToId: nếu có trong data thì resolve, nếu không thì không update
         let resolvedAssignedToId: string | null | undefined = undefined;
@@ -67,7 +100,9 @@ export async function PUT(
 
         let task;
         try {
-            task = await prisma.task.update({
+            // Sử dụng transaction để đảm bảo atomicity
+            task = await prisma.$transaction(async (tx) => {
+                const updated = await tx.task.update({
                 where: { id: taskId },
                 data: {
                     title: data.title,
@@ -115,9 +150,38 @@ export async function PUT(
                     location: true,
                     createdAt: true,
                     updatedAt: true,
-                },
+                });
+
+                // Verify ngay trong transaction để đảm bảo data được commit
+                const verify = await tx.task.findUnique({
+                    where: { id: updated.id },
+                    select: { id: true, title: true },
+                });
+
+                if (!verify) {
+                    throw new Error('Task was updated but cannot be verified in database');
+                }
+
+                return updated;
             });
-        } catch (innerError) {
+
+            // Log success sau khi transaction commit thành công
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[API] Task updated and verified successfully:', {
+                    id: task.id,
+                    title: task.title,
+                });
+            }
+        } catch (innerError: any) {
+            // Log error để debug
+            if (process.env.NODE_ENV === 'development') {
+                console.error('[API] Error updating task:', {
+                    error: innerError?.message,
+                    code: innerError?.code,
+                    taskId,
+                });
+            }
+
             // Nếu Prisma Client đang cũ (chưa có parentId) thì retry bỏ parentId
             if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
                 console.warn('Prisma Client missing parentId on UPDATE, retrying without parentId...');

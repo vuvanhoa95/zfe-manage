@@ -305,50 +305,16 @@ export async function POST(
 
         let task;
         try {
-            task = await prisma.task.create({
-                data: {
-                    projectId,
-                    title: data.title,
-                    description: data.description ?? null,
-                    startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
-                    endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
-                    // dueDate, phase, discipline, location sẽ được map sau khi cập nhật Prisma client
-                    status: data.status,
-                    priority: data.priority,
-                    progress: data.progress,
-                    assignedToId: assignedToId ?? null,
-                    parentId: data.parentId ?? null,
-                    order: 0,
-                },
-                select: {
-                    id: true,
-                    projectId: true,
-                    title: true,
-                    description: true,
-                    startDate: true,
-                    endDate: true,
-                    status: true,
-                    priority: true,
-                    progress: true,
-                    assignedToId: true,
-                    assignee: { select: { name: true } },
-                    parentId: true,
-                    createdAt: true,
-                    updatedAt: true,
-                },
-            });
-        } catch (innerError) {
-            // Nếu table không tồn tại, đảm bảo schema và retry
-            if (isMissingTableError(innerError)) {
-                await ensureCoreSchema();
-                // Retry create task
-                task = await prisma.task.create({
+            // Sử dụng transaction để đảm bảo atomicity
+            task = await prisma.$transaction(async (tx) => {
+                const created = await tx.task.create({
                     data: {
                         projectId,
-                        title: data.title,
-                        description: data.description ?? null,
+                        title: data.title.trim(),
+                        description: data.description?.trim() || null,
                         startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
                         endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
+                        // dueDate, phase, discipline, location sẽ được map sau khi cập nhật Prisma client
                         status: data.status,
                         priority: data.priority,
                         progress: data.progress,
@@ -373,6 +339,111 @@ export async function POST(
                         updatedAt: true,
                     },
                 });
+
+                // Verify ngay trong transaction để đảm bảo data được commit
+                const verify = await tx.task.findUnique({
+                    where: { id: created.id },
+                    select: { id: true, title: true },
+                });
+
+                if (!verify) {
+                    throw new Error('Task was created but cannot be verified in database');
+                }
+
+                return created;
+            });
+
+            // Log success sau khi transaction commit thành công
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[API] Task created and verified successfully:', {
+                    id: task.id,
+                    title: task.title,
+                    projectId: task.projectId,
+                });
+            }
+        } catch (innerError: any) {
+            // Log error để debug
+            if (process.env.NODE_ENV === 'development') {
+                console.error('[API] Error creating task:', {
+                    error: innerError?.message,
+                    code: innerError?.code,
+                    projectId,
+                    title: data.title,
+                });
+            }
+
+            // Nếu table không tồn tại, đảm bảo schema và retry
+            if (isMissingTableError(innerError)) {
+                console.warn('[API] Tasks table missing, attempting to create schema and retry...');
+                await ensureCoreSchema();
+                // Retry sau khi tạo schema - sử dụng transaction
+                try {
+                    task = await prisma.$transaction(async (tx) => {
+                        const created = await tx.task.create({
+                            data: {
+                                projectId,
+                                title: data.title.trim(),
+                                description: data.description?.trim() || null,
+                                startDate: data.startDate ? new Date(data.startDate as string | Date) : null,
+                                endDate: data.endDate ? new Date(data.endDate as string | Date) : null,
+                                status: data.status,
+                                priority: data.priority,
+                                progress: data.progress,
+                                assignedToId: assignedToId ?? null,
+                                parentId: data.parentId ?? null,
+                                order: 0,
+                            },
+                            select: {
+                                id: true,
+                                projectId: true,
+                                title: true,
+                                description: true,
+                                startDate: true,
+                                endDate: true,
+                                status: true,
+                                priority: true,
+                                progress: true,
+                                assignedToId: true,
+                                assignee: { select: { name: true } },
+                                parentId: true,
+                                createdAt: true,
+                                updatedAt: true,
+                            },
+                        });
+
+                        // Verify ngay trong transaction
+                        const verify = await tx.task.findUnique({
+                            where: { id: created.id },
+                            select: { id: true, title: true },
+                        });
+
+                        if (!verify) {
+                            throw new Error('Task was created but cannot be verified in database');
+                        }
+
+                        return created;
+                    });
+
+                    // Log success sau khi transaction commit
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('[API] Task created and verified successfully after schema ensure:', {
+                            id: task.id,
+                            title: task.title,
+                            projectId: task.projectId,
+                        });
+                    }
+                } catch (retryError: any) {
+                    // Nếu vẫn lỗi sau khi ensure schema, log và throw
+                    console.error('[API] Error creating task after schema ensure:', retryError);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[API] Retry error details:', {
+                            message: retryError?.message,
+                            code: retryError?.code,
+                            meta: retryError?.meta,
+                        });
+                    }
+                    throw retryError;
+                }
             }
             // Nếu Prisma Client đang cũ (chưa có parentId) thì retry bỏ parentId để vẫn tạo được task
             else if (innerError instanceof Error && /Unknown argument [`'"]parentId[`'"]/.test(innerError.message)) {
