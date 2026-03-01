@@ -74,6 +74,7 @@ const getProjectImageUrl = (imageUrl?: string | null): string | null => {
 export default function ProjectTab() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [projectsError, setProjectsError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('');
     const [yearFilter, setYearFilter] = useState<string>('');
@@ -103,7 +104,7 @@ export default function ProjectTab() {
             });
             
             if (!res.ok) {
-                throw new Error(`HTTP error! status: ${res.status}`);
+                throw new Error(`Không thể tải danh sách dự án (status: ${res.status})`);
             }
             
             const result = (await res.json()) as { success?: boolean; data?: Project[] } | unknown;
@@ -117,16 +118,22 @@ export default function ProjectTab() {
                 Array.isArray((result as { data?: Project[] }).data)
             ) {
                 setProjects((result as { data: Project[] }).data);
+                setProjectsError(null);
             } else {
                 console.error('API returned unexpected payload when fetching projects:', result);
-                setProjects([]);
+                setProjectsError('Phản hồi từ server không đúng định dạng. Vui lòng thử lại sau.');
             }
         } catch (err: unknown) {
             console.error('❌ Failed to fetch projects:', err);
             if (err instanceof Error) {
                 console.error('Error details:', err.message, err.stack);
             }
-            setProjects([]);
+            // Không xóa danh sách cũ để tránh cảm giác "mất dự án" khi có lỗi tạm thời
+            setProjectsError(
+                err instanceof Error
+                    ? err.message
+                    : 'Không thể tải danh sách dự án. Vui lòng thử lại sau.',
+            );
         } finally {
             setIsLoading(false);
         }
@@ -622,6 +629,13 @@ export default function ProjectTab() {
                 </div>
 
                 {/* Projects List */}
+                {projectsError && !isLoading && (
+                    <div className="mb-3 px-4 py-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">
+                        {projects.length > 0
+                            ? `${projectsError} – Danh sách dự án đang hiển thị là dữ liệu lần tải trước.`
+                            : projectsError}
+                    </div>
+                )}
                 {isLoading ? (
                     <div className="p-10 text-center text-zf-text-secondary bg-white rounded-3xl border border-zf-bg-secondary">
                         Đang tải dữ liệu...

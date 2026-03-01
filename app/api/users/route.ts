@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
             where.role = role;
         }
 
-        // Luôn dùng select tối thiểu để tương thích với Prisma Client hiện tại
-        const rawUsers = await prisma.user.findMany({
+        // Lấy đầy đủ thông tin hồ sơ người dùng theo schema hiện tại
+        const users = await prisma.user.findMany({
             where,
             select: {
                 id: true,
@@ -59,22 +59,17 @@ export async function GET(request: NextRequest) {
                 email: true,
                 role: true,
                 createdAt: true,
+                title: true,
+                department: true,
+                experience: true,
+                bankAccount: true,
+                taxCode: true,
             },
             orderBy: {
                 name: 'asc',
             },
             take: limit,
         });
-
-        // Map thêm các field mới (có thể null nếu chưa có trong DB)
-        const users = rawUsers.map((user: any) => ({
-            ...user,
-            title: null,
-            department: null,
-            experience: null,
-            bankAccount: null,
-            taxCode: null,
-        }));
 
         return NextResponse.json({
             success: true,
