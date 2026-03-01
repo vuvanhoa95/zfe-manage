@@ -2,50 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { customerCreateSchema, type CustomerCreateInput } from '@/lib/validation/customer';
-
-async function ensureCustomerSchema() {
-    // Tạo bảng customers tối thiểu nếu chưa tồn tại (SQLite)
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "customers" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "name" TEXT NOT NULL,
-            "taxCode" TEXT,
-            "address" TEXT,
-            "location" TEXT,
-            "contactName" TEXT,
-            "email" TEXT,
-            "phone" TEXT,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Index cơ bản để search nhanh hơn, nếu đã tồn tại thì bỏ qua
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "customers_name_idx" ON "customers"("name")`
-        );
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "customers_taxCode_idx" ON "customers"("taxCode")`
-        );
-    } catch {}
-}
+import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
 // GET /api/customers - List all customers
 export async function GET(request: NextRequest) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         const searchParams = request.nextUrl.searchParams;
         const search = searchParams.get('search');
 
         const where: Record<string, unknown> = {};
 
         if (search) {
+            // SQLite không hỗ trợ mode: 'insensitive', dùng contains thôi
+            // Case-insensitive sẽ được xử lý ở application level nếu cần
             where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { taxCode: { contains: search, mode: 'insensitive' } },
-                { contactName: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search } },
+                { taxCode: { contains: search } },
+                { contactName: { contains: search } },
             ];
         }
 
@@ -73,16 +49,9 @@ export async function GET(request: NextRequest) {
                 },
             });
         } catch (innerError: any) {
-            const isPrismaKnownError = innerError instanceof Prisma.PrismaClientKnownRequestError;
-            const message: string = innerError?.message ?? '';
-            const isMissingTable =
-                (isPrismaKnownError && (innerError.code === 'P2021' || innerError.code === 'P2022')) ||
-                /does not exist in the current database/i.test(message) ||
-                /no such table/i.test(message);
-
-            if (isMissingTable) {
+            if (isMissingTableError(innerError)) {
                 // CSDL mới, chưa có bảng customers → tạo schema tối thiểu rồi trả về danh sách rỗng
-                await ensureCustomerSchema();
+                await ensureCoreSchema();
                 customers = [];
             } else {
                 throw innerError;
@@ -131,12 +100,30 @@ export async function GET(request: NextRequest) {
 // POST /api/customers - Create new customer
 export async function POST(request: NextRequest) {
     try {
+        // Đảm bảo schema tồn tại trước khi thao tác với database
+        await ensureCoreSchema();
+
         const json = await request.json();
         const parsed = customerCreateSchema.safeParse(json);
 
         if (!parsed.success) {
+            const errors = parsed.error.flatten();
+            const errorMessages = Object.entries(errors.fieldErrors)
+                .map(([field, messages]) => {
+                    if (messages && messages.length > 0) {
+                        return `${field}: ${messages.join(', ')}`;
+                    }
+                    return null;
+                })
+                .filter(Boolean)
+                .join('; ');
+
             return NextResponse.json(
-                { success: false, error: 'Dữ liệu khách hàng không hợp lệ', details: parsed.error.flatten() },
+                {
+                    success: false,
+                    error: errorMessages || 'Dữ liệu khách hàng không hợp lệ',
+                    details: process.env.NODE_ENV === 'development' ? errors : undefined,
+                },
                 { status: 400 },
             );
         }
@@ -145,41 +132,112 @@ export async function POST(request: NextRequest) {
 
         let customer;
         try {
-            customer = await prisma.customer.create({
-                data: {
-                    name: body.name,
-                    taxCode: body.taxCode,
-                    address: body.address,
-                    location: body.location,
-                    contactName: body.contactName,
-                    email: body.email,
-                    phone: body.phone,
-                },
-            });
-        } catch (innerError: any) {
-            const isPrismaKnownError = innerError instanceof Prisma.PrismaClientKnownRequestError;
-            const message: string = innerError?.message ?? '';
-            const isMissingTable =
-                (isPrismaKnownError && (innerError.code === 'P2021' || innerError.code === 'P2022')) ||
-                /does not exist in the current database/i.test(message) ||
-                /no such table/i.test(message);
-
-            if (isMissingTable) {
-                // Nếu bảng customers chưa tồn tại, tạo schema tối thiểu rồi retry một lần
-                await ensureCustomerSchema();
-                customer = await prisma.customer.create({
+            // Sử dụng transaction để đảm bảo atomicity
+            customer = await prisma.$transaction(async (tx) => {
+                const created = await tx.customer.create({
                     data: {
-                        name: body.name,
-                        taxCode: body.taxCode,
-                        address: body.address,
-                        location: body.location,
-                        contactName: body.contactName,
-                        email: body.email,
-                        phone: body.phone,
+                        name: body.name.trim(),
+                        taxCode: body.taxCode?.trim() || null,
+                        address: body.address?.trim() || null,
+                        location: body.location?.trim() || null,
+                        contactName: body.contactName?.trim() || null,
+                        email: body.email?.trim() || null,
+                        phone: body.phone?.trim() || null,
                     },
                 });
+
+                // Verify ngay trong transaction để đảm bảo data được commit
+                const verify = await tx.customer.findUnique({
+                    where: { id: created.id },
+                    select: { id: true, name: true },
+                });
+
+                if (!verify) {
+                    throw new Error('Customer was created but cannot be verified in database');
+                }
+
+                return created;
+            });
+
+            // Log success sau khi transaction commit thành công
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[API] Customer created and verified successfully:', {
+                    id: customer.id,
+                    name: customer.name,
+                });
+            }
+        } catch (error: any) {
+            // Log error để debug
+            if (process.env.NODE_ENV === 'development') {
+                console.error('[API] Error creating customer:', {
+                    error: error?.message,
+                    code: error?.code,
+                    name: body.name,
+                });
+            }
+
+            if (isMissingTableError(error)) {
+                console.warn('[API] Customers table missing, attempting to create schema and retry...');
+                await ensureCoreSchema();
+                // Retry sau khi tạo schema - sử dụng transaction
+                try {
+                    customer = await prisma.$transaction(async (tx) => {
+                        const created = await tx.customer.create({
+                            data: {
+                                name: body.name.trim(),
+                                taxCode: body.taxCode?.trim() || null,
+                                address: body.address?.trim() || null,
+                                location: body.location?.trim() || null,
+                                contactName: body.contactName?.trim() || null,
+                                email: body.email?.trim() || null,
+                                phone: body.phone?.trim() || null,
+                            },
+                        });
+
+                        // Verify ngay trong transaction
+                        const verify = await tx.customer.findUnique({
+                            where: { id: created.id },
+                            select: { id: true, name: true },
+                        });
+
+                        if (!verify) {
+                            throw new Error('Customer was created but cannot be verified in database');
+                        }
+
+                        return created;
+                    });
+
+                    // Log success sau khi transaction commit
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('[API] Customer created and verified successfully after schema ensure:', {
+                            id: customer.id,
+                            name: customer.name,
+                        });
+                    }
+                } catch (retryError: any) {
+                    // Nếu vẫn lỗi sau khi ensure schema, log và throw
+                    console.error('[API] Error creating customer after schema ensure:', retryError);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[API] Retry error details:', {
+                            message: retryError?.message,
+                            code: retryError?.code,
+                            meta: retryError?.meta,
+                        });
+                    }
+                    throw retryError;
+                }
+            } else if (error?.code === 'P2002') {
+                // Unique constraint violation
+                if (error?.meta?.target?.includes('taxCode')) {
+                    return NextResponse.json(
+                        { success: false, error: 'Mã số thuế đã tồn tại. Vui lòng sử dụng mã số thuế khác.' },
+                        { status: 409 }, // Conflict
+                    );
+                } else {
+                    throw error;
+                }
             } else {
-                throw innerError;
+                throw error;
             }
         }
 
@@ -188,10 +246,48 @@ export async function POST(request: NextRequest) {
             data: customer,
             message: 'Tạo khách hàng thành công',
         });
-    } catch (error) {
-        console.error('Error creating customer:', error);
+    } catch (error: any) {
+        console.error('Failed to create customer:', error);
+
+        if (process.env.NODE_ENV === 'development') {
+            console.error('[API] Customer creation error details:', {
+                message: error?.message,
+                code: error?.code,
+                meta: error?.meta,
+                stack: error?.stack,
+            });
+        }
+
+        if (isMissingTableError(error)) {
+            // Tự động tạo schema và thử lại (nếu chưa thử)
+            try {
+                await ensureCoreSchema();
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error:
+                            'Cơ sở dữ liệu đã được khởi tạo. Vui lòng thử lại tạo khách hàng. Nếu vẫn lỗi, vui lòng liên hệ admin.',
+                    },
+                    { status: 500 },
+                );
+            } catch (schemaError: any) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        error: 'Không thể khởi tạo cơ sở dữ liệu. Vui lòng liên hệ admin.',
+                        details: process.env.NODE_ENV === 'development' ? schemaError?.message : undefined,
+                    },
+                    { status: 500 },
+                );
+            }
+        }
+
         return NextResponse.json(
-            { success: false, error: 'Không thể tạo khách hàng' },
+            {
+                success: false,
+                error: error?.message || 'Không thể tạo khách hàng. Vui lòng thử lại.',
+                details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+            },
             { status: 500 },
         );
     }
