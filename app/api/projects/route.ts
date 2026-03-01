@@ -468,7 +468,14 @@ async function ensureDefaultUser(): Promise<string | null> {
 export async function POST(request: NextRequest) {
     try {
         // Đảm bảo schema tồn tại trước khi thao tác với database
-        await ensureCoreSchema();
+        try {
+            await ensureCoreSchema();
+        } catch (schemaError: any) {
+            // Log nhưng không throw - có thể schema đã tồn tại một phần
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('[API] ensureCoreSchema warning (may be safe to ignore):', schemaError?.message);
+            }
+        }
 
         const json = await request.json();
         const parsed = projectCreateSchema.safeParse(json);

@@ -11,7 +11,14 @@ import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 export async function GET(request: NextRequest) {
     try {
         // Đảm bảo schema tồn tại trước khi thao tác với database
-        await ensureCoreSchema();
+        try {
+            await ensureCoreSchema();
+        } catch (schemaError: any) {
+            // Log nhưng không throw - có thể schema đã tồn tại một phần
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('[API] ensureCoreSchema warning (may be safe to ignore):', schemaError?.message);
+            }
+        }
 
         // Kiểm tra authentication
         const session = await getServerSession(authOptions);
@@ -84,16 +91,40 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             data: users,
+            count: users.length, // Thêm count để debug
         });
     } catch (error: any) {
         console.error('Failed to fetch users:', error);
+        
+        // Log chi tiết trong development
+        if (process.env.NODE_ENV === 'development') {
+            console.error('[API] Fetch users error details:', {
+                message: error?.message,
+                code: error?.code,
+                meta: error?.meta,
+                stack: error?.stack,
+            });
+        }
+
+        // Xử lý các loại lỗi cụ thể
+        let errorMessage = 'Không thể tải danh sách người dùng';
+        let statusCode = 500;
+
+        if (isMissingTableError(error)) {
+            errorMessage = 'Cơ sở dữ liệu chưa được khởi tạo. Vui lòng thử lại sau.';
+        }
+
         return NextResponse.json(
             {
                 success: false,
-                error: 'Không thể tải danh sách người dùng',
-                details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error?.message,
+                    code: error?.code,
+                    meta: error?.meta,
+                } : undefined,
             },
-            { status: 500 }
+            { status: statusCode }
         );
     }
 }

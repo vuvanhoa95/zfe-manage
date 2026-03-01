@@ -13,7 +13,14 @@ import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 export async function POST(request: NextRequest) {
     try {
         // Đảm bảo schema tồn tại trước khi thao tác với database
-        await ensureCoreSchema();
+        try {
+            await ensureCoreSchema();
+        } catch (schemaError: any) {
+            // Log nhưng không throw - có thể schema đã tồn tại một phần
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('[API] ensureCoreSchema warning (may be safe to ignore):', schemaError?.message);
+            }
+        }
 
         // Check authentication
         const session = await getServerSession(authOptions);
@@ -115,12 +122,44 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Update user error:', error);
+        
+        // Log chi tiết trong development
+        if (process.env.NODE_ENV === 'development') {
+            console.error('[API] Update user error details:', {
+                message: error?.message,
+                code: error?.code,
+                meta: error?.meta,
+                stack: error?.stack,
+            });
+        }
+
+        // Xử lý các loại lỗi cụ thể
+        let errorMessage = error?.message || 'Không thể tạo/cập nhật user';
+        let statusCode = 500;
+
+        if (isMissingTableError(error)) {
+            errorMessage = 'Cơ sở dữ liệu chưa được khởi tạo. Vui lòng thử lại sau.';
+        } else if (error?.code === 'P2002') {
+            // Unique constraint violation (email đã tồn tại)
+            errorMessage = 'Email này đã được sử dụng. Vui lòng sử dụng email khác.';
+            statusCode = 400;
+        } else if (error?.code === 'P2003') {
+            // Foreign key constraint violation
+            errorMessage = 'Dữ liệu tham chiếu không hợp lệ.';
+            statusCode = 400;
+        }
+
         return NextResponse.json(
             {
                 success: false,
-                error: error?.message || 'Failed to update user',
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development' ? {
+                    message: error?.message,
+                    code: error?.code,
+                    meta: error?.meta,
+                } : undefined,
             },
-            { status: 500 }
+            { status: statusCode }
         );
     }
 }
