@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { formatVND } from '@/lib/number-to-words-vn';
 import GroupTool, { type GroupConfig } from '@/components/ui/GroupTool';
@@ -72,6 +73,7 @@ const getProjectImageUrl = (imageUrl?: string | null): string | null => {
 };
 
 export default function ProjectTab() {
+    const searchParams = useSearchParams();
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -87,6 +89,22 @@ export default function ProjectTab() {
         fetchProjects();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [statusFilter, yearFilter]);
+
+    // Xá»­ lÃ½ query param _refresh Ä‘á»ƒ force refresh danh sÃ¡ch
+    useEffect(() => {
+        const refreshParam = searchParams?.get('_refresh');
+        if (refreshParam) {
+            // Force refresh danh sÃ¡ch khi cÃ³ query param _refresh
+            fetchProjects();
+            // XÃ³a query param sau khi refresh Ä‘á»ƒ trÃ¡nh refresh láº¡i khi user navigate
+            if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('_refresh');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
 
     const fetchProjects = async () => {
         setIsLoading(true);

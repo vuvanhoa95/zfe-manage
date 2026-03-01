@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
@@ -194,12 +194,29 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/projects/${projectId}`);
+            const res = await fetch(/api/projects/ + projectId, {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                },
+            });
             if (!res.ok) {
                 if (res.status === 404) {
                     console.warn('Project not found, redirecting to /projects');
-                    alert('Dự án không tồn tại hoặc đã bị xóa. Hệ thống sẽ quay về danh sách dự án.');
-                    router.push('/projects');
+                    // Clear any cached project data
+                    if (typeof window !== 'undefined') {
+                        // Clear localStorage cache if exists
+                        try {
+                            const cacheKeys = Object.keys(localStorage).filter(key => 
+                                key.startsWith('project:') || key.startsWith('projects:')
+                            );
+                            cacheKeys.forEach(key => localStorage.removeItem(key));
+                        } catch (e) {
+                            // Ignore localStorage errors
+                        }
+                    }
+                    // Redirect vá»›i timestamp Ä‘á»ƒ force refresh danh sÃ¡ch dá»± Ã¡n
+                    router.push(`/projects?_refresh=${Date.now()}`);
                     return;
                 }
                 throw new Error(`HTTP error! status: ${res.status}`);
