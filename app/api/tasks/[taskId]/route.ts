@@ -103,53 +103,54 @@ export async function PUT(
             // Sử dụng transaction để đảm bảo atomicity
             task = await prisma.$transaction(async (tx) => {
                 const updated = await tx.task.update({
-                where: { id: taskId },
-                data: {
-                    title: data.title,
-                    description: data.description ?? undefined,
-                    startDate: data.startDate
-                        ? new Date(data.startDate as string | Date)
-                        : data.startDate === null
-                          ? null
-                          : undefined,
-                    endDate: data.endDate
-                        ? new Date(data.endDate as string | Date)
-                        : data.endDate === null
-                          ? null
-                          : undefined,
-                    dueDate: data.dueDate
-                        ? new Date(data.dueDate as string | Date)
-                        : data.dueDate === null
-                          ? null
-                          : undefined,
-                    phase: data.phase ?? undefined,
-                    discipline: data.discipline ?? undefined,
-                    location: data.location ?? undefined,
-                    status: data.status,
-                    priority: data.priority,
-                    progress: typeof data.progress === 'number' ? data.progress : undefined,
-                    assignedToId: resolvedAssignedToId,
-                    parentId: data.parentId ?? undefined,
-                },
-                select: {
-                    id: true,
-                    projectId: true,
-                    title: true,
-                    description: true,
-                    startDate: true,
-                    endDate: true,
-                    status: true,
-                    priority: true,
-                    progress: true,
-                    assignedToId: true,
-                    assignee: { select: { name: true } },
-                    parentId: true,
-                    dueDate: true,
-                    phase: true,
-                    discipline: true,
-                    location: true,
-                    createdAt: true,
-                    updatedAt: true,
+                    where: { id: taskId },
+                    data: {
+                        title: data.title,
+                        description: data.description ?? undefined,
+                        startDate: data.startDate
+                            ? new Date(data.startDate as string | Date)
+                            : data.startDate === null
+                              ? null
+                              : undefined,
+                        endDate: data.endDate
+                            ? new Date(data.endDate as string | Date)
+                            : data.endDate === null
+                              ? null
+                              : undefined,
+                        dueDate: data.dueDate
+                            ? new Date(data.dueDate as string | Date)
+                            : data.dueDate === null
+                              ? null
+                              : undefined,
+                        phase: data.phase ?? undefined,
+                        discipline: data.discipline ?? undefined,
+                        location: data.location ?? undefined,
+                        status: data.status,
+                        priority: data.priority,
+                        progress: typeof data.progress === 'number' ? data.progress : undefined,
+                        assignedToId: resolvedAssignedToId,
+                        parentId: data.parentId ?? undefined,
+                    },
+                    select: {
+                        id: true,
+                        projectId: true,
+                        title: true,
+                        description: true,
+                        startDate: true,
+                        endDate: true,
+                        status: true,
+                        priority: true,
+                        progress: true,
+                        assignedToId: true,
+                        assignee: { select: { name: true } },
+                        parentId: true,
+                        dueDate: true,
+                        phase: true,
+                        discipline: true,
+                        location: true,
+                        createdAt: true,
+                        updatedAt: true,
+                    },
                 });
 
                 // Verify ngay trong transaction để đảm bảo data được commit
