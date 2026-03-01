@@ -666,7 +666,9 @@ export default function TaskTab({
     const handleInlineUpdate = useCallback(
         async (
             taskId: string,
-            patch: Partial<Pick<Task, 'status' | 'priority' | 'assignedToId' | 'progress' | 'dueDate'>>,
+            patch: Partial<Pick<Task, 'status' | 'priority' | 'assignedToId' | 'progress' | 'dueDate'>> & {
+                assignedTo?: string | null;
+            },
         ) => {
             setTasks((prev) =>
                 prev.map((task) => (task.id === taskId ? { ...task, ...patch } : task)),
@@ -682,11 +684,22 @@ export default function TaskTab({
                 if (!result.success) {
                     // Nếu API báo lỗi, load lại danh sách để tránh lệch dữ liệu
                     await fetchTasks();
+                } else {
+                    // Sau khi update thành công, fetch lại tasks để lấy đầy đủ thông tin assignee
+                    // (vì patch chỉ có assignedToId, không có assignee object với name)
+                    await fetchTasks();
+                    // Không đóng inlineEdit ở đây vì onChange đã tự đóng
+                    // Chỉ đóng cho các field khác (status, priority, etc.)
+                    if (!('assignedToId' in patch) && !('assignedTo' in patch)) {
+                        setInlineEdit((current) =>
+                            current && current.taskId === taskId ? null : current,
+                        );
+                    }
                 }
             } catch (error) {
                 console.error('Failed to update task inline:', error);
                 await fetchTasks();
-            } finally {
+                // Vẫn đóng inlineEdit ngay cả khi có lỗi để tránh UI bị kẹt
                 setInlineEdit((current) =>
                     current && current.taskId === taskId ? null : current,
                 );
@@ -3084,8 +3097,26 @@ export default function TaskTab({
                                                                 autoFocus
                                                                 value={task.assignedToId || ''}
                                                                 onChange={(e) => {
-                                                                    const value = e.target.value || null;
-                                                                    void handleInlineUpdate(task.id, { assignedToId: value });
+                                                                    const selectedId = e.target.value;
+
+                                                                    // Nếu chọn "Chưa phân công" → clear cả assignedToId và assignedTo
+                                                                    if (!selectedId) {
+                                                                        void handleInlineUpdate(task.id, {
+                                                                            assignedToId: null,
+                                                                            assignedTo: null,
+                                                                        });
+                                                                        return;
+                                                                    }
+
+                                                                    const selectedOption = staffOptions.find(
+                                                                        (option) => option.id === selectedId,
+                                                                    );
+
+                                                                    void handleInlineUpdate(task.id, {
+                                                                        assignedToId: selectedId,
+                                                                        // Gửi kèm tên để backend có thể fallback nếu cần
+                                                                        assignedTo: selectedOption?.name ?? null,
+                                                                    });
                                                                 }}
                                                                 onBlur={() => setInlineEdit(null)}
                                                                 className="px-2 py-1 rounded border border-blue-500 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
@@ -3094,7 +3125,7 @@ export default function TaskTab({
                                                             >
                                                                 <option value="">Chưa phân công</option>
                                                                 {staffOptions.map((option) => (
-                                                                    <option key={`${option.type}-${option.id}`} value={option.name}>
+                                                                    <option key={`${option.type}-${option.id}`} value={option.id}>
                                                                         {option.name}
                                                                     </option>
                                                                 ))}
@@ -3405,9 +3436,23 @@ export default function TaskTab({
                                                                       autoFocus
                                                                       value={task.assignedToId || ''}
                                                                       onChange={(e) => {
-                                                                          const value = e.target.value || null;
+                                                                          const selectedId = e.target.value;
+
+                                                                          if (!selectedId) {
+                                                                              void handleInlineUpdate(task.id, {
+                                                                                  assignedToId: null,
+                                                                                  assignedTo: null,
+                                                                              });
+                                                                              return;
+                                                                          }
+
+                                                                          const selectedOption = staffOptions.find(
+                                                                              (option) => option.id === selectedId,
+                                                                          );
+
                                                                           void handleInlineUpdate(task.id, {
-                                                                              assignedToId: value,
+                                                                              assignedToId: selectedId,
+                                                                              assignedTo: selectedOption?.name ?? null,
                                                                           });
                                                                       }}
                                                                       onBlur={() => setInlineEdit(null)}
@@ -3419,7 +3464,7 @@ export default function TaskTab({
                                                                       {staffOptions.map((option) => (
                                                                           <option
                                                                               key={`${option.type}-${option.id}`}
-                                                                              value={option.name}
+                                                                              value={option.id}
                                                                           >
                                                                               {option.name}
                                                                           </option>
@@ -3724,44 +3769,60 @@ export default function TaskTab({
                                                 <td className="px-4 py-2 align-top">
                                                     {inlineEdit?.taskId === task.id &&
                                                     inlineEdit.field === 'assignedToId' ? (
-                                                        <div className="relative min-w-[160px]">
-                                                            <input
-                                                                autoFocus
-                                                                type="text"
-                                                                defaultValue={task.assignedToId || ''}
-                                                                list={`task-assignees-inline-${projectId}`}
-                                                                className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                                                                placeholder="Nhập tên hoặc chọn từ danh sách"
-                                                                onBlur={(e) =>
-                                                                    void handleInlineUpdate(task.id, {
-                                                                        assignedToId: e.target.value,
-                                                                    })
+                                                        <select
+                                                            autoFocus
+                                                            value={task.assignedToId || ''}
+                                                            onChange={(e) => {
+                                                                e.stopPropagation();
+                                                                const value = e.target.value || null;
+                                                                const taskId = task.id;
+                                                                
+                                                                console.log('[TaskTab List View] Assigning task:', {
+                                                                    taskId,
+                                                                    taskTitle: task.title,
+                                                                    assignedToId: value,
+                                                                    selectedValue: e.target.value,
+                                                                    staffOptionsCount: staffOptions.length,
+                                                                });
+                                                                
+                                                                // Gọi handleInlineUpdate ngay lập tức
+                                                                void handleInlineUpdate(taskId, {
+                                                                    assignedToId: value,
+                                                                });
+                                                                
+                                                                // Đóng inlineEdit sau một delay nhỏ để đảm bảo onChange đã hoàn thành
+                                                                // handleInlineUpdate sẽ fetch lại tasks và cập nhật UI
+                                                                setTimeout(() => {
+                                                                    setInlineEdit((current) => {
+                                                                        if (current && current.taskId === taskId && current.field === 'assignedToId') {
+                                                                            return null;
+                                                                        }
+                                                                        return current;
+                                                                    });
+                                                                }, 100);
+                                                            }}
+                                                            className="w-full px-3 py-1.5 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Escape') {
+                                                                    setInlineEdit(null);
                                                                 }
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        e.currentTarget.blur();
-                                                                    } else if (e.key === 'Escape') {
-                                                                        setInlineEdit(null);
-                                                                    }
-                                                                }}
-                                                            />
-                                                            {staffOptions.length > 0 && (
-                                                                <datalist
-                                                                    id={`task-assignees-inline-${projectId}`}
+                                                            }}
+                                                            aria-label="Chọn người phụ trách"
+                                                        >
+                                                            <option value="">Chưa phân công</option>
+                                                            {staffOptions.map((option) => (
+                                                                <option
+                                                                    key={`${option.type}-${option.id}`}
+                                                                    value={option.id}
                                                                 >
-                                                                    {staffOptions.map((option) => (
-                                                                        <option
-                                                                            key={`${option.type}-${option.id}`}
-                                                                            value={option.name}
-                                                                        >
-                                                                            {option.discipline
-                                                                                ? `${option.name} – ${option.discipline}`
-                                                                                : option.name}
-                                                                        </option>
-                                                                    ))}
-                                                                </datalist>
-                                                            )}
-                                                        </div>
+                                                                    {option.discipline
+                                                                        ? `${option.name} – ${option.discipline}`
+                                                                        : option.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
                                                     ) : task.assignedToId ? (
                                                         <button
                                                             type="button"

@@ -237,3 +237,35 @@ Khi người dùng yêu cầu chạy commands, AI có thể sử dụng các scr
 3. Hiển thị kết quả cho người dùng
 
 **Lưu ý**: Folder `quotation-app` chỉ dùng để lưu trữ rules và documentation. Code thực tế được viết trong `ZfeManage`.
+
+---
+
+## 🚨 DATABASE PROTECTION - NGHIÊM CẤM XÓA DỮ LIỆU
+
+### ⚠️ QUY TẮC NGHIÊM NGẶT
+
+1. **NGHIÊM CẤM** xóa database trong production:
+   - ❌ Không được xóa database file (`unlinkSync`, `rm`)
+   - ❌ Không được chạy `prisma migrate reset` trên production
+   - ❌ Không được xóa dữ liệu mà không có backup và xác nhận
+
+2. **SQLite trên Vercel KHÔNG THỂ PERSIST**:
+   - SQLite file-based database trên Vercel lưu trong `/tmp` (ephemeral storage)
+   - Mỗi lần deploy/restart, `/tmp` sẽ bị reset → **MẤT TOÀN BỘ DỮ LIỆU**
+   - **PHẢI** chuyển sang PostgreSQL (Neon/Vercel Postgres) cho production
+
+3. **Code Patterns Nghiêm Cấm**:
+   ```typescript
+   // ❌ NGHIÊM CẤM: Xóa database
+   if (existsSync(dbPath)) {
+     unlinkSync(dbPath); // ← NGHIÊM CẤM!
+   }
+   ```
+
+4. **Deployment Checklist**:
+   - [ ] Database đã được backup
+   - [ ] Production dùng PostgreSQL (KHÔNG dùng SQLite)
+   - [ ] `DATABASE_URL` trên Vercel đúng format PostgreSQL
+   - [ ] Không có code xóa database trong production
+
+**Xem chi tiết**: [`.cursor/rules/database-protection.mdc`](mdc:database-protection.mdc) và [`docs/MIGRATE_TO_POSTGRESQL.md`](mdc:docs/MIGRATE_TO_POSTGRESQL.md)

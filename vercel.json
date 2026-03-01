@@ -6,7 +6,7 @@
   "framework": "nextjs",
   "regions": ["sin1"],
   "env": {
-    "SKIP_MIGRATIONS": "true"
+    "SKIP_MIGRATIONS": "false"
   },
   "functions": {
     "app/api/quotations/[id]/export-pdf/route.ts": {

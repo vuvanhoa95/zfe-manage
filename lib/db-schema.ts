@@ -19,10 +19,32 @@ export async function ensureCoreSchema() {
             "password" TEXT NOT NULL,
             "name" TEXT NOT NULL,
             "role" TEXT NOT NULL DEFAULT 'USER',
+            "title" TEXT,
+            "department" TEXT,
+            "experience" TEXT,
+            "bankAccount" TEXT,
+            "taxCode" TEXT,
             "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
+    
+    // Thêm các cột mới vào bảng users nếu chưa có (migration cho database cũ)
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "title" TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "department" TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "experience" TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "bankAccount" TEXT`);
+    } catch {}
+    try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "taxCode" TEXT`);
+    } catch {}
 
     // 2. Tạo bảng customers (nếu chưa có)
     await prisma.$executeRawUnsafe(`

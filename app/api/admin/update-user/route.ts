@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { email, password, name, role } = body;
+        const { email, password, name, role, title, department, experience, bankAccount, taxCode } = body;
 
         if (!email || !password) {
             return NextResponse.json(
@@ -73,6 +73,11 @@ export async function POST(request: NextRequest) {
                             name: name || existingUser.name,
                             password: hashedPassword,
                             role: role || existingUser.role,
+                            title: title !== undefined ? (title || null) : existingUser.title,
+                            department: department !== undefined ? (department || null) : existingUser.department,
+                            experience: experience !== undefined ? (experience || null) : existingUser.experience,
+                            bankAccount: bankAccount !== undefined ? (bankAccount || null) : existingUser.bankAccount,
+                            taxCode: taxCode !== undefined ? (taxCode || null) : existingUser.taxCode,
                         },
                     });
                 } else {
@@ -83,6 +88,11 @@ export async function POST(request: NextRequest) {
                             name: name || 'User',
                             password: hashedPassword,
                             role: role || 'USER',
+                            title: title || null,
+                            department: department || null,
+                            experience: experience || null,
+                            bankAccount: bankAccount || null,
+                            taxCode: taxCode || null,
                         },
                     });
                 }
@@ -113,6 +123,11 @@ export async function POST(request: NextRequest) {
                                 name: name || existingUser.name,
                                 password: hashedPassword,
                                 role: role || existingUser.role,
+                                title: title !== undefined ? (title || null) : existingUser.title,
+                                department: department !== undefined ? (department || null) : existingUser.department,
+                                experience: experience !== undefined ? (experience || null) : existingUser.experience,
+                                bankAccount: bankAccount !== undefined ? (bankAccount || null) : existingUser.bankAccount,
+                                taxCode: taxCode !== undefined ? (taxCode || null) : existingUser.taxCode,
                             },
                         });
                     } else {
@@ -122,6 +137,11 @@ export async function POST(request: NextRequest) {
                                 name: name || 'User',
                                 password: hashedPassword,
                                 role: role || 'USER',
+                                title: title || null,
+                                department: department || null,
+                                experience: experience || null,
+                                bankAccount: bankAccount || null,
+                                taxCode: taxCode || null,
                             },
                         });
                     }
@@ -162,6 +182,11 @@ export async function POST(request: NextRequest) {
                 email: user.email,
                 name: user.name,
                 role: user.role,
+                title: user.title,
+                department: user.department,
+                experience: user.experience,
+                bankAccount: user.bankAccount,
+                taxCode: user.taxCode,
             },
         });
     } catch (error: any) {

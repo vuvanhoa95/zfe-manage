@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { withSchemaCheck, isMissingTableError, ensureCoreSchema } from '@/lib/db-schema';
 
 // GET - List all outsourcing staff
 export async function GET(request: NextRequest) {
@@ -38,8 +39,11 @@ export async function GET(request: NextRequest) {
         }
         
         console.log('Executing query with options:', JSON.stringify(queryOptions));
-        
-        const staff = await (prisma as any).outsourcingStaff.findMany(queryOptions);
+
+        const staff = await withSchemaCheck(
+            () => (prisma as any).outsourcingStaff.findMany(queryOptions),
+            [] as any[],
+        );
         
         console.log(`✅ Found ${staff.length} staff members`);
         
@@ -61,6 +65,15 @@ export async function GET(request: NextRequest) {
         console.error('Error message:', error.message);
         console.error('Error code:', error.code);
         console.error('Error meta:', error.meta ? JSON.stringify(error.meta, null, 2) : 'No meta');
+
+        // Nếu lỗi do thiếu bảng, trả về danh sách rỗng thay vì 500
+        if (isMissingTableError(error)) {
+            await ensureCoreSchema();
+            return NextResponse.json({
+                success: true,
+                data: [],
+            });
+        }
 
         return NextResponse.json(
             {
@@ -84,8 +97,9 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new outsourcing staff
 export async function POST(request: NextRequest) {
+    let body: any;
     try {
-        const body = await request.json();
+        body = await request.json();
 
         const {
             name,
@@ -121,11 +135,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if model exists
-        if (!('outsourcingStaff' in prisma)) {
-            throw new Error('Model outsourcingStaff not found in Prisma Client');
-        }
-        
+        // Đảm bảo schema đã tồn tại trước khi tạo mới
+        await ensureCoreSchema();
+
         const staff = await (prisma as any).outsourcingStaff.create({
             data: {
                 name: name.trim(),
@@ -164,6 +176,28 @@ export async function POST(request: NextRequest) {
         );
     } catch (error: any) {
         console.error('Failed to create outsourcing staff:', error);
+
+        if (isMissingTableError(error)) {
+            try {
+                await ensureCoreSchema();
+                const retryStaff = await (prisma as any).outsourcingStaff.create({
+                    // Dùng lại payload gốc; nếu body không hợp lệ thì request ban đầu cũng đã fail validation
+                    data: body,
+                });
+
+                return NextResponse.json(
+                    {
+                        success: true,
+                        data: retryStaff,
+                        message: 'Tạo nhân sự outsource thành công',
+                    },
+                    { status: 201 },
+                );
+            } catch (retryError: any) {
+                console.error('Retry create outsourcing staff failed:', retryError);
+            }
+        }
+
         return NextResponse.json(
             {
                 success: false,

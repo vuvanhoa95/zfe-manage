@@ -8,6 +8,11 @@ type AppUser = {
     name: string;
     email: string;
     role: string;
+    title?: string;
+    department?: string;
+    experience?: string;
+    bankAccount?: string;
+    taxCode?: string;
     createdAt?: string;
 };
 
@@ -16,6 +21,11 @@ type UserFormState = {
     name: string;
     password: string;
     role: string;
+    title: string;
+    department: string;
+    experience: string;
+    bankAccount: string;
+    taxCode: string;
 };
 
 const INITIAL_FORM: UserFormState = {
@@ -23,6 +33,11 @@ const INITIAL_FORM: UserFormState = {
     name: '',
     password: '',
     role: 'USER',
+    title: '',
+    department: '',
+    experience: '',
+    bankAccount: '',
+    taxCode: '',
 };
 
 export default function UsersPage() {
@@ -64,12 +79,31 @@ export default function UsersPage() {
                 },
             });
 
+            // Parse response body trước khi check res.ok
+            let result: { success?: boolean; data?: AppUser[]; error?: string } | unknown;
+            try {
+                result = (await res.json()) as { success?: boolean; data?: AppUser[]; error?: string } | unknown;
+            } catch (parseError) {
+                // Nếu không parse được JSON, throw error với message từ status
+                throw new Error(`Không thể đọc phản hồi từ server (status: ${res.status})`);
+            }
+
+            // Kiểm tra res.ok sau khi đã parse được response
             if (!res.ok) {
+                // Nếu có error message từ API, dùng nó
+                if (
+                    result &&
+                    typeof result === 'object' &&
+                    'error' in result &&
+                    typeof (result as { error?: string }).error === 'string'
+                ) {
+                    throw new Error((result as { error: string }).error);
+                }
+                // Nếu không có error message, dùng status code
                 throw new Error(`HTTP error! status: ${res.status}`);
             }
 
-            const result = (await res.json()) as { success?: boolean; data?: AppUser[] } | unknown;
-
+            // Kiểm tra success flag và data
             if (
                 result &&
                 typeof result === 'object' &&
@@ -80,12 +114,28 @@ export default function UsersPage() {
             ) {
                 setUsers((result as { data: AppUser[] }).data);
             } else {
+                // Nếu response không đúng format nhưng status OK, có thể là success: false
+                if (
+                    result &&
+                    typeof result === 'object' &&
+                    'success' in result &&
+                    (result as { success?: boolean }).success === false &&
+                    'error' in result
+                ) {
+                    throw new Error(
+                        typeof (result as { error?: string }).error === 'string'
+                            ? (result as { error: string }).error
+                            : 'Không thể tải danh sách user'
+                    );
+                }
                 console.error('API returned unexpected payload when fetching users:', result);
                 setUsers([]);
             }
         } catch (error: unknown) {
             console.error('❌ Failed to fetch users:', error);
-            alert('Không thể tải danh sách user. Vui lòng thử lại.');
+            const errorMessage =
+                error instanceof Error ? error.message : 'Không thể tải danh sách user. Vui lòng thử lại.';
+            alert(errorMessage);
             setUsers([]);
         } finally {
             setIsLoading(false);
@@ -105,6 +155,11 @@ export default function UsersPage() {
             name: user.name,
             password: '',
             role: user.role || 'USER',
+            title: user.title || '',
+            department: user.department || '',
+            experience: user.experience || '',
+            bankAccount: user.bankAccount || '',
+            taxCode: user.taxCode || '',
         });
         setShowModal(true);
     };
@@ -135,6 +190,11 @@ export default function UsersPage() {
                     password: form.password,
                     name: form.name.trim(),
                     role: form.role,
+                    title: form.title.trim() || null,
+                    department: form.department.trim() || null,
+                    experience: form.experience.trim() || null,
+                    bankAccount: form.bankAccount.trim() || null,
+                    taxCode: form.taxCode.trim() || null,
                 }),
             });
 
@@ -206,6 +266,8 @@ export default function UsersPage() {
                             <tr>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Tên</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Email</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Chức danh</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Bộ môn</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Vai trò</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Ngày tạo</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">
@@ -216,13 +278,13 @@ export default function UsersPage() {
                         <tbody className="divide-y divide-gray-200">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                         Đang tải danh sách user...
                                     </td>
                                 </tr>
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                                         Chưa có user nào.
                                     </td>
                                 </tr>
@@ -231,6 +293,8 @@ export default function UsersPage() {
                                     <tr key={user.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 text-sm font-semibold text-gray-900">{user.name}</td>
                                         <td className="px-6 py-4 text-sm text-gray-700">{user.email}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">{user.title || '-'}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">{user.department || '-'}</td>
                                         <td className="px-6 py-4 text-sm text-gray-800">
                                             <span
                                                 className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -347,6 +411,68 @@ export default function UsersPage() {
                                         <option value="PM">PM</option>
                                         <option value="USER">USER</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Chức danh</label>
+                                    <input
+                                        type="text"
+                                        value={form.title}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, title: event.target.value }))
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Ví dụ: Kỹ sư, Trưởng phòng, Giám đốc"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bộ môn</label>
+                                    <input
+                                        type="text"
+                                        value={form.department}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, department: event.target.value }))
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Ví dụ: Kiến trúc, Kết cấu, MEP"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kinh nghiệm</label>
+                                    <input
+                                        type="text"
+                                        value={form.experience}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, experience: event.target.value }))
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Ví dụ: 5 năm, 10+ năm kinh nghiệm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Số tài khoản ngân hàng
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={form.bankAccount}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, bankAccount: event.target.value }))
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Nhập số tài khoản ngân hàng"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mã số thuế</label>
+                                    <input
+                                        type="text"
+                                        value={form.taxCode}
+                                        onChange={(event) =>
+                                            setForm((prev) => ({ ...prev, taxCode: event.target.value }))
+                                        }
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Nhập mã số thuế cá nhân"
+                                    />
                                 </div>
                             </div>
 

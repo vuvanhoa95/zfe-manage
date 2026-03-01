@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
@@ -10,6 +9,9 @@ import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
  */
 export async function GET(request: NextRequest) {
     try {
+        // Dynamic import Prisma Client để tránh lỗi import ở module level
+        const { prisma } = await import('@/lib/prisma');
+
         // Đảm bảo schema tồn tại trước khi thao tác với database
         try {
             await ensureCoreSchema();
@@ -48,53 +50,39 @@ export async function GET(request: NextRequest) {
             where.role = role;
         }
 
-        let users;
-        try {
-            users = await prisma.user.findMany({
-                where,
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    role: true,
-                    createdAt: true,
-                },
-                orderBy: {
-                    name: 'asc',
-                },
-                take: limit,
-            });
-        } catch (error: any) {
-            // Nếu table không tồn tại, đảm bảo schema và retry
-            if (isMissingTableError(error)) {
-                await ensureCoreSchema();
-                // Retry sau khi ensure schema
-                users = await prisma.user.findMany({
-                    where,
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                        role: true,
-                        createdAt: true,
-                    },
-                    orderBy: {
-                        name: 'asc',
-                    },
-                    take: limit,
-                });
-            } else {
-                throw error;
-            }
-        }
+        // Luôn dùng select tối thiểu để tương thích với Prisma Client hiện tại
+        const rawUsers = await prisma.user.findMany({
+            where,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                createdAt: true,
+            },
+            orderBy: {
+                name: 'asc',
+            },
+            take: limit,
+        });
+
+        // Map thêm các field mới (có thể null nếu chưa có trong DB)
+        const users = rawUsers.map((user: any) => ({
+            ...user,
+            title: null,
+            department: null,
+            experience: null,
+            bankAccount: null,
+            taxCode: null,
+        }));
 
         return NextResponse.json({
             success: true,
             data: users,
-            count: users.length, // Thêm count để debug
+            count: users.length,
         });
     } catch (error: any) {
-        console.error('Failed to fetch users:', error);
+        console.error('[API] Failed to fetch users:', error);
         
         // Log chi tiết trong development
         if (process.env.NODE_ENV === 'development') {
@@ -103,6 +91,7 @@ export async function GET(request: NextRequest) {
                 code: error?.code,
                 meta: error?.meta,
                 stack: error?.stack,
+                name: error?.name,
             });
         }
 
@@ -110,8 +99,20 @@ export async function GET(request: NextRequest) {
         let errorMessage = 'Không thể tải danh sách người dùng';
         let statusCode = 500;
 
+        // Kiểm tra các loại lỗi cụ thể
         if (isMissingTableError(error)) {
             errorMessage = 'Cơ sở dữ liệu chưa được khởi tạo. Vui lòng thử lại sau.';
+        } else if (error?.code === 'P1001' || error?.message?.includes('Can\'t reach database server')) {
+            errorMessage = 'Không thể kết nối đến cơ sở dữ liệu. Vui lòng kiểm tra kết nối.';
+        } else if (error?.code === 'P2002') {
+            errorMessage = 'Lỗi dữ liệu trùng lặp trong cơ sở dữ liệu.';
+        } else if (error?.code === 'P2025') {
+            errorMessage = 'Không tìm thấy dữ liệu trong cơ sở dữ liệu.';
+        } else if (error?.message) {
+            // Trong development, hiển thị error message chi tiết hơn
+            if (process.env.NODE_ENV === 'development') {
+                errorMessage = `Lỗi: ${error.message}`;
+            }
         }
 
         return NextResponse.json(
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
                     message: error?.message,
                     code: error?.code,
                     meta: error?.meta,
+                    name: error?.name,
                 } : undefined,
             },
             { status: statusCode }

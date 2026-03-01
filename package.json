@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3009",
+    "dev:regenerate": "npx prisma generate && next dev -p 3009",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "prisma:generate": "npx prisma generate",
     "commit": "powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1",
     "commit:push": "powershell -ExecutionPolicy Bypass -File ./quick-commit.ps1 -Push"
   },

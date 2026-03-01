@@ -18,6 +18,16 @@ model User {
   password           String
   name               String
   role               String              @default("USER")
+  /// Chức danh công việc (ví dụ: Kỹ sư, Trưởng phòng, Giám đốc)
+  title              String?
+  /// Bộ môn chuyên môn (ví dụ: Kiến trúc, Kết cấu, MEP)
+  department         String?
+  /// Kinh nghiệm làm việc (số năm hoặc mô tả)
+  experience         String?
+  /// Số tài khoản ngân hàng
+  bankAccount        String?
+  /// Mã số thuế cá nhân
+  taxCode            String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   cashFlows          CashFlow[]

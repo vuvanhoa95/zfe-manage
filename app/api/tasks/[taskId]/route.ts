@@ -92,9 +92,18 @@ export async function PUT(
         // Xử lý assignedToId: nếu có trong data thì resolve, nếu không thì không update
         let resolvedAssignedToId: string | null | undefined = undefined;
         if (data.assignedToId !== undefined || data.assignedTo !== undefined) {
+            console.log('[API] Resolving assignedToId:', {
+                taskId,
+                assignedToId: data.assignedToId,
+                assignedTo: data.assignedTo,
+            });
             resolvedAssignedToId = await resolveAssignedToId({
                 assignedToId: data.assignedToId ?? null,
                 assignedTo: data.assignedTo ?? null,
+            });
+            console.log('[API] Resolved assignedToId result:', {
+                taskId,
+                resolvedAssignedToId,
             });
         }
 

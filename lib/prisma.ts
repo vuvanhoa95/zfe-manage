@@ -18,32 +18,49 @@ function parseSqliteFilePath(databaseUrl: string): string | null {
 }
 
 function ensureProductionSqliteDbReady(): string | null {
+  // ⚠️ CẢNH BÁO: SQLite trên Vercel KHÔNG THỂ PERSIST!
+  // Vercel là serverless platform - mỗi lần deploy/restart, /tmp sẽ bị reset.
+  // SQLite file-based database sẽ MẤT DỮ LIỆU mỗi lần deploy!
+  // 
+  // GIẢI PHÁP: Phải chuyển sang PostgreSQL (Neon hoặc Vercel Postgres) cho production.
+  // 
   // Mục tiêu: tránh 500 trên Vercel khi DATABASE_URL bị set sai format (không có `file:`)
   // và tránh lỗi read-only khi trỏ vào file nằm trong bundle.
-  // ⚠️ KHÔNG copy dữ liệu local lên production - chỉ tạo DB trống mới.
   if (process.env.NODE_ENV !== 'production') return null;
 
-  // Luôn dùng /tmp cho SQLite trên serverless vì writable.
+  // ⚠️ NGHIÊM CẤM: KHÔNG BAO GIỜ XÓA DATABASE TRONG PRODUCTION!
+  // Code cũ đã xóa database mỗi lần start - ĐÂY LÀ LỖI NGHIÊM TRỌNG!
+  // 
+  // Luôn dùng /tmp cho SQLite trên serverless vì writable, NHƯNG:
+  // - /tmp là ephemeral storage - sẽ mất khi function restart
+  // - SQLite KHÔNG phù hợp cho production trên serverless
+  // - PHẢI chuyển sang PostgreSQL (Neon/Vercel Postgres)
   const tmpDir = '/tmp';
   const tmpDbPath = join(tmpDir, 'zfemanage.db');
   const tmpUrl = `file:${tmpDbPath}`;
 
-  // Chuẩn bị file DB trống trong /tmp (KHÔNG copy từ local)
+  // ⚠️ CHỈ tạo database nếu chưa tồn tại - KHÔNG BAO GIỜ XÓA!
   try {
     mkdirSync(tmpDir, { recursive: true });
-    // Xóa DB cũ nếu có để reset database trên production
-    if (existsSync(tmpDbPath)) {
-      try {
-        unlinkSync(tmpDbPath);
-      } catch (unlinkError) {
-        // Ignore nếu không xóa được (có thể đang được dùng)
-      }
+    // ⚠️ NGHIÊM CẤM: KHÔNG XÓA DATABASE ĐÃ TỒN TẠI!
+    // Code cũ: unlinkSync(tmpDbPath) - ĐÃ BỊ XÓA vì nguy hiểm!
+    // 
+    // Nếu database chưa tồn tại, Prisma sẽ tự tạo khi chạy migrations/queries
+    // KHÔNG cần tạo file trống trước
+    if (!existsSync(tmpDbPath)) {
+      // Database chưa tồn tại - Prisma sẽ tự tạo khi cần
+      // KHÔNG tạo file trống vì Prisma sẽ tự xử lý
     }
-    // Tạo file DB trống mới - Prisma sẽ tự tạo schema khi chạy migrations/queries
-    writeFileSync(tmpDbPath, '');
   } catch (error) {
     // Không throw để tránh crash cold start; Prisma sẽ throw rõ hơn khi query nếu vẫn fail.
     // Intentionally silent in production to avoid noisy logs on serverless cold starts.
+  }
+
+  // ⚠️ CẢNH BÁO: SQLite trên Vercel sẽ MẤT DỮ LIỆU mỗi lần deploy!
+  // Phải chuyển sang PostgreSQL ngay!
+  if (process.env.NODE_ENV === 'production') {
+    console.warn('⚠️ CẢNH BÁO: Đang dùng SQLite trên Vercel - dữ liệu sẽ MẤT mỗi lần deploy!');
+    console.warn('⚠️ PHẢI chuyển sang PostgreSQL (Neon/Vercel Postgres) ngay!');
   }
 
   // Trả về URL SQLite đã chuẩn hoá để PrismaClient dùng trực tiếp (không phụ thuộc env runtime)
@@ -156,6 +173,13 @@ Vui lòng kiểm tra file .env hoặc .env.local và sửa DATABASE_URL.`;
 // Force recreate Prisma Client để đảm bảo dùng provider mới nhất từ schema
 if (process.env.NODE_ENV === 'development') {
   // Trong development, không cache để force reload khi schema thay đổi
+  // Clear cache để đảm bảo load Prisma Client mới nhất
+  if (globalForPrisma.prisma) {
+    try {
+      // Disconnect client cũ trước khi tạo mới (async, không block)
+      globalForPrisma.prisma.$disconnect().catch(() => {});
+    } catch {}
+  }
   globalForPrisma.prisma = undefined;
 }
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

@@ -1,0 +1,146 @@
+---
+alwaysApply: true
+description: "Nghiêm cấm xóa database và bảo vệ dữ liệu production"
+globs: ""
+---
+
+# 🚨 DATABASE PROTECTION RULES - NGHIÊM CẤM XÓA DỮ LIỆU
+
+## ⚠️ QUY TẮC NGHIÊM NGẶT
+
+### 1. NGHIÊM CẤM XÓA DATABASE TRONG PRODUCTION
+
+**KHÔNG BAO GIỜ** được:
+- ❌ Xóa database file (`unlinkSync`, `rm`, `DELETE FROM`)
+- ❌ Chạy `prisma migrate reset` trên production
+- ❌ Chạy migrations có `DROP TABLE` mà không có backup
+- ❌ Xóa dữ liệu mà không có xác nhận rõ ràng
+- ❌ Tự động reset database khi start production
+
+**PHẢI**:
+- ✅ Backup database trước khi chạy migrations
+- ✅ Kiểm tra migrations có `DROP TABLE` trước khi deploy
+- ✅ Yêu cầu xác nhận rõ ràng (phải gõ "yes") trước khi chạy migrations nguy hiểm
+- ✅ Chỉ tạo database nếu chưa tồn tại - KHÔNG xóa database đã có
+
+### 2. SQLite TRÊN VERCEL KHÔNG THỂ PERSIST
+
+**VẤN ĐỀ NGHIÊM TRỌNG**:
+- SQLite file-based database trên Vercel lưu trong `/tmp` (ephemeral storage)
+- Mỗi lần deploy/restart, `/tmp` sẽ bị reset → **MẤT TOÀN BỘ DỮ LIỆU**
+- SQLite **KHÔNG PHÙ HỢP** cho production trên serverless platform
+
+**GIẢI PHÁP BẮT BUỘC**:
+- ✅ **PHẢI** chuyển sang PostgreSQL cho production:
+  - Neon (https://neon.tech) - Recommended
+  - Vercel Postgres
+  - Supabase Postgres
+- ✅ Cập nhật `prisma/schema.prisma`: `provider = "postgresql"`
+- ✅ Cập nhật `DATABASE_URL` trên Vercel: `postgresql://...`
+- ✅ Chạy migrations: `npx prisma migrate deploy`
+
+### 3. CODE PATTERNS NGHIÊM CẤM
+
+**KHÔNG BAO GIỜ** viết code như này:
+
+```typescript
+// ❌ NGHIÊM CẤM: Xóa database
+if (existsSync(dbPath)) {
+  unlinkSync(dbPath); // ← NGHIÊM CẤM!
+}
+
+// ❌ NGHIÊM CẤM: Reset database
+await prisma.$executeRaw`DROP DATABASE ...`; // ← NGHIÊM CẤM!
+
+// ❌ NGHIÊM CẤM: Xóa tất cả dữ liệu
+await prisma.user.deleteMany({}); // ← NGHIÊM CẤM trong production!
+```
+
+**PHẢI** viết code như này:
+
+```typescript
+// ✅ ĐÚNG: Chỉ tạo nếu chưa tồn tại
+if (!existsSync(dbPath)) {
+  // Prisma sẽ tự tạo khi cần
+}
+
+// ✅ ĐÚNG: Backup trước khi thay đổi
+await backupDatabase();
+await prisma.migrate.deploy();
+
+// ✅ ĐÚNG: Kiểm tra và xác nhận
+if (hasDangerousMigrations()) {
+  const confirmed = await askConfirmation();
+  if (!confirmed) throw new Error('Cancelled');
+}
+```
+
+### 4. DEPLOYMENT CHECKLIST
+
+Trước khi deploy, **PHẢI** kiểm tra:
+
+- [ ] Database đã được backup
+- [ ] Migrations không có `DROP TABLE` nguy hiểm
+- [ ] Đã test migrations trên staging/local
+- [ ] Production dùng PostgreSQL (KHÔNG dùng SQLite)
+- [ ] `DATABASE_URL` trên Vercel đúng format PostgreSQL
+- [ ] Không có code xóa database trong production
+
+### 5. EMERGENCY RECOVERY
+
+Nếu vô tình mất dữ liệu:
+
+1. **DỪNG NGAY** deploy process
+2. **KHÔI PHỤC** từ backup
+3. **KIỂM TRA** logs để xác định nguyên nhân
+4. **SỬA** code/migrations nếu cần
+5. **TEST** trên staging trước khi deploy lại
+
+### 6. FILES CẦN KIỂM TRA
+
+Khi review code, **PHẢI** kiểm tra các file sau:
+
+- `lib/prisma.ts` - Không được xóa database
+- `deploy-production.ps1` - Phải có backup và xác nhận
+- `prisma/migrations/*.sql` - Không có `DROP TABLE` nguy hiểm
+- `vercel.json` - Migrations phải được chạy đúng cách
+
+---
+
+## 📋 QUY TRÌNH DEPLOY AN TOÀN
+
+1. **Backup Database**
+   ```bash
+   # PostgreSQL
+   pg_dump $DATABASE_URL > backup_$(date +%Y%m%d_%H%M%S).sql
+   ```
+
+2. **Kiểm tra Migrations**
+   ```bash
+   grep -r "DROP TABLE" prisma/migrations/
+   ```
+
+3. **Chạy Deploy Script**
+   ```bash
+   .\deploy-production.ps1
+   ```
+
+4. **Verify sau deploy**
+   - Test đăng nhập
+   - Test tạo dữ liệu mới
+   - Reload trang - dữ liệu phải còn
+
+---
+
+## 🚨 NẾU PHÁT HIỆN CODE XÓA DATABASE
+
+**NGAY LẬP TỨC**:
+1. Dừng deploy process
+2. Revert code nguy hiểm
+3. Kiểm tra xem đã mất dữ liệu chưa
+4. Khôi phục từ backup nếu cần
+5. Sửa code và test kỹ trước khi deploy lại
+
+---
+
+**LƯU Ý**: Rules này là **BẮT BUỘC** và **KHÔNG BAO GIỜ** được bỏ qua!
