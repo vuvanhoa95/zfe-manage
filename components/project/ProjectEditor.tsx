@@ -137,6 +137,60 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
     const [activeWorkSubTab, setActiveWorkSubTab] = useState<WorkSubTabKey>('dashboard');
 
+    // Callback để tự động lưu project khi tạo task (nếu project chưa được lưu)
+    const handleAutoSaveProject = useCallback(async (): Promise<string | null> => {
+        // Validation
+        if (!project.name || !project.name.trim()) {
+            alert('Vui lòng nhập tên dự án trước khi tạo công việc');
+            return null;
+        }
+
+        try {
+            const cleanedData = {
+                ...project,
+                name: project.name.trim(),
+                code: project.code?.trim() || null,
+                description: project.description?.trim() || null,
+                customerId: project.customerId && project.customerId.trim() ? project.customerId : null,
+                location: project.location?.trim() || 'Hà Nội',
+                startDate: project.startDate && project.startDate.trim() ? project.startDate : null,
+                endDate: project.endDate && project.endDate.trim() ? project.endDate : null,
+                totalArea: project.totalArea ?? null,
+                notes: project.notes?.trim() || null,
+                imageUrl: project.imageUrl && project.imageUrl.trim() ? project.imageUrl : null,
+            };
+
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cleanedData),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok || !result.success) {
+                throw new Error(result.error || 'Không thể lưu dự án');
+            }
+
+            // Update project state với data mới
+            if (result.data) {
+                setProject({
+                    ...project,
+                    id: result.data.id,
+                    projectNo: result.data.projectNo,
+                });
+            }
+
+            // Refresh router cache
+            router.refresh();
+
+            return result.data?.id || null;
+        } catch (error: unknown) {
+            console.error('Failed to auto-save project:', error);
+            return null;
+        }
+    }, [project, router]);
+
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -310,9 +364,13 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
 
             if (result.success) {
                 if (isNew) {
+                    // Refresh router cache để đảm bảo danh sách projects được cập nhật
+                    router.refresh();
                     router.push(`/projects/${result.data.id}`);
                 } else {
                     await fetchProject();
+                    // Refresh router cache để đảm bảo danh sách projects được cập nhật
+                    router.refresh();
                     alert('Đã lưu dự án thành công!');
                 }
             } else {
@@ -537,6 +595,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                     activeSubTab={activeWorkSubTab}
                                     onChangeSubTab={setActiveWorkSubTab}
                                     showHeader={false}
+                                    onAutoSaveProject={isNew ? handleAutoSaveProject : undefined}
                                 />
                             ) : (
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">

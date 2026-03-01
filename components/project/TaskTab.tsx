@@ -554,9 +554,11 @@ function PriorityDropdown({
 export default function TaskTab({
     projectId,
     isNew,
+    onAutoSaveProject,
 }: {
     projectId: string;
     isNew: boolean;
+    onAutoSaveProject?: () => Promise<string | null>; // Returns projectId nếu save thành công
 }) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -1006,9 +1008,31 @@ export default function TaskTab({
         e.preventDefault();
         setIsSaving(true);
         try {
+            // Nếu project chưa được lưu (isNew) và có callback, tự động lưu project trước
+            let actualProjectId = projectId;
+            if (isNew && onAutoSaveProject && !editingTask) {
+                // Chỉ auto-save khi tạo task mới, không phải edit
+                try {
+                    const savedProjectId = await onAutoSaveProject();
+                    if (savedProjectId) {
+                        actualProjectId = savedProjectId;
+                        // Note: Không thể update prop, nhưng có thể dùng actualProjectId trong request
+                    } else {
+                        alert('Vui lòng lưu dự án trước khi tạo công việc.');
+                        setIsSaving(false);
+                        return;
+                    }
+                } catch (saveError) {
+                    console.error('Failed to auto-save project:', saveError);
+                    alert('Không thể tự động lưu dự án. Vui lòng lưu dự án trước khi tạo công việc.');
+                    setIsSaving(false);
+                    return;
+                }
+            }
+
             const url = editingTask
                 ? `/api/tasks/${editingTask.id}`
-                : `/api/projects/${projectId}/tasks`;
+                : `/api/projects/${actualProjectId}/tasks`;
             const method = editingTask ? 'PUT' : 'POST';
 
             const baseDescription = formData.description?.trim() ?? '';

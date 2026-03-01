@@ -23,6 +23,10 @@ type WorkTabsContainerProps = {
      * Dùng `showHeader={false}` khi muốn render sub-tabs ở ProjectEditor.
      */
     showHeader?: boolean;
+    /**
+     * Callback để tự động lưu project khi tạo task (nếu project chưa được lưu)
+     */
+    onAutoSaveProject?: () => Promise<string | null>; // Returns projectId nếu save thành công, null nếu fail
 };
 
 function SubTabButton({
@@ -52,7 +56,7 @@ function SubTabButton({
     );
 }
 
-export default function WorkTabsContainer({ projectId, isNew }: WorkTabsContainerProps) {
+export default function WorkTabsContainer({ projectId, isNew, onAutoSaveProject }: WorkTabsContainerProps) {
     const [internalSubTab, setInternalSubTab] = useState<SubTabKey>('dashboard');
 
     // Ưu tiên state điều khiển từ ngoài, fallback về state nội bộ
@@ -104,7 +108,11 @@ export default function WorkTabsContainer({ projectId, isNew }: WorkTabsContaine
                     <WorkDashboard projectId={projectId} />
                 </div>
                 <div style={{ display: activeSubTab === 'task' ? 'block' : 'none' }}>
-                    <TaskTab projectId={projectId} isNew={false} />
+                    <TaskTab 
+                        projectId={projectId} 
+                        isNew={false} 
+                        onAutoSaveProject={isNew ? onAutoSaveProject : undefined}
+                    />
                 </div>
                 <div style={{ display: activeSubTab === 'report' ? 'block' : 'none' }}>
                     <WorkReportTab projectId={projectId} />

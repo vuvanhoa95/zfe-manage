@@ -730,10 +730,19 @@ export async function POST(request: NextRequest) {
                 } else {
                     throw error;
                 }
+                }
             }
-        }
 
-        return NextResponse.json({ success: true, data: project }, { status: 201 });
+            // Clear project list cache sau khi tạo project mới
+            // Xóa tất cả cache keys liên quan đến project list
+            const allCacheKeys = Array.from(cache['cache'].keys());
+            for (const key of allCacheKeys) {
+                if (key.startsWith('projects:list:')) {
+                    cache.delete(key);
+                }
+            }
+
+            return NextResponse.json({ success: true, data: project }, { status: 201 });
     } catch (error: any) {
         console.error('Failed to create project:', error);
         
