@@ -201,11 +201,11 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                 },
             });
             if (!res.ok) {
-                // Náº¿u project khÃ´ng tá»“n táº¡i (404), redirect vá» danh sÃ¡ch dá»± Ã¡n
                 if (res.status === 404) {
-                    console.warn('Project not found when saving, redirecting to /projects');
+                    console.warn('Project not found, redirecting to /projects');
                     // Clear any cached project data
                     if (typeof window !== 'undefined') {
+                        // Clear localStorage cache if exists
                         try {
                             const cacheKeys = Object.keys(localStorage).filter(key => 
                                 key.startsWith('project:') || key.startsWith('projects:')
@@ -219,6 +219,163 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     router.push(`/projects?_refresh=${Date.now()}`);
                     return;
                 }
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            const result = await res.json();
+            if (result.success && result.data) {
+                // Format dates for input fields
+                const projectData = {
+                    ...result.data,
+                    startDate: result.data.startDate ? new Date(result.data.startDate).toISOString().split('T')[0] : '',
+                    endDate: result.data.endDate ? new Date(result.data.endDate).toISOString().split('T')[0] : '',
+                };
+                setProject(projectData);
+                // Cache full project data for tabs to avoid refetching
+                setProjectDataCache(result.data);
+            } else {
+                console.error('Failed to fetch project:', result);
+                alert('Không thể tải thông tin dự án. Vui lòng thử lại.');
+            }
+        } catch (error: unknown) {
+            console.error('Failed to fetch project:', error);
+            const message =
+                error instanceof Error ? error.message : 'Không thể tải thông tin dự án. Vui lòng thử lại.';
+            alert(`Lỗi: ${message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [projectId, router]);
+
+    useEffect(() => {
+        if (!isNew && projectId) {
+            void fetchProject();
+        }
+        void fetchCustomers();
+    }, [projectId, isNew, fetchProject]);
+
+    useEffect(() => {
+        // Khi chuyển dự án, mặc định về tab thông tin và reset trạng thái xóa
+        setActiveTab('info');
+        setDeleteConfirmName('');
+        setIsDeleteSectionOpen(false);
+    }, [projectId, isNew]);
+
+    const handleDeleteProject = async () => {
+        if (isNew || !projectId) {
+            return;
+        }
+
+        const trimmedProjectName = project.name.trim();
+        const trimmedInput = deleteConfirmName.trim();
+
+        if (!trimmedProjectName) {
+            alert('Không xác định được tên dự án để xác nhận xóa.');
+            return;
+        }
+
+        if (!trimmedInput) {
+            alert('Vui lòng nhập tên dự án để xác nhận xóa.');
+            return;
+        }
+
+        if (trimmedInput !== trimmedProjectName) {
+            alert('Tên dự án nhập vào không chính xác. Vui lòng nhập đúng tên dự án để xóa.');
+            return;
+        }
+
+        // Thêm một lớp xác nhận nữa để tránh xóa nhầm
+        const confirmed = window.confirm(
+            `Bạn có chắc chắn muốn xóa dự án "${trimmedProjectName}"?\nTất cả báo giá và dòng tiền liên quan sẽ bị xóa vĩnh viễn.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const res = await fetch(`/api/projects/${projectId}`, {
+                method: 'DELETE',
+            });
+
+            const result = (await res.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+
+            if (!res.ok || !result?.success) {
+                throw new Error(result?.error || 'Không thể xóa dự án. Vui lòng thử lại.');
+            }
+
+            alert('Đã xóa dự án thành công.');
+            router.push('/projects');
+        } catch (error: unknown) {
+            console.error('Failed to delete project:', error);
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Không thể xóa dự án. Vui lòng kiểm tra lại và thử lại sau.';
+            alert(`Lỗi: ${message}`);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const fetchCustomers = async () => {
+        try {
+            const res = await fetch('/api/customers');
+            const result = (await res.json()) as {
+                success?: boolean;
+                data?: Array<{ id: string; name: string }>;
+            };
+            if (result.success && Array.isArray(result.data)) {
+                setCustomers(
+                    result.data.map((customer) => ({
+                        id: customer.id,
+                        name: customer.name,
+                    })),
+                );
+            }
+        } catch (err) {
+            console.error('Failed to fetch customers:', err);
+        } finally {
+            setIsLoadingCustomers(false);
+        }
+    };
+
+    const handleSaveProject = async () => {
+        // Validation
+        if (!project.name || !project.name.trim()) {
+            alert('Vui lòng nhập tên dự án');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const method = isNew ? 'POST' : 'PUT';
+            const url = isNew ? '/api/projects' : `/api/projects/${projectId}`;
+
+            // Clean up data before sending: convert empty strings to null
+            const cleanedData = {
+                ...project,
+                name: project.name.trim(),
+                code: project.code?.trim() || null,
+                description: project.description?.trim() || null,
+                customerId: project.customerId && project.customerId.trim() ? project.customerId : null,
+                location: project.location?.trim() || 'Hà Nội',
+                startDate: project.startDate && project.startDate.trim() ? project.startDate : null,
+                endDate: project.endDate && project.endDate.trim() ? project.endDate : null,
+                totalArea: project.totalArea ?? null,
+                notes: project.notes?.trim() || null,
+                imageUrl: project.imageUrl && project.imageUrl.trim() ? project.imageUrl : null,
+            };
+
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cleanedData),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok) {
                 throw new Error(result.error || `HTTP error! status: ${res.status}`);
             }
 
