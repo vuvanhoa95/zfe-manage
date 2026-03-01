@@ -84,6 +84,35 @@ Write-Host "✅ Prisma Client đã được generate" -ForegroundColor Green
 # Bước 4: Run migrations
 Write-Host ""
 Write-Host "🗄️  Bước 4: Run database migrations..." -ForegroundColor Yellow
+Write-Host "⚠️  CẢNH BÁO: Migrations có thể thay đổi cấu trúc database!" -ForegroundColor Red
+Write-Host "⚠️  Đảm bảo đã backup database trước khi tiếp tục!" -ForegroundColor Red
+$confirm = Read-Host "Bạn có chắc chắn muốn chạy migrations? (yes/no)"
+if ($confirm -ne "yes") {
+    Write-Host "❌ Đã hủy. Vui lòng backup database trước khi chạy migrations." -ForegroundColor Red
+    exit 1
+}
+
+# Kiểm tra migrations có DROP TABLE không
+Write-Host "🔍 Đang kiểm tra migrations có DROP TABLE..." -ForegroundColor Yellow
+$migrationsWithDrop = Get-ChildItem -Path "prisma\migrations" -Filter "*.sql" -Recurse | 
+    Select-String -Pattern "DROP TABLE" | 
+    Select-Object -ExpandProperty Path -Unique
+
+if ($migrationsWithDrop) {
+    Write-Host "⚠️  PHÁT HIỆN MIGRATIONS CÓ DROP TABLE!" -ForegroundColor Red
+    Write-Host "   Các file sau có chứa DROP TABLE:" -ForegroundColor Yellow
+    foreach ($file in $migrationsWithDrop) {
+        Write-Host "   - $file" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    Write-Host "⚠️  CẢNH BÁO: DROP TABLE có thể XÓA DỮ LIỆU!" -ForegroundColor Red
+    $confirmDrop = Read-Host "Bạn có CHẮC CHẮN muốn tiếp tục? (yes/no)"
+    if ($confirmDrop -ne "yes") {
+        Write-Host "❌ Đã hủy. Vui lòng kiểm tra migrations trước." -ForegroundColor Red
+        exit 1
+    }
+}
+
 npx prisma migrate deploy
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Lỗi khi chạy migrations" -ForegroundColor Red

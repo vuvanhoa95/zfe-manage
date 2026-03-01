@@ -80,6 +80,30 @@ echo "✅ Prisma Client đã được generate"
 # Bước 4: Run migrations
 echo ""
 echo "🗄️  Bước 4: Run database migrations..."
+echo "⚠️  CẢNH BÁO: Migrations có thể thay đổi cấu trúc database!"
+echo "⚠️  Đảm bảo đã backup database trước khi tiếp tục!"
+read -p "Bạn có chắc chắn muốn chạy migrations? (yes/no): " confirm
+if [ "$confirm" != "yes" ]; then
+    echo "❌ Đã hủy. Vui lòng backup database trước khi chạy migrations."
+    exit 1
+fi
+
+# Kiểm tra migrations có DROP TABLE không
+echo "🔍 Đang kiểm tra migrations có DROP TABLE..."
+migrations_with_drop=$(grep -r "DROP TABLE" prisma/migrations/*.sql 2>/dev/null | cut -d: -f1 | sort -u)
+if [ -n "$migrations_with_drop" ]; then
+    echo "⚠️  PHÁT HIỆN MIGRATIONS CÓ DROP TABLE!"
+    echo "   Các file sau có chứa DROP TABLE:"
+    echo "$migrations_with_drop" | sed 's/^/   - /'
+    echo ""
+    echo "⚠️  CẢNH BÁO: DROP TABLE có thể XÓA DỮ LIỆU!"
+    read -p "Bạn có CHẮC CHẮN muốn tiếp tục? (yes/no): " confirm_drop
+    if [ "$confirm_drop" != "yes" ]; then
+        echo "❌ Đã hủy. Vui lòng kiểm tra migrations trước."
+        exit 1
+    fi
+fi
+
 npx prisma migrate deploy
 echo "✅ Migrations đã được apply"
 
