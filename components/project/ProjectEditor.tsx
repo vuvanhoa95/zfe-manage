@@ -194,7 +194,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const fetchProject = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await fetch(/api/projects/ + projectId, {
+            const res = await fetch(`/api/projects/${projectId}`, {
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache',
