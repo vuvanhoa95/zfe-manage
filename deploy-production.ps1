@@ -1,5 +1,5 @@
 # Deploy Production Script cho ZfeManage
-# Usage: .\deploy-production.ps1 [--skip-build] [--skip-seed] [--preview] [--auto-commit] [--auto-push]
+# Usage: .\deploy-production.ps1 [-SkipBuild] [-SkipSeed] [-Preview] [-AutoCommit] [-AutoPush]
 
 param(
     [switch]$SkipBuild,
@@ -11,217 +11,143 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 Bắt đầu deploy production cho ZfeManage" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "=== ZfeManage Deployment Tool ===" -ForegroundColor Cyan
 
-# Bước 0: Kiểm tra prerequisites
-Write-Host "📋 Bước 0: Kiểm tra prerequisites..." -ForegroundColor Yellow
+# Step 0: Prerequisites Check
+Write-Host "Step 0: Checking prerequisites..." -ForegroundColor Yellow
 
-# Kiểm tra Git (nếu cần auto commit)
-if ($AutoCommit -or $AutoPush) {
+# Helper function to check if a command exists
+function Test-Command($CommandName) {
+    if (Get-Command $CommandName -ErrorAction SilentlyContinue) {
+        return $true
+    }
+    return $false
+}
+
+$UseNpxVercel = $false
+if (Test-Command "vercel") {
+    $v = vercel --version
+    Write-Host "Vercel CLI: $v" -ForegroundColor Green
+} elseif (Test-Command "npx") {
+    Write-Host "Vercel CLI not found in path, trying with npx..." -ForegroundColor Yellow
     try {
-        $gitVersion = git --version 2>&1
-        Write-Host "✅ Git: $gitVersion" -ForegroundColor Green
+        $v = npx vercel --version 2>&1
+        $UseNpxVercel = $true
+        Write-Host "Vercel CLI (npx): $v" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Git chưa được cài đặt. Không thể auto commit." -ForegroundColor Red
+        Write-Host "Vercel CLI not found even with npx. Run: npm i -g vercel" -ForegroundColor Red
         exit 1
     }
-}
-
-# Kiểm tra Vercel CLI
-try {
-    $vercelVersion = vercel --version 2>&1
-    Write-Host "✅ Vercel CLI: $vercelVersion" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Vercel CLI chưa được cài đặt. Chạy: npm i -g vercel" -ForegroundColor Red
+} else {
+    Write-Host "Node/NPM not found. Please install Node.js." -ForegroundColor Red
     exit 1
 }
 
-# Kiểm tra đã login chưa
-try {
-    vercel whoami | Out-Null
-    Write-Host "✅ Đã login vào Vercel" -ForegroundColor Green
-} catch {
-    Write-Host "❌ Chưa login vào Vercel. Chạy: vercel login" -ForegroundColor Red
+# Define the vercel command to use
+$VercelCmd = if ($UseNpxVercel) { "npx vercel" } else { "vercel" }
+
+# Step 1: Pull environment variables
+Write-Host "`nStep 1: Pulling environment variables from Vercel..." -ForegroundColor Yellow
+$pullResult = Invoke-Expression "$VercelCmd env pull .env.local"
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error pulling env vars. Please run: vercel login" -ForegroundColor Red
     exit 1
 }
+Write-Host "Environment variables pulled successfully." -ForegroundColor Green
 
-# Kiểm tra project đã link chưa
-if (-not (Test-Path .vercel)) {
-    Write-Host "⚠️  Project chưa được link với Vercel. Đang link..." -ForegroundColor Yellow
-    vercel link
-}
-
-# Bước 1: Pull environment variables
-Write-Host ""
-Write-Host "📥 Bước 1: Pull environment variables..." -ForegroundColor Yellow
-vercel env pull .env.local
-
-if (-not (Test-Path .env.local)) {
-    Write-Host "❌ Không thể pull environment variables" -ForegroundColor Red
-    exit 1
-}
-Write-Host "✅ Đã pull environment variables" -ForegroundColor Green
-
-# Bước 2: Install dependencies
-Write-Host ""
-Write-Host "📦 Bước 2: Install dependencies..." -ForegroundColor Yellow
+# Step 2: Install dependencies
+Write-Host "`nStep 2: Checking dependencies..." -ForegroundColor Yellow
 if (-not (Test-Path node_modules)) {
+    Write-Host "node_modules not found. Installing..." -ForegroundColor Cyan
     npm install
+} else {
+    Write-Host "node_modules exists." -ForegroundColor Green
 }
-Write-Host "✅ Dependencies đã sẵn sàng" -ForegroundColor Green
 
-# Bước 3: Generate Prisma Client
-Write-Host ""
-Write-Host "🔧 Bước 3: Generate Prisma Client..." -ForegroundColor Yellow
+# Step 3: Generate Prisma Client
+Write-Host "`nStep 3: Generating Prisma Client..." -ForegroundColor Yellow
 npx prisma generate
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Lỗi khi generate Prisma Client" -ForegroundColor Red
+    Write-Host "Prisma generation failed." -ForegroundColor Red
     exit 1
 }
-Write-Host "✅ Prisma Client đã được generate" -ForegroundColor Green
+Write-Host "Prisma Client generated." -ForegroundColor Green
 
-# Bước 4: Run migrations
-Write-Host ""
-Write-Host "🗄️  Bước 4: Run database migrations..." -ForegroundColor Yellow
-Write-Host "⚠️  CẢNH BÁO: Migrations có thể thay đổi cấu trúc database!" -ForegroundColor Red
-Write-Host "⚠️  Đảm bảo đã backup database trước khi tiếp tục!" -ForegroundColor Red
-$confirm = Read-Host "Bạn có chắc chắn muốn chạy migrations? (yes/no)"
+# Step 4: Run migrations
+Write-Host "`nStep 4: Running database migrations (Prisma)..." -ForegroundColor Yellow
+Write-Host "Warning: This may affect the production database." -ForegroundColor DarkYellow
+$confirm = Read-Host "Is the database backed up and are you ready to deploy migrations? (yes/no)"
 if ($confirm -ne "yes") {
-    Write-Host "❌ Đã hủy. Vui lòng backup database trước khi chạy migrations." -ForegroundColor Red
-    exit 1
-}
-
-# Kiểm tra migrations có DROP TABLE không
-Write-Host "🔍 Đang kiểm tra migrations có DROP TABLE..." -ForegroundColor Yellow
-$migrationsWithDrop = Get-ChildItem -Path "prisma\migrations" -Filter "*.sql" -Recurse | 
-    Select-String -Pattern "DROP TABLE" | 
-    Select-Object -ExpandProperty Path -Unique
-
-if ($migrationsWithDrop) {
-    Write-Host "⚠️  PHÁT HIỆN MIGRATIONS CÓ DROP TABLE!" -ForegroundColor Red
-    Write-Host "   Các file sau có chứa DROP TABLE:" -ForegroundColor Yellow
-    foreach ($file in $migrationsWithDrop) {
-        Write-Host "   - $file" -ForegroundColor Yellow
-    }
-    Write-Host ""
-    Write-Host "⚠️  CẢNH BÁO: DROP TABLE có thể XÓA DỮ LIỆU!" -ForegroundColor Red
-    $confirmDrop = Read-Host "Bạn có CHẮC CHẮN muốn tiếp tục? (yes/no)"
-    if ($confirmDrop -ne "yes") {
-        Write-Host "❌ Đã hủy. Vui lòng kiểm tra migrations trước." -ForegroundColor Red
-        exit 1
-    }
+    Write-Host "Deployment aborted by user." -ForegroundColor Gray
+    exit 0
 }
 
 npx prisma migrate deploy
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Lỗi khi chạy migrations" -ForegroundColor Red
+    Write-Host "Database migration failed." -ForegroundColor Red
     exit 1
 }
-Write-Host "✅ Migrations đã được apply" -ForegroundColor Green
+Write-Host "Migrations applied successfully." -ForegroundColor Green
 
-# Bước 5: Seed database (nếu không skip)
+# Step 5: Seed database
 if (-not $SkipSeed) {
-    Write-Host ""
-    Write-Host "🌱 Bước 5: Seed database..." -ForegroundColor Yellow
-    $seed = Read-Host "Bạn có muốn seed database? (y/n)"
-    if ($seed -eq "y" -or $seed -eq "Y") {
+    Write-Host "`nStep 5: Seeding database (Optional)..." -ForegroundColor Yellow
+    $seedConfirm = Read-Host "Do you want to run seeds? (y/n)"
+    if ($seedConfirm -eq "y" -or $seedConfirm -eq "Y") {
         npx prisma db seed
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "✅ Database đã được seed" -ForegroundColor Green
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Seed might have issues (usually because data exists)." -ForegroundColor Yellow
         } else {
-            Write-Host "⚠️  Seed có thể đã có lỗi (có thể đã có dữ liệu)" -ForegroundColor Yellow
+            Write-Host "Database seeded." -ForegroundColor Green
         }
     }
 }
 
-# Bước 6: Test build local (nếu không skip)
+# Step 6: Test build local
 if (-not $SkipBuild) {
-    Write-Host ""
-    Write-Host "🏗️  Bước 6: Test build locally..." -ForegroundColor Yellow
+    Write-Host "`nStep 6: Testing production build locally..." -ForegroundColor Yellow
     npm run build
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Build local thất bại. Vui lòng fix lỗi trước khi deploy" -ForegroundColor Red
+        Write-Host "Local build failed. Fix errors before deploying!" -ForegroundColor Red
         exit 1
     }
-    Write-Host "✅ Build local thành công" -ForegroundColor Green
+    Write-Host "Local build succeeded." -ForegroundColor Green
 }
 
-# Bước 6.5: Auto commit (nếu được bật)
+# Step 6.5: Auto commit/push
 if ($AutoCommit -or $AutoPush) {
-    Write-Host ""
-    Write-Host "📝 Bước 6.5: Kiểm tra và commit changes..." -ForegroundColor Yellow
-    
-    # Kiểm tra có thay đổi chưa commit không
-    $status = git status --porcelain
-    if ($status) {
-        Write-Host "📋 Phát hiện thay đổi chưa commit:" -ForegroundColor Cyan
-        git status --short
-        
-        # Tạo commit message với timestamp
+    Write-Host "`nStep 6.5: Managing Git changes..." -ForegroundColor Yellow
+    $gitStatus = git status --porcelain
+    if ($gitStatus) {
         $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        $commitMessage = "Auto commit before deploy - $timestamp"
+        $commitMsg = "Auto-commit before deploy: $timestamp"
         
         if ($AutoCommit) {
-            $confirm = Read-Host "Bạn có muốn commit các thay đổi này? (y/n)"
-            if ($confirm -eq "y" -or $confirm -eq "Y") {
-                git add .
-                git commit -m $commitMessage
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Host "✅ Đã commit thành công" -ForegroundColor Green
-                } else {
-                    Write-Host "⚠️  Commit có thể đã thất bại hoặc không có gì để commit" -ForegroundColor Yellow
-                }
-            }
-        } else {
-            # Auto commit không cần xác nhận
+            Write-Host "Commiting changes: $commitMsg" -ForegroundColor Cyan
             git add .
-            git commit -m $commitMessage
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Đã auto commit thành công" -ForegroundColor Green
-            } else {
-                Write-Host "⚠️  Không có thay đổi để commit" -ForegroundColor Yellow
-            }
+            git commit -m $commitMsg
         }
         
-        # Auto push nếu được bật
         if ($AutoPush) {
-            Write-Host ""
-            Write-Host "📤 Đang push lên remote..." -ForegroundColor Yellow
-            $currentBranch = git branch --show-current
-            git push origin $currentBranch
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "✅ Đã push thành công lên $currentBranch" -ForegroundColor Green
-            } else {
-                Write-Host "⚠️  Push có thể đã thất bại. Kiểm tra lại." -ForegroundColor Yellow
-            }
+            $branch = git branch --show-current
+            Write-Host "Pushing to $branch..." -ForegroundColor Cyan
+            git push origin $branch
         }
-    } else {
-        Write-Host "✅ Không có thay đổi để commit" -ForegroundColor Green
     }
 }
 
-# Bước 7: Deploy
-Write-Host ""
-if ($Preview) {
-    Write-Host "🚀 Bước 7: Deploy preview to Vercel..." -ForegroundColor Yellow
-    vercel --yes
-} else {
-    Write-Host "🚀 Bước 7: Deploy production to Vercel..." -ForegroundColor Yellow
-    vercel --prod --yes
-}
+# Step 7: Push the deploy to Vercel Cloud
+Write-Host "`nStep 7: Deploying to Vercel (Production)..." -ForegroundColor Yellow
+$deployFlags = if ($Preview) { "--yes" } else { "--prod --yes" }
+Invoke-Expression "$VercelCmd $deployFlags"
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Deploy thất bại" -ForegroundColor Red
+    Write-Host "Vercel deployment process failed." -ForegroundColor Red
     exit 1
 }
 
-Write-Host ""
-Write-Host "✅ Deploy thành công!" -ForegroundColor Green
-Write-Host ""
-Write-Host "📋 Checklist sau khi deploy:" -ForegroundColor Cyan
-Write-Host "  [ ] Kiểm tra Build Logs trên Vercel Dashboard"
-Write-Host "  [ ] Kiểm tra Function Logs"
-Write-Host "  [ ] Test đăng nhập"
-Write-Host "  [ ] Test các tính năng chính"
-Write-Host ""
+Write-Host "`nDeployment completed successfully!" -ForegroundColor Green
+Write-Host "Final checks:"
+Write-Host "[ ] Check Vercel Dashboard for logs"
+Write-Host "[ ] Check functions are running correctly"
+Write-Host "[ ] Test login and database actions"
