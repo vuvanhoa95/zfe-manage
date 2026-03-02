@@ -4,23 +4,9 @@
   "devCommand": "next dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["sin1"],
-  "env": {
-    "SKIP_MIGRATIONS": "false"
-  },
   "functions": {
     "app/api/quotations/[id]/export-pdf/route.ts": {
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/weekly-report",
-      "schedule": "0 8 * * 1"
-    },
-    {
-      "path": "/api/cron/deadlines",
-      "schedule": "0 9 * * *"
-    }
-  ]
+  }
 }

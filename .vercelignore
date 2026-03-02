@@ -1,0 +1,15 @@
+# Database files
+prisma/prisma/
+*.db
+*.db-journal
+
+# Scripts
+scripts/
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
