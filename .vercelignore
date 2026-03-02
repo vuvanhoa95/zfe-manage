@@ -1,15 +1,35 @@
-# Database files
+# Database & temporary files
 prisma/prisma/
 *.db
 *.db-journal
+.next/
+node_modules/
+.pnpm-debug.log*
 
-# Scripts
-scripts/
-
-# Documentation
+# Workspace & Agent context 
+.brain/
+.gemini/
+.cursor/
+.agents/
+.agent/
+_agents/
+_agent/
+plans/
+docs/
 *.md
 !README.md
+
+# Scripts & Test
+scripts/
+tests/
+coverage/
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store

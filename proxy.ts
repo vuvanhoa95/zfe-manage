@@ -2,7 +2,7 @@ import { withAuth } from 'next-auth/middleware';
 
 // Bảo vệ route bằng NextAuth ở cả dev và prod.
 // Nếu chưa đăng nhập, tự động redirect về /login.
-export const middleware = withAuth({
+export const proxy = withAuth({
     pages: {
         signIn: '/login',
     },
