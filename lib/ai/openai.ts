@@ -26,11 +26,26 @@ let openaiClient: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not defined in environment variables');
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[AI] OPENAI_API_KEY không được cấu hình. Các tính năng AI sẽ không hoạt động.'
+      );
+      
+      // Trả về một mock client để tránh crash khi build hoặc runtime
+      return {
+        chat: {
+          completions: {
+            create: async () => ({ choices: [{ message: { content: 'AI is disabled' } }] }),
+          },
+        },
+      } as unknown as OpenAI;
     }
+
     openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      apiKey,
     });
   }
   return openaiClient;

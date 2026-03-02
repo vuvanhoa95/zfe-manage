@@ -5,11 +5,26 @@ let claudeClient: Anthropic | null = null;
 
 function getClaudeClient(): Anthropic {
   if (!claudeClient) {
-    if (!process.env.CLAUDE_API_KEY) {
-      throw new Error('CLAUDE_API_KEY is not defined. Set it in .env to use Claude for chatbot features.');
+    const apiKey = process.env.CLAUDE_API_KEY;
+
+    if (!apiKey) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[AI] CLAUDE_API_KEY không được cấu hình. Các tính năng Claude AI sẽ không hoạt động.'
+      );
+      
+      return {
+        messages: {
+          create: async () => ({ content: [{ type: 'text', text: 'Claude is disabled' }] }),
+          stream: () => {
+             throw new Error('Claude streaming is disabled (Missing API Key)');
+          }
+        },
+      } as unknown as Anthropic;
     }
+
     claudeClient = new Anthropic({
-      apiKey: process.env.CLAUDE_API_KEY,
+      apiKey,
     });
   }
   return claudeClient;

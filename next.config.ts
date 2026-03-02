@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   // Mark server-only packages that should not be bundled by Turbopack
-  serverExternalPackages: ['@react-email/render', 'prettier'],
+  serverExternalPackages: ['@react-email/render', 'prettier', 'puppeteer-core', '@sparticuz/chromium'],
   // Turbopack config (Next.js 16+)
   // Ép root về thư mục ZfeManage để tránh Next tự suy ra root ở cấp trên
   // (tránh lỗi không tìm thấy module như @prisma/client khi chạy dev từ workspace cha)
