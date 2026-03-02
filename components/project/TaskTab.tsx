@@ -43,6 +43,7 @@ import {
     Hash,
     RefreshCcw,
     FolderTree,
+    Check,
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import GroupTool, { type GroupConfig } from '@/components/ui/GroupTool';
@@ -551,6 +552,64 @@ function PriorityDropdown({
     );
 }
 
+function BulkAssignDropdown({
+    staffOptions,
+    onAssign,
+}: {
+    staffOptions: StaffOption[];
+    onAssign: (id: string, name: string) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="bg-white border text-left border-gray-200 text-gray-700 text-xs rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500/50 outline-none cursor-pointer hover:bg-gray-50 flex items-center justify-between min-w-[140px] shadow-sm transition-colors"
+            >
+                <span>Chọn nhân sự...</span>
+                <ChevronDown className="w-4 h-4 text-gray-400 ml-2" />
+            </button>
+
+            {isOpen && (
+                <>
+                    <div 
+                        className="fixed inset-0 z-[110]" 
+                        onClick={() => setIsOpen(false)} 
+                    />
+                    <div className="absolute bottom-full mb-2 left-0 w-56 bg-white border border-blue-200 rounded-xl shadow-[0_10px_40px_rgba(59,130,246,0.3)] py-1.5 z-[120] overflow-hidden animate-in fade-in slide-in-from-bottom-2">
+                        <button
+                            className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-red-50 hover:text-red-600 font-medium transition-colors border-b border-gray-100"
+                            onClick={() => {
+                                setIsOpen(false);
+                            }}
+                        >
+                            <span className="italic">Không đổi/Đóng</span>
+                        </button>
+                        <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                            {staffOptions.map(opt => (
+                                <button
+                                    key={opt.id}
+                                    className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-blue-600 hover:text-white transition-all font-semibold flex items-center gap-2 group"
+                                    onClick={() => {
+                                        onAssign(opt.id, opt.name);
+                                        setIsOpen(false);
+                                    }}
+                                >
+                                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex flex-shrink-0 items-center justify-center font-bold text-[10px] group-hover:bg-white group-hover:text-blue-600 shadow-sm transition-colors border border-blue-200">
+                                        {opt.name.charAt(0)}
+                                    </div>
+                                    <span className="truncate">{opt.name}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 export default function TaskTab({
     projectId,
     isNew,
@@ -681,25 +740,29 @@ export default function TaskTab({
                     body: JSON.stringify(patch),
                 });
                 const result = await res.json();
-                if (!result.success) {
-                    // Nếu API báo lỗi, load lại danh sách để tránh lệch dữ liệu
-                    await fetchTasks();
-                } else {
-                    // Sau khi update thành công, fetch lại tasks để lấy đầy đủ thông tin assignee
-                    // (vì patch chỉ có assignedToId, không có assignee object với name)
-                    await fetchTasks();
-                    // Không đóng inlineEdit ở đây vì onChange đã tự đóng
-                    // Chỉ đóng cho các field khác (status, priority, etc.)
-                    if (!('assignedToId' in patch) && !('assignedTo' in patch)) {
+                
+                if (result.success && result.data) {
+                    // 🚀 TỐI ƯU: Thay vì fetchTasks() (gây reload/nhảy list), 
+                    // ta dùng chính data trả về để cập nhật dòng hiện tại.
+                    const updatedTask = result.data;
+                    setTasks((prev) =>
+                        prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask } : t)),
+                    );
+
+                    // Chỉ đóng inlineEdit cho các field không phải gán người (vì gán người đã tự đóng bằng logic riêng)
+                    if (!('assignedToId' in patch)) {
                         setInlineEdit((current) =>
                             current && current.taskId === taskId ? null : current,
                         );
                     }
+                } else {
+                    // Nếu lỗi nghiêm trọng, fallback về fetch lại để đảm bảo đúng dữ liệu
+                    console.warn('Inline update failed or no data returned, falling back to fetchTasks');
+                    await fetchTasks();
                 }
             } catch (error) {
                 console.error('Failed to update task inline:', error);
                 await fetchTasks();
-                // Vẫn đóng inlineEdit ngay cả khi có lỗi để tránh UI bị kẹt
                 setInlineEdit((current) =>
                     current && current.taskId === taskId ? null : current,
                 );
@@ -1413,6 +1476,7 @@ export default function TaskTab({
     // Handle task selection with Shift/Ctrl support
     const handleTaskSelect = useCallback(
         (taskId: string, taskIndex: number, event: React.MouseEvent) => {
+            event.preventDefault();
             event.stopPropagation();
 
             setSelectedTasks((prev) => {
@@ -1423,13 +1487,13 @@ export default function TaskTab({
                     const start = Math.min(lastSelectedIndex, taskIndex);
                     const end = Math.max(lastSelectedIndex, taskIndex);
                     const isGrouped = taskGroupConfig && taskGroupConfig.field !== 'none';
-                    const visibleTasks = isGrouped
+                    const allTasks = isGrouped
                         ? groupedTasksForList.flatMap((g) => g.items)
                         : filteredTasks;
 
                     for (let i = start; i <= end; i++) {
-                        if (visibleTasks[i]) {
-                            newSelected.add(visibleTasks[i].id);
+                        if (allTasks[i]) {
+                            newSelected.add(allTasks[i].id);
                         }
                     }
                 } else if (event.ctrlKey || event.metaKey) {
@@ -1440,9 +1504,12 @@ export default function TaskTab({
                         newSelected.add(taskId);
                     }
                 } else {
-                    // Single selection
-                    newSelected.clear();
-                    newSelected.add(taskId);
+                    // Single selection (no shift, no ctrl)
+                    if (newSelected.has(taskId)) {
+                        newSelected.delete(taskId);
+                    } else {
+                        newSelected.add(taskId);
+                    }
                 }
 
                 return newSelected;
@@ -2569,7 +2636,7 @@ export default function TaskTab({
             <div className="pt-1 pb-2 md:pt-1 md:pb-3">
                 <div className="space-y-1.5">
                 {/* Header controls – cố định trên cùng khi cuộn trong tab Công việc */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-1.5 md:px-3 md:py-1.5 sticky top-0 z-20">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-1.5 md:px-3 md:py-1.5 sticky top-0 z-40">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                         {/* Mini dashboard – hiển thị cùng một dòng với thanh điều khiển */}
                         <div className="flex items-center gap-2 text-[11px] text-gray-600 overflow-x-auto md:overflow-visible">
@@ -2706,7 +2773,7 @@ export default function TaskTab({
                 </div>
 
                 {/* Group tool cho công việc */}
-                <div className="mt-1.5 mb-1">
+                <div className="mt-1.5 mb-1 sticky top-[56px] z-30 bg-white/95 backdrop-blur-sm rounded-2xl">
                     <GroupTool
                         activeTab={groupActiveTab}
                         groupConfig={taskGroupConfig || undefined}
@@ -2727,7 +2794,7 @@ export default function TaskTab({
                 </div>
 
                 {/* Filters */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-1.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-3 py-1.5 flex flex-col md:flex-row md:items-center md:justify-between gap-2 sticky top-[112px] z-30">
                     <div className="flex-1">
                         <input
                             type="text"
@@ -2859,64 +2926,41 @@ export default function TaskTab({
                     </div>
                 ) : viewMode === 'list' ? (
                     <div className="space-y-3">
-                        {/* Action bar khi có task được chọn */}
-                        {selectedTasks.size > 0 && (
-                            <div
-                                data-task-actions
-                                className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-semibold text-blue-900">
-                                        Đã chọn {selectedTasks.size} công việc
-                                    </span>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setSelectedTasks(new Set());
-                                            setLastSelectedIndex(null);
-                                        }}
-                                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                                    >
-                                        Bỏ chọn tất cả
-                                    </button>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={async () => {
-                                            if (
-                                                !confirm(
-                                                    `Bạn có chắc muốn xóa ${selectedTasks.size} công việc đã chọn?`,
-                                                )
-                                            )
-                                                return;
-                                            try {
-                                                const deletePromises = Array.from(selectedTasks).map((taskId) =>
-                                                    fetch(`/api/tasks/${taskId}`, { method: 'DELETE' }),
-                                                );
-                                                await Promise.all(deletePromises);
-                                                setSelectedTasks(new Set());
-                                                setLastSelectedIndex(null);
-                                                await fetchTasks();
-                                            } catch (error) {
-                                                console.error('Failed to delete selected tasks:', error);
-                                                alert('Có lỗi xảy ra khi xóa công việc');
-                                            }
-                                        }}
-                                        className="px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-1.5"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        Xóa ({selectedTasks.size})
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full text-sm">
-                                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)]">
+                                <table className="min-w-full text-sm border-collapse">
+                                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-20">
                                     <tr>
-                                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                        <th className="w-10 px-4 py-3 text-left">
+                                            <div className="flex items-center">
+                                                <button
+                                                    type="button"
+                                                    data-task-select="true"
+                                                    onClick={() => {
+                                                        if (selectedTasks.size === filteredTasks.length) {
+                                                            setSelectedTasks(new Set());
+                                                        } else {
+                                                            setSelectedTasks(new Set(filteredTasks.map(t => t.id)));
+                                                        }
+                                                    }}
+                                                    title="Chọn tất cả"
+                                                    className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${
+                                                        selectedTasks.size === filteredTasks.length && filteredTasks.length > 0
+                                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                                        : selectedTasks.size > 0
+                                                        ? 'bg-blue-100 border-blue-500 text-blue-600'
+                                                        : 'bg-white border-gray-400 hover:border-blue-500'
+                                                    }`}
+                                                >
+                                                    {selectedTasks.size === filteredTasks.length && filteredTasks.length > 0 ? (
+                                                        <Check className="w-3 h-3 stroke-[3]" />
+                                                    ) : selectedTasks.size > 0 ? (
+                                                        <div className="w-2 h-0.5 bg-blue-600 rounded-full" />
+                                                    ) : null}
+                                                </button>
+                                            </div>
+                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">
                                             Tên công việc
                                         </th>
                                         {columnSettings.showAssignee && (
@@ -2945,102 +2989,109 @@ export default function TaskTab({
                                 <tbody className="divide-y divide-gray-100">
                                     {shouldGroupList
                                         ? groupedTasksForList.map((group) => {
-                                              const headerStyle = getGroupHeaderStyle(group.groupKey);
-                                              return (
-                                                  <React.Fragment key={group.groupKey}>
-                                                      <tr>
-                                                          <td
-                                                              colSpan={listColumnCount}
-                                                              className={`px-4 py-2 text-[13px] font-semibold uppercase tracking-wide rounded-xl overflow-hidden ${headerStyle.container} ${headerStyle.label}`}
-                                                          >
-                                                              <div className="flex items-center justify-between">
-                                                                  <div className="flex items-center gap-2">
-                                                                      <span>{group.groupLabel}</span>
-                                                                      <span
-                                                                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-medium ${headerStyle.badge}`}
-                                                                      >
-                                                                          {group.items.length} công việc
-                                                                      </span>
-                                                                  </div>
-                                                              </div>
-                                                          </td>
-                                                      </tr>
-                                                  {group.items.map((task, taskIndexInGroup) => {
-                                                      const hasSubtasks = getSubtaskCount(task.id) > 0;
-                                                      const isExpanded = expandedTasks.has(task.id);
-                                                      const isCompleted = task.status === 'COMPLETED';
-                                                      const level = getTaskLevel(task.id);
-                                                      const isSelected = selectedTasks.has(task.id);
-                                                      // Tìm index thực tế trong filteredTasks
-                                                      const taskIndexInFiltered = filteredTasks.findIndex((t) => t.id === task.id);
+                                                              const headerStyle = getGroupHeaderStyle(group.groupKey);
+                                                              return (
+                                                                  <React.Fragment key={group.groupKey}>
+                                                                      <tr>
+                                                                          <td
+                                                                              colSpan={listColumnCount + 1}
+                                                                              className={`px-4 py-2 text-[13px] font-semibold uppercase tracking-wide rounded-xl overflow-hidden ${headerStyle.container} ${headerStyle.label}`}
+                                                                          >
+                                                                              <div className="flex items-center justify-between">
+                                                                                  <div className="flex items-center gap-2">
+                                                                                      <span>{group.groupLabel}</span>
+                                                                                      <span
+                                                                                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-medium ${headerStyle.badge}`}
+                                                                                      >
+                                                                                          {group.items.length} công việc
+                                                                                      </span>
+                                                                                  </div>
+                                                                              </div>
+                                                                          </td>
+                                                                      </tr>
+                                                                  {group.items.map((task, taskIndexInGroup) => {
+                                                                      const hasSubtasks = getSubtaskCount(task.id) > 0;
+                                                                      const isExpanded = expandedTasks.has(task.id);
+                                                                      const isCompleted = task.status === 'COMPLETED';
+                                                                      const level = getTaskLevel(task.id);
+                                                                      const isSelected = selectedTasks.has(task.id);
+                                                                      // Tìm index thực tế trong filteredTasks
+                                                                      const taskIndexInFiltered = filteredTasks.findIndex((t) => t.id === task.id);
 
-                                                      const statusBg = task.status === 'COMPLETED' 
-                                                          ? 'bg-emerald-50/30' 
-                                                          : task.status === 'DELAYED' 
-                                                          ? 'bg-red-50/30' 
-                                                          : task.status === 'IN_PROGRESS'
-                                                          ? 'bg-blue-50/20'
-                                                          : '';
+                                                                      const statusBg = task.status === 'COMPLETED' 
+                                                                          ? 'bg-emerald-50/30' 
+                                                                          : task.status === 'DELAYED' 
+                                                                          ? 'bg-red-50/30' 
+                                                                          : task.status === 'IN_PROGRESS'
+                                                                          ? 'bg-blue-50/20'
+                                                                          : '';
 
-                                                      return (
-                                                          <tr
-                                                              key={task.id}
-                                                              className={`hover:bg-blue-50/50 transition-colors group ${
-                                                                  isSelected ? 'bg-blue-50' : statusBg
-                                                              }`}
-                                                          >
-                                                {/* Name Column */}
-                                                <td className="px-4 py-3">
-                                                    <div
-                                                        className="flex items-center gap-2"
-                                                        style={{ paddingLeft: `${level * 24}px` }}
-                                                    >
-                                                        {/* Expand/Collapse Icon */}
-                                                        {hasSubtasks ? (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    toggleExpand(task.id);
-                                                                }}
-                                                                className="p-0.5 hover:bg-gray-200 rounded transition-colors"
-                                                            >
-                                                                {isExpanded ? (
-                                                                    <ChevronDown className="w-4 h-4 text-gray-500" />
-                                                                ) : (
-                                                                    <ChevronRight className="w-4 h-4 text-gray-500" />
-                                                                )}
-                                                            </button>
-                                                        ) : (
-                                                            <div className="w-5" />
-                                                        )}
+                                                                      return (
+                                                                          <tr
+                                                                              key={task.id}
+                                                                              className={`hover:bg-blue-50/50 transition-colors group ${
+                                                                                  isSelected ? 'bg-blue-50/80 ring-1 ring-inset ring-blue-200' : statusBg
+                                                                              }`}
+                                                                          >
+                                                                                {/* Multi-select Checkbox column */}
+                                                                                <td className="w-10 px-3 py-3 align-middle">
+                                                                                    {(() => {
+                                                                                        if (isSelected) console.log(`[Grouped] Checkbox ${task.id} IS SELECTED!`);
+                                                                                        return (
+                                                                                            <button
+                                                                                                type="button"
+                                                                                                data-task-select="true"
+                                                                                                onClick={(e) => handleTaskSelect(task.id, taskIndexInFiltered, e)}
+                                                                                                title="Chọn công việc này"
+                                                                                                className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                                                                                                    isSelected
+                                                                                                    ? 'bg-blue-600 border-blue-600 text-white'
+                                                                                                    : 'bg-white border-gray-300 hover:border-blue-500'
+                                                                                                }`}
+                                                                                            >
+                                                                                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                                                                            </button>
+                                                                                        );
+                                                                                    })()}
+                                                                                </td>
 
-                                                        {/* Status Icon - Làm nổi bật trạng thái */}
-                                                        <div className="flex-shrink-0">
-                                                            {task.status === 'COMPLETED' ? (
-                                                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                                                            ) : task.status === 'IN_PROGRESS' ? (
-                                                                <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                                            ) : task.status === 'DELAYED' ? (
-                                                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                                                            ) : (
-                                                                <Circle className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                                                            )}
-                                                        </div>
+                                                                                {/* Name Column */}
+                                                                                <td className="px-4 py-3">
+                                                                                    <div
+                                                                                        className="flex items-center gap-2"
+                                                                                        style={{ paddingLeft: `${level * 24}px` }}
+                                                                                    >
+                                                                                        {/* Expand/Collapse Icon */}
+                                                                                        {hasSubtasks ? (
+                                                                                            <button
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    toggleExpand(task.id);
+                                                                                                }}
+                                                                                                className="p-0.5 hover:bg-gray-200 rounded transition-colors"
+                                                                                            >
+                                                                                                {isExpanded ? (
+                                                                                                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                                                                                                ) : (
+                                                                                                    <ChevronRight className="w-4 h-4 text-gray-500" />
+                                                                                                )}
+                                                                                            </button>
+                                                                                        ) : (
+                                                                                            <div className="w-5" />
+                                                                                        )}
 
-                                                        {/* Checkbox for selection */}
-                                                        <button
-                                                            type="button"
-                                                            data-task-select
-                                                            onClick={(e) => handleTaskSelect(task.id, taskIndexInFiltered, e)}
-                                                            className="flex-shrink-0 focus:outline-none"
-                                                            title="Chọn công việc (Shift/Ctrl để chọn nhiều)"
-                                                        >
-                                                            {isSelected ? (
-                                                                <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                                            ) : (
-                                                                <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                                                            )}
-                                                        </button>
+                                                                                        {/* Status Icon - Làm nổi bật trạng thái */}
+                                                                                        <div className="flex-shrink-0">
+                                                                                            {task.status === 'COMPLETED' ? (
+                                                                                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                                                                                            ) : task.status === 'IN_PROGRESS' ? (
+                                                                                                <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                                                                            ) : task.status === 'DELAYED' ? (
+                                                                                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                                                                            ) : (
+                                                                                                <Circle className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                                                                                            )}
+                                                                                        </div>
 
                                                         {/* Task Title - Clickable to open edit form */}
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -3320,13 +3371,35 @@ export default function TaskTab({
                                                   ? 'bg-blue-50/20'
                                                   : '';
 
-                                              return (
+                                            return (
                                                   <tr
                                                       key={task.id}
                                                       className={`hover:bg-blue-50/50 transition-colors group ${
-                                                          isSelected ? 'bg-blue-50' : statusBgNonGrouped
+                                                          isSelected ? 'bg-blue-50/80 ring-1 ring-inset ring-blue-200' : statusBgNonGrouped
                                                       }`}
                                                   >
+                                                        {/* Multi-select Checkbox column */}
+                                                        <td className="w-10 px-3 py-3 align-middle">
+                                                            {(() => {
+                                                                if (isSelected) console.log(`[NonGrouped] Checkbox ${task.id} IS SELECTED!`);
+                                                                return (
+                                                                    <button
+                                                                        type="button"
+                                                                        data-task-select="true"
+                                                                        onClick={(e) => handleTaskSelect(task.id, taskIndexInFiltered, e)}
+                                                                        title="Chọn công việc này"
+                                                                        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all cursor-pointer flex-shrink-0 ${
+                                                                            isSelected
+                                                                            ? 'bg-blue-600 border-blue-600 text-white'
+                                                                            : 'bg-white border-gray-300 hover:border-blue-500'
+                                                                        }`}
+                                                                    >
+                                                                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                                                    </button>
+                                                                );
+                                                            })()}
+                                                        </td>
+
                                                       {/* Name Column */}
                                                       <td className="px-4 py-3">
                                                               <div
@@ -3364,21 +3437,6 @@ export default function TaskTab({
                                                                       <Circle className="w-5 h-5 text-gray-400 flex-shrink-0" />
                                                                   )}
                                                               </div>
-
-                                                              {/* Checkbox for selection */}
-                                                              <button
-                                                                  type="button"
-                                                                  data-task-select
-                                                                  onClick={(e) => handleTaskSelect(task.id, taskIndexInFiltered, e)}
-                                                                  className="flex-shrink-0 focus:outline-none"
-                                                                  title="Chọn công việc (Shift/Ctrl để chọn nhiều)"
-                                                              >
-                                                                  {isSelected ? (
-                                                                      <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                                                  ) : (
-                                                                      <Circle className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                                                                  )}
-                                                              </button>
 
                                                               {/* Task Title - Clickable to open edit form */}
                                                               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -4372,6 +4430,106 @@ export default function TaskTab({
         {isMounted && taskModal ? createPortal(taskModal, document.body) : null}
         {/* Modal cài đặt hiển thị công việc */}
         {isMounted && settingsModal ? createPortal(settingsModal, document.body) : null}
+            {/* Bulk Actions Toolbar - ClickUp style */}
+            {isMounted && selectedTasks.size > 0 ? createPortal(
+                <div 
+                    data-task-actions="true"
+                    className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] animate-in fade-in slide-in-from-bottom-4 duration-300"
+                >
+                    <div className="bg-white/85 text-gray-800 px-6 py-3 rounded-full shadow-[0_0_25px_rgba(59,130,246,0.4)] flex items-center gap-6 border border-blue-400 backdrop-blur-xl transition-all">
+                        <div className="flex items-center gap-3 border-r border-gray-200 pr-6 mr-2">
+                            <span className="bg-blue-600 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-sm min-w-[24px] text-center">
+                                {selectedTasks.size}
+                            </span>
+                            <span className="text-sm font-semibold tracking-wide text-gray-600">đã chọn</span>
+                        </div>
+
+                        <div className="flex items-center gap-5">
+                            {/* Bulk Status Update */}
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] text-blue-700 uppercase font-black tracking-widest bg-blue-50/80 px-2 py-1 rounded border border-blue-100">Trạng thái</span>
+                                <div className="flex gap-1.5">
+                                    {(['TODO', 'IN_PROGRESS', 'COMPLETED', 'DELAYED'] as TaskStatus[]).map((status) => (
+                                        <button
+                                            key={status}
+                                            onClick={async () => {
+                                                const updates = Array.from(selectedTasks).map(id => 
+                                                    handleInlineUpdate(id, { status })
+                                                );
+                                                await Promise.all(updates);
+                                                setSelectedTasks(new Set());
+                                            }}
+                                            className="p-1.5 hover:bg-blue-50 rounded-full transition-all hover:scale-110 active:scale-95 group relative"
+                                            title={STATUS_CONFIG[status].label}
+                                        >
+                                            {status === 'COMPLETED' ? (
+                                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                            ) : status === 'IN_PROGRESS' ? (
+                                                <Clock className="w-5 h-5 text-blue-500" />
+                                            ) : status === 'DELAYED' ? (
+                                                <AlertCircle className="w-5 h-5 text-red-500" />
+                                            ) : (
+                                                <Circle className="w-5 h-5 text-gray-400 group-hover:text-blue-400" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="w-px h-8 bg-gray-200" />
+
+                            {/* Bulk Assignee Update */}
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] text-blue-700 uppercase font-black tracking-widest bg-blue-50/80 px-2 py-1 rounded border border-blue-100">Giao việc</span>
+                                <BulkAssignDropdown 
+                                    staffOptions={staffOptions} 
+                                    onAssign={async (selectedId, selectedName) => {
+                                        if (!selectedId) return;
+                                        
+                                        const updates = Array.from(selectedTasks).map(id => 
+                                            handleInlineUpdate(id, { 
+                                                assignedToId: selectedId,
+                                                assignedTo: selectedName
+                                            })
+                                        );
+                                        await Promise.all(updates);
+                                        setSelectedTasks(new Set());
+                                    }} 
+                                />
+                            </div>
+
+                            <div className="w-px h-8 bg-gray-200" />
+
+                            {/* Bulk Delete */}
+                            <button 
+                                onClick={async () => {
+                                    if (confirm(`Bạn có chắc muốn xóa ${selectedTasks.size} công việc đã chọn?`)) {
+                                        const deletes = Array.from(selectedTasks).map(id => 
+                                            fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+                                        );
+                                        await Promise.all(deletes);
+                                        await fetchTasks();
+                                        setSelectedTasks(new Set());
+                                    }
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-full transition-all text-xs font-bold ring-1 ring-inset ring-red-200 shadow-sm"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>XÓA BỎ</span>
+                            </button>
+
+                            <button 
+                                onClick={() => setSelectedTasks(new Set())}
+                                className="ml-2 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                                title="Bỏ chọn"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>, 
+                document.body
+            ) : null}
         </>
     );
 }

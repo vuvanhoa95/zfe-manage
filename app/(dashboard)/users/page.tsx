@@ -13,6 +13,7 @@ type AppUser = {
     experience?: string;
     bankAccount?: string;
     taxCode?: string;
+    status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
     createdAt?: string;
 };
 
@@ -213,6 +214,32 @@ export default function UsersPage() {
         }
     };
 
+    const handleStatusUpdate = async (userId: string, newStatus: string) => {
+        if (!confirm(`Bạn có chắc chắn muốn thay đổi trạng thái user này thành ${newStatus}?`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/users', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userId, status: newStatus }),
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                await fetchUsers();
+            } else {
+                alert(result.error || 'Cập nhật trạng thái thất bại');
+            }
+        } catch (error) {
+            console.error('Update status error:', error);
+            alert('Có lỗi xảy ra khi cập nhật trạng thái');
+        }
+    };
+
     // Hiển thị loading khi session đang load
     if (sessionLoading || (isLoading && isAdmin)) {
         return (
@@ -269,6 +296,7 @@ export default function UsersPage() {
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Chức danh</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Bộ môn</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Vai trò</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Trạng thái</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Ngày tạo</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">
                                     Thao tác
@@ -308,20 +336,65 @@ export default function UsersPage() {
                                                 {user.role}
                                             </span>
                                         </td>
+                                        <td className="px-6 py-4 text-sm text-center">
+                                            <span
+                                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                    user.status === 'ACTIVE'
+                                                        ? 'bg-green-50 text-green-700 border border-green-200'
+                                                        : user.status === 'PENDING'
+                                                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                          : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                                }`}
+                                            >
+                                                {user.status === 'PENDING' ? 'Đang chờ' : user.status === 'ACTIVE' ? 'Hoạt động' : 'Khóa'}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">
                                             {user.createdAt
                                                 ? new Date(user.createdAt).toLocaleDateString('vi-VN')
                                                 : '-'}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button
-                                                type="button"
-                                                onClick={() => openEditModal(user)}
-                                                className="text-gray-400 hover:text-blue-600 p-1 mr-2"
-                                                title="Chỉnh sửa user"
-                                            >
-                                                ✏️
-                                            </button>
+                                         <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                {user.status === 'PENDING' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
+                                                        className="px-2 py-1 bg-green-600 text-white text-[10px] font-bold rounded hover:bg-green-700 transition-colors uppercase"
+                                                        title="Phê duyệt tài khoản"
+                                                    >
+                                                        Duyệt
+                                                    </button>
+                                                )}
+                                                {user.status === 'ACTIVE' && user.email !== currentUser.email && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStatusUpdate(user.id, 'SUSPENDED')}
+                                                        className="text-gray-400 hover:text-amber-600 p-1"
+                                                        title="Tạm khóa user"
+                                                    >
+                                                        🚫
+                                                    </button>
+                                                )}
+                                                {user.status === 'SUSPENDED' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
+                                                        className="text-gray-400 hover:text-green-600 p-1"
+                                                        title="Kích hoạt lại"
+                                                    >
+                                                        ✅
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openEditModal(user)}
+                                                    className="text-gray-400 hover:text-blue-600 p-1"
+                                                    title="Chỉnh sửa user"
+                                                >
+                                                    ✏️
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

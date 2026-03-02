@@ -1,40 +1,39 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 HANDOVER DOCUMENT - PHASE 1 COMPLETE 🚀
+📋 HANDOVER DOCUMENT - SOCIAL LOGIN COMPLETE 🚀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📍 Đang làm: ZfeManage AI-First Transformation
-🔢 Đến bước: Kết thúc Phase 1, Sẵn sàng Phase 2
+📍 Đang làm: ZfeManage - Social Login & User Management
+🔢 Đến bước: Hoàn tất Phase 5 - Sẵn sàng sử dụng thực tế
 
-✅ ĐÃ XONG (PHASE 1):
-   - Hạ tầng Email (Resend + React Email) ✓
-   - 4 Templates: Created, Accepted, Weekly Report, Deadline Reminder ✓
-   - API Triggers: Quotation context (Create/Accept), Project context (Deadline update) ✓
-   - Dashboard Alerts Widget: Deadlines, Overdue, Cash flow alerts ✓
-   - Cron Jobs: Weekly Report (Mon 8AM), Daily Reminders (9AM) ✓
-   - Auto-numbering: Format QT-YYMMDD-XXX ✓
-   - Schema: Added profitRate to Quotation model ✓
+✅ ĐÃ XONG (SOCIAL LOGIN):
+   - Google & Microsoft OAuth Integration (NextAuth + Prisma) ✓
+   - Admin Approval Workflow (PENDING → ACTIVE/SUSPENDED) ✓
+   - User Management UI (Badge status, Approve/Block buttons) ✓
+   - Email Invitation System (Resend template + Trigger on manual create) ✓
+   - Error Handling (Redirects for pending/suspended accounts) ✓
+   - .env.example updated with OAuth & Admin Email configs ✓
 
-⏳ CÒN LẠI (PHASE 2 - SMART INPUT):
-   - Task 2.1: Voice-to-Quotation (Web Speech API)
-   - Task 2.2: Business Card Scanner (OpenAI Vision)
-   - Task 2.3: Smart Suggestions (History based)
-   - Task 2.4: Keyboard Shortcuts
+⏳ CÒN LẠI (TIẾP THEO):
+   - Task 6.1: Activity Logs cho trạng thái User
+   - Task 6.2: Forgot Password flow cho tài khoản Email truyền thống
+   - Task 6.3: Advanced RBAC (Grown roles)
 
 🔧 QUYẾT ĐỊNH QUAN TRỌNG:
-   - Email triggers chạy async (.then) để tối ưu response time.
-   - Cron jobs bảo mật bằng CRON_SECRET trên production.
-   - profitRate được lưu cứng để phục vụ analytics nhanh.
+   - Unknown social logins luôn là PENDING để bảo vệ dữ liệu công ty.
+   - Admin-created users là ACTIVE để giảm bớt thao tác phê duyệt lại.
+   - Dùng PrismaAdapter để sync metadata social (name, image) vào DB.
+   - Email mời gửi kèm Admin Name để nhân viên biết ai đang mời mình.
 
 ⚠️ LƯU Ý CHO SESSION SAU:
-   - Cần add RESEND_API_KEY và ADMIN_EMAIL vào .env để test thật.
-   - Đã cấu hình vercel.json cho crons.
-   - Toàn bộ Phase 1 spec đã hoàn thành 100%.
+   - Đảm bảo GOOGLE / AZURE_AD secrets đã có trong .env local & production.
+   - Thử nghiệm đăng nhập một email "lạ" để test quy trình nộp đơn duyệt.
+   - Kiểm tra email invitation gửi về có đúng landing page /login không.
 
 📁 FILES QUAN TRỌNG:
-   - .brain/brain.json (Project knowledge)
-   - lib/email/send.ts (Central email logic)
-   - components/dashboard/AlertsWidget.tsx (UI alerts)
-   - app/api/cron/ (Automated tasks)
+   - lib/auth.ts (NextAuth Config & Callbacks)
+   - app/api/users/route.ts (User status logic)
+   - lib/email/send.ts (Invitation email sender)
+   - app/(dashboard)/users/page.tsx (User Management UI)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📍 Đã lưu bộ não! Để tiếp tục: Gõ /recap

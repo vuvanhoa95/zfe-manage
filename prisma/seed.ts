@@ -65,6 +65,7 @@ async function main() {
                 password: adminHashedPassword,
                 name: 'Hoa VV',
                 role: 'ADMIN',
+                status: 'ACTIVE',
             },
         });
         console.log('✅ Main admin user created: ' + adminEmail + ' / ' + adminPassword);
@@ -76,6 +77,7 @@ async function main() {
                 password: adminHashedPassword,
                 name: 'Hoa VV',
                 role: 'ADMIN',
+                status: 'ACTIVE',
             },
         });
         console.log('✅ Main admin user updated: ' + adminEmail + ' / ' + adminPassword);
@@ -97,6 +99,7 @@ async function main() {
                 password: oldHashedPassword,
                 name: 'Admin User',
                 role: 'ADMIN',
+                status: 'ACTIVE',
             },
         });
         console.log('✅ Legacy admin user created: ' + oldEmail + ' / ' + oldPassword);

@@ -83,7 +83,7 @@ export default function DashboardWorkOverview() {
             setLoading(true);
             setError(null);
             try {
-                const res = await fetch('/api/dashboard/work-summary', { cache: 'no-store' });
+                const res = await fetch('/api/dashboard/work-summary');
                 const json: ApiResponse = await res.json().catch(() => ({
                     success: false,
                     error: 'Phản hồi từ máy chủ không hợp lệ.',

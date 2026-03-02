@@ -1,123 +1,70 @@
 {
-  "updated_at": "2026-02-04T00:15:00Z",
+  "updated_at": "2026-03-03T02:18:59Z",
   "working_on": {
-    "feature": "Month 3 - AI Core Features",
-    "task": "Completed all 4 phases",
-    "status": "complete",
-    "files": [
-      "lib/ai/openai.ts",
-      "lib/ai/claude.ts",
-      "lib/ai/pricing-analyzer.ts",
-      "lib/ai/intro-generator.ts",
-      "lib/ai/chat-assistant.ts",
-      "types/ai.ts",
-      "components/quotation/AIPricingSuggestion.tsx",
-      "components/quotation/AIIntroGenerator.tsx",
-      "components/quotation/AIAssistant.tsx"
-    ],
-    "blockers": [],
-    "notes": "All Month 3 AI features implemented successfully. Ready for testing or Month 4."
+    "feature": "Multi-select Tasks (ClickUp-style) + ListView UX",
+    "task": "Sticky panels + bulk action toolbar polish",
+    "status": "IN_PROGRESS",
+    "files": ["components/project/TaskTab.tsx"],
+    "notes": "Bulk toolbar dùng createPortal. 4 tầng sticky: Header z-40 top-0, GroupTool z-30 top-[56px], Filters z-30 top-[112px], Thead top-0 trong overflow-y-auto container."
   },
   "pending_tasks": [
-    {
-      "task": "Test AI pricing suggestions feature",
-      "priority": "high",
-      "notes": "Need to verify Min/Avg/Max prices and confidence scores"
-    },
-    {
-      "task": "Test AI intro generator",
-      "priority": "high",
-      "notes": "Verify Vietnamese text quality and personalization"
-    },
-    {
-      "task": "Test AI assistant chatbot",
-      "priority": "high",
-      "notes": "Check streaming responses and conversation flow"
-    },
-    {
-      "task": "Add OPENAI_API_KEY to .env",
-      "priority": "high",
-      "notes": "Required for AI features to work"
-    },
-    {
-      "task": "Begin Month 4: Advanced AI & Predictive Analytics",
-      "priority": "medium",
-      "notes": "Deal scoring, revenue forecasting, customer insights"
-    }
+    { "task": "Kiểm tra lại sticky headers trên màn hình thật (chiều cao panels có khớp không)", "priority": "high" },
+    { "task": "Integrate Social Login (Phase 01-05 in progress)", "priority": "medium" },
+    { "task": "Check Vercel Deployment for Direct URL sync", "priority": "medium" }
   ],
   "recent_changes": [
     {
-      "timestamp": "2026-02-04T00:00:00Z",
+      "timestamp": "2026-03-03T01:30:00Z",
       "type": "feature",
-      "description": "Phase 01: AI Infrastructure Setup - OpenAI & Claude clients",
-      "files": ["lib/ai/openai.ts", "lib/ai/claude.ts", "types/ai.ts"]
+      "description": "Multi-select tasks: handleTaskSelect với Shift/Ctrl/click đơn. Checkbox luôn hiển thị, data-task-select attribute để tránh global click listener clear selection.",
+      "files": ["components/project/TaskTab.tsx"]
     },
     {
-      "timestamp": "2026-02-04T00:05:00Z",
-      "type": "feature",
-      "description": "Phase 02: Smart Pricing Suggestions - AI price analysis",
-      "files": [
-        "lib/ai/pricing-analyzer.ts",
-        "app/api/ai/pricing-suggest/route.ts",
-        "components/quotation/AIPricingSuggestion.tsx",
-        "components/quotation/PricingTable.tsx"
-      ]
+      "timestamp": "2026-03-03T01:55:00Z",
+      "type": "fix",
+      "description": "BUG FIX CRITICAL: Global click listener (handleClickOutside) gây reset selectedTasks ngay sau khi click checkbox vì thiếu data-task-select trên các button mới. Đã thêm lại.",
+      "files": ["components/project/TaskTab.tsx"]
     },
     {
-      "timestamp": "2026-02-04T00:10:00Z",
+      "timestamp": "2026-03-03T01:58:00Z",
       "type": "feature",
-      "description": "Phase 03: Auto Intro Generator - AI-generated Vietnamese intro text",
-      "files": [
-        "lib/ai/intro-generator.ts",
-        "app/api/ai/generate-intro/route.ts",
-        "components/quotation/AIIntroGenerator.tsx",
-        "components/quotation/DataTab.tsx"
-      ]
+      "description": "Bulk Action Toolbar: dùng createPortal render thẳng vào document.body (z-9999). Thiết kế sáng: bg-white/85 + border-blue-400 + shadow neon blue + backdrop-blur-xl.",
+      "files": ["components/project/TaskTab.tsx"]
     },
     {
-      "timestamp": "2026-02-04T00:14:00Z",
+      "timestamp": "2026-03-03T02:00:00Z",
       "type": "feature",
-      "description": "Phase 04: AI Assistant Chatbot - Conversational quotation creation",
-      "files": [
-        "lib/ai/chat-assistant.ts",
-        "app/api/ai/chat-assistant/route.ts",
-        "components/quotation/AIAssistant.tsx",
-        "components/quotation/QuotationEditor.tsx"
-      ]
-    }
-  ],
-  "errors_encountered": [
-    {
-      "error": "TypeScript error: Property 'customerName' does not exist on type 'QuotationContext'",
-      "solution": "Updated QuotationContext interface in types/ai.ts to include customerName, totalArea, and lineItems fields",
-      "resolved": true
+      "description": "BulkAssignDropdown: Custom dropdown component thay thế <select> native để có thể style hover bg blue, avatar chữ cái đầu tên, animate-in.",
+      "files": ["components/project/TaskTab.tsx"]
     },
     {
-      "error": "TypeScript error: Property 'quantity' does not exist on type 'QuotationLineInput'",
-      "solution": "Removed quantity field from QuotationEditor.tsx lineItems mapping",
-      "resolved": true
+      "timestamp": "2026-03-03T02:10:00Z",
+      "type": "feature",
+      "description": "4 tầng Sticky panels: Header=z-40/top-0, GroupTool=z-30/top-[56px], Filters=z-30/top-[112px]. Thead trong table: overflow-y-auto container max-h-[calc(100vh-260px)] + sticky top-0 z-20.",
+      "files": ["components/project/TaskTab.tsx"]
     }
   ],
   "decisions_made": [
+    { "decision": "Use DIRECT_URL", "reason": "Neon Pooler has intermittent connection drops in dev environment." },
+    { "decision": "Parallel Fetching", "reason": "Reduces tab loading time by ~50% in WorkReportTab." },
+    { "decision": "createPortal for BulkToolbar", "reason": "Parent div có CSS transform/translate gây fixed bị trapped. Portal sinh ra ngoài DOM tree tránh được." },
+    { "decision": "overflow-y-auto container cho table", "reason": "overflow-x-auto tạo scroll context mới làm thead sticky top-0 không dính vào viewport. Giải pháp: cho container scroll dọc luôn, thead sticky trong đó." }
+  ],
+  "errors_encountered": [
     {
-      "decision": "Use OpenAI GPT-4o-mini as primary AI model",
-      "reason": "Cost-effective ($0.15/1M input tokens) with good Vietnamese support"
+      "error": "Build error: Parsing ecmascript source code failed - missing } brace",
+      "solution": "Thêm </div> đóng cho StatusDropdown component bị thiếu khi tách BulkAssignDropdown.",
+      "resolved": true
     },
     {
-      "decision": "Add Claude 3.5 Sonnet as optional secondary AI",
-      "reason": "Better for complex conversations in chatbot, can fallback if needed"
+      "error": "Check is not defined - runtime error",
+      "solution": "Thêm Check vào import từ lucide-react.",
+      "resolved": true
     },
     {
-      "decision": "Implement streaming responses for chatbot",
-      "reason": "Better UX with real-time AI responses"
-    },
-    {
-      "decision": "Store AI confidence scores with all suggestions",
-      "reason": "Transparency - users know when to trust AI vs verify manually"
-    },
-    {
-      "decision": "Vietnamese-first for all AI-generated text",
-      "reason": "Target market is Vietnamese BIM companies"
+      "error": "Checkbox click không giữ được selection (reset về 0 ngay lập tức)",
+      "solution": "Global click listener kiểm tra data-task-select attribute. Button checkbox mới thiếu attribute này → listener coi là click outside → reset. Fix: thêm data-task-select vào tất cả checkbox button.",
+      "resolved": true
     }
   ]
 }

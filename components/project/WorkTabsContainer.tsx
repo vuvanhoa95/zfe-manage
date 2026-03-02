@@ -100,23 +100,23 @@ export default function WorkTabsContainer({ projectId, isNew, onAutoSaveProject 
                 </div>
             )}
 
-            {/* Content area (card handled riêng cho từng tab)
-                Giữ tất cả các tab được mount để tránh phải fetch lại dữ liệu khi chuyển tab.
-                Chỉ ẩn/hiện bằng CSS để chuyển tab gần như tức thì sau lần tải đầu tiên. */}
+            {/* Content area — Only mount the ACTIVE tab to avoid redundant API calls.
+                Each tab fetches tasks independently, so mounting all 3 at once
+                results in 3× identical /api/projects/:id/tasks calls. */}
             <div className="relative">
-                <div style={{ display: activeSubTab === 'dashboard' ? 'block' : 'none' }}>
-                    <WorkDashboard projectId={projectId} />
-                </div>
-                <div style={{ display: activeSubTab === 'task' ? 'block' : 'none' }}>
+                {activeSubTab === 'dashboard' && (
+                    <WorkDashboard projectId={projectId} isActive />
+                )}
+                {activeSubTab === 'task' && (
                     <TaskTab 
                         projectId={projectId} 
                         isNew={false} 
                         onAutoSaveProject={isNew ? onAutoSaveProject : undefined}
                     />
-                </div>
-                <div style={{ display: activeSubTab === 'report' ? 'block' : 'none' }}>
-                    <WorkReportTab projectId={projectId} />
-                </div>
+                )}
+                {activeSubTab === 'report' && (
+                    <WorkReportTab projectId={projectId} isActive />
+                )}
             </div>
         </div>
     );

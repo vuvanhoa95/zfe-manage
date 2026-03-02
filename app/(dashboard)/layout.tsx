@@ -1,13 +1,16 @@
 'use client';
 
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
-import AiAssistant from '@/components/ai/AiAssistant';
 import { PageTransition } from '@/components/ui/PageTransition';
-import TechnicalCommandPalette from '@/components/technical/TechnicalCommandPalette';
 import { useCommandPalette } from '@/lib/hooks/useCommandPalette';
+
+// ⚡ PERFORMANCE: Lazy-load non-critical UI overlays
+const AiAssistant = dynamic(() => import('@/components/ai/AiAssistant'), { ssr: false });
+const TechnicalCommandPalette = dynamic(() => import('@/components/technical/TechnicalCommandPalette'), { ssr: false });
 
 export default function DashboardLayout({
     children,

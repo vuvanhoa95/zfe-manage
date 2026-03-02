@@ -40,6 +40,7 @@ type DashboardTask = {
 
 type WorkDashboardProps = {
     projectId: string;
+    isActive?: boolean;
 };
 
 type TimeFilter = '7d' | '30d' | 'all';
@@ -89,10 +90,19 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
     DELAYED: '#EF4444',
 };
 
-export default function WorkDashboard({ projectId }: WorkDashboardProps) {
+export default function WorkDashboard({ projectId, isActive = true }: WorkDashboardProps) {
     const [tasks, setTasks] = useState<DashboardTask[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [fetchCount, setFetchCount] = useState(0);
+
+    // Re-fetch when tab becomes active
+    useEffect(() => {
+        if (isActive && fetchCount > 0) {
+            setFetchCount((c) => c + 1);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isActive]);
 
     const [disciplineFilter, setDisciplineFilter] = useState('');
     const [assigneeFilter, setAssigneeFilter] = useState('');
@@ -131,7 +141,8 @@ export default function WorkDashboard({ projectId }: WorkDashboardProps) {
         return () => {
             isMounted = false;
         };
-    }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId, fetchCount]);
 
     const now = useMemo(() => new Date(), []);
 

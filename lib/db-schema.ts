@@ -1,18 +1,30 @@
 import { prisma } from './prisma';
 import { Prisma } from '@prisma/client';
 
+// Global singleton: ensures schema check runs at most ONCE per server lifecycle.
+// This was the #1 performance bottleneck — ~25 SQL statements running on every request.
+const _schemaState = globalThis as unknown as {
+    __zf_schema_ready?: Promise<void>;
+};
+
 /**
  * Tạo các bảng cơ bản nếu chưa tồn tại (PostgreSQL)
- * - users, customers, projects
- * - quotations, cash_flows
- * - outsourcing_staff, tasks
  * 
- * Được gọi tự động khi detect lỗi "table does not exist"
- * 
- * ⚠️ AN TOÀN: Chỉ dùng CREATE TABLE IF NOT EXISTS - KHÔNG xóa hoặc thay đổi dữ liệu hiện có
- * ⚠️ LƯU Ý: Đây chỉ là safety net, schema CHÍNH thức được tạo bởi `prisma migrate deploy`
+ * ⚡ PERFORMANCE: Chỉ chạy 1 lần duy nhất nhờ singleton cache.
+ *    Các lần gọi tiếp theo trả về ngay lập tức (0ms).
  */
 export async function ensureCoreSchema() {
+    // Fast path: if already done or in progress, return the cached promise
+    if (_schemaState.__zf_schema_ready) {
+        return _schemaState.__zf_schema_ready;
+    }
+
+    // First call: do the actual work and cache the promise
+    _schemaState.__zf_schema_ready = _ensureCoreSchemaOnce();
+    return _schemaState.__zf_schema_ready;
+}
+
+async function _ensureCoreSchemaOnce() {
     // 1. Tạo bảng users (cần thiết cho createdById)
     await prisma.$executeRawUnsafe(`
         CREATE TABLE IF NOT EXISTS "users" (

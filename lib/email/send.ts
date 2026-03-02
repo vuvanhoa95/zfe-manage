@@ -3,6 +3,7 @@ import { QuotationCreatedEmail } from './templates/quotation-created';
 import { QuotationAcceptedEmail } from './templates/quotation-accepted';
 import { DeadlineReminderEmail } from './templates/deadline-reminder';
 import { WeeklyReportEmail } from './templates/weekly-report';
+import { UserInvitationEmail } from './templates/user-invite';
 import { render } from '@react-email/render';
 
 // Email sending functions
@@ -204,6 +205,49 @@ export async function sendWeeklyReportEmail({
     return { success: true, data };
   } catch (error) {
     console.error('Failed to send weekly report email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendUserInvitationEmail({
+  to,
+  userName,
+  adminName,
+  role,
+}: {
+  to: string;
+  userName: string;
+  adminName: string;
+  role: string;
+}) {
+  try {
+    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`;
+    
+    const emailHtml = await render(
+        UserInvitationEmail({
+        userName,
+        adminName,
+        role,
+        loginUrl,
+      })
+    );
+
+    const { data, error } = await resend.emails.send({
+      from: DEFAULT_FROM,
+      to: [to],
+      subject: `👋 Chào mừng đến với ZFENIX Hub - ${userName}`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('Error sending user invitation email:', error);
+      throw error;
+    }
+
+    console.log('User invitation email sent:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Failed to send user invitation email:', error);
     return { success: false, error };
   }
 }

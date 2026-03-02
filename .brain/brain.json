@@ -1,246 +1,81 @@
 {
   "meta": {
-    "schema_version": "1.1.0",
-    "awf_version": "4.0.0",
-    "last_updated": "2026-02-04T00:15:00Z"
+    "last_updated": "2026-03-03T02:18:59Z",
+    "awf_version": "4.0.2"
   },
   "project": {
     "name": "ZfeManage",
-    "type": "web-application",
-    "description": "AI-First BIM Quotation Management System",
-    "status": "in-development",
-    "phase": "month-3-complete",
-    "repository": "vuvanhoa95/zfe-manage"
-  },
-  "tech_stack": {
-    "frontend": {
-      "framework": "Next.js 14",
-      "language": "TypeScript",
-      "ui": "React 18",
+    "status": "In Development - Task UX Enhancement Phase",
+    "tech_stack": {
+      "framework": "Next.js 15 (App Router, Turbopack dev)",
+      "database": "PostgreSQL (Neon)",
+      "orm": "Prisma",
+      "auth": "NextAuth.js (v4.30.0-beta.9)",
       "styling": "Tailwind CSS",
-      "state_management": "React Hooks",
-      "forms": "React Hook Form + Zod validation"
-    },
-    "backend": {
-      "runtime": "Node.js",
-      "framework": "Next.js API Routes",
-      "database_orm": "Prisma",
-      "database": "PostgreSQL (Neon - production), SQLite (development)",
-      "authentication": "NextAuth.js"
-    },
-    "ai_services": {
-      "primary": "OpenAI GPT-4o-mini",
-      "secondary": "Anthropic Claude 3.5 Sonnet (optional)",
-      "use_cases": [
-        "Smart pricing suggestions",
-        "Auto intro text generation",
-        "Voice-to-text parsing",
-        "Business card OCR",
-        "AI assistant chatbot"
-      ]
-    },
-    "email": {
-      "provider": "Resend",
-      "templates": "React Email"
-    },
-    "deployment": {
-      "platform": "Vercel",
-      "database_host": "Neon (PostgreSQL)",
-      "env": "production"
+      "charts": "Recharts (Lazy loaded)",
+      "ui_libs": "lucide-react, @hello-pangea/dnd, react-datepicker"
     }
   },
-  "database_schema": {
-    "summary": "Stores customers, quotations, projects, catalog items, outsource staff, and users",
-    "tables": [
-      {
-        "name": "Customer",
-        "purpose": "Client information and contact details",
-        "key_fields": ["id", "name", "taxCode", "email", "phone", "address", "location"]
-      },
-      {
-        "name": "Quotation",
-        "purpose": "BIM service quotations",
-        "key_fields": ["id", "quotationNo", "projectName", "status", "totalBeforeVat", "totalAfterVat", "customerId", "createdById"],
-        "statuses": ["DRAFT", "SENT", "ACCEPTED", "REJECTED"]
-      },
-      {
-        "name": "QuotationLine",
-        "purpose": "Line items in quotations",
-        "key_fields": ["id", "title", "unitPrice", "unit", "isChargeable", "priceType", "quotationId"]
-      },
-      {
-        "name": "PaymentMilestone",
-        "purpose": "Payment schedule for quotations",
-        "key_fields": ["id", "title", "percent", "quotationId"]
-      },
-      {
-        "name": "Project",
-        "purpose": "BIM projects master data",
-        "key_fields": ["id", "projectNo", "name", "totalArea", "location", "customerId"]
-      },
-      {
-        "name": "CatalogItem",
-        "purpose": "Reusable templates for scope, deliverables, pricing",
-        "key_fields": ["id", "category", "title", "description", "order"],
-        "categories": ["SCOPE", "DELIVERABLES", "PRICING"]
-      },
-      {
-        "name": "OutsourcingStaff",
-        "purpose": "External contractors database",
-        "key_fields": ["id", "name", "expertise", "rate"]
-      },
-      {
-        "name": "User",
-        "purpose": "System users (admin/staff)",
-        "key_fields": ["id", "name", "email", "role"]
+  "critical_optimizations": {
+    "db_connection": "Using DIRECT_URL for Neon to avoid pooler issues.",
+    "schema_initialization": "Cached global singleton in lib/db-schema.ts.",
+    "dashboard_stats": "Parallel Promise.allSettled fetching with 30s in-memory cache.",
+    "list_view_updates": "Optimistic & in-place state updates for task assignments."
+  },
+  "ui_architecture": {
+    "task_list_view": {
+      "sticky_layers": [
+        { "panel": "Header controls (Thêm CV, View)", "css": "sticky top-0 z-40" },
+        { "panel": "GroupTool (Nhóm, Cột)", "css": "sticky top-[56px] z-30" },
+        { "panel": "Filters (Tìm, lọc...)", "css": "sticky top-[112px] z-30" },
+        { "panel": "Table thead (tiêu đề cột)", "css": "sticky top-0 z-20 (trong overflow-y-auto container)" }
+      ],
+      "table_scroll": "overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)] → thead sticky top-0 hoạt động đúng.",
+      "multi_select": {
+        "state": "useState<Set<string>>()",
+        "handler": "handleTaskSelect - Shift=range, Ctrl=toggle, click=toggle",
+        "key_gotcha": "Global click listener dùng data-task-select attribute để tránh reset khi click checkbox. Tất cả checkbox button PHẢI có data-task-select='true' và Bulk Toolbar div PHẢI có data-task-actions='true'.",
+        "bulk_toolbar": "createPortal → document.body (z-9999). Fix 'fixed bị trapped' bởi parent transform."
       }
-    ],
-    "relationships_explained": "1 Customer có nhiều Quotations và Projects. 1 Quotation có nhiều QuotationLines và PaymentMilestones. QuotationLines có thể link tới OutsourcingStaff."
+    }
   },
-  "api_endpoints": [
-    {
-      "path": "/api/customers",
-      "methods": ["GET", "POST"],
-      "explained": "Quản lý khách hàng - lấy danh sách và tạo mới"
-    },
-    {
-      "path": "/api/quotations",
-      "methods": ["GET", "POST"],
-      "explained": "Quản lý báo giá - lấy danh sách, tạo mới, tìm kiếm theo status"
-    },
-    {
-      "path": "/api/quotations/[id]",
-      "methods": ["GET", "PUT", "DELETE"],
-      "explained": "Chi tiết báo giá - xem, cập nhật, xóa"
-    },
-    {
-      "path": "/api/projects",
-      "methods": ["GET", "POST"],
-      "explained": "Quản lý dự án BIM"
-    },
-    {
-      "path": "/api/catalog",
-      "methods": ["GET", "POST", "PUT", "DELETE"],
-      "explained": "Master data catalog - scope, deliverables, pricing templates"
-    },
-    {
-      "path": "/api/ai/parse-voice",
-      "methods": ["POST"],
-      "explained": "AI parsing voice transcript thành quotation data"
-    },
-    {
-      "path": "/api/ai/scan-card",
-      "methods": ["POST"],
-      "explained": "AI OCR business card image thành customer data"
-    },
-    {
-      "path": "/api/ai/pricing-suggest",
-      "methods": ["POST"],
-      "explained": "AI gợi ý giá Min/Avg/Max dựa trên lịch sử"
-    },
-    {
-      "path": "/api/ai/generate-intro",
-      "methods": ["POST"],
-      "explained": "AI tạo lời mở đầu chuyên nghiệp cho báo giá"
-    },
-    {
-      "path": "/api/ai/chat-assistant",
-      "methods": ["POST"],
-      "explained": "AI chatbot streaming - tạo báo giá bằng chat tự nhiên"
-    },
-    {
-      "path": "/api/dashboard/stats",
-      "methods": ["GET"],
-      "explained": "Thống kê dashboard - revenue, quotations, projects"
-    },
-    {
-      "path": "/api/cron/send-weekly-report",
-      "methods": ["GET"],
-      "explained": "Cron job - gửi báo cáo tuần qua email"
-    },
-    {
-      "path": "/api/cron/check-deadlines",
-      "methods": ["GET"],
-      "explained": "Cron job - kiểm tra deadline và gửi reminder"
-    }
-  ],
-  "business_rules": [
-    "Quotation number format: QT-YYMMDD-XXX (auto-increment daily)",
-    "VAT default: 8%",
-    "Quotation statuses: DRAFT → SENT → ACCEPTED/REJECTED",
-    "Email triggers: Auto-send on quotation create/accept",
-    "Payment milestones must sum to 100%",
-    "AI pricing confidence threshold: > 0.7 for reliable suggestions",
-    "Intro text generation: 150-200 words, Vietnamese formal business tone"
-  ],
-  "features": [
-    {
-      "name": "Email Automation",
-      "status": "complete",
-      "description": "Auto-send branded emails on quotation events + weekly reports",
-      "month": 1
-    },
-    {
-      "name": "Dashboard Alerts",
-      "status": "complete",
-      "description": "Real-time alerts for deadlines, pending quotations, cash flow",
-      "month": 1
-    },
-    {
-      "name": "Voice-to-Quotation",
-      "status": "complete",
-      "description": "Speech recognition + AI parsing to create quotations",
-      "month": 2
-    },
-    {
-      "name": "Business Card Scanner",
-      "status": "complete",
-      "description": "Camera OCR with AI Vision to extract customer data",
-      "month": 2
-    },
-    {
-      "name": "Smart Pricing Suggestions",
-      "status": "complete",
-      "description": "AI analyzes history to suggest Min/Avg/Max prices",
-      "month": 3
-    },
-    {
-      "name": "Auto Intro Generator",
-      "status": "complete",
-      "description": "AI writes personalized introduction text for quotations",
-      "month": 3
-    },
-    {
-      "name": "AI Assistant Chatbot",
-      "status": "complete",
-      "description": "Conversational AI to help create quotations via chat",
-      "month": 3
-    },
-    {
-      "name": "Predictive Analytics",
-      "status": "planned",
-      "description": "Deal scoring, revenue forecasting, customer insights",
-      "month": 4
-    }
-  ],
   "knowledge_items": {
     "patterns": [
-      "All AI features use lib/ai/* for centralized logic",
-      "API routes use NextResponse.json() for consistent responses",
-      "Forms use React Hook Form + Zod for validation",
-      "Streaming responses use ReadableStream for real-time AI"
+      {
+        "id": "inline-update",
+        "description": "Cập nhật item trực tiếp trong mảng state sau khi gọi API PATCH/PUT để giữ scroll position.",
+        "file": "components/project/TaskTab.tsx"
+      },
+      {
+        "id": "global-schema-cache",
+        "description": "Sử dụng biến global để cache kết quả ensureCoreSchema (Next.js serverless runtime).",
+        "file": "lib/db-schema.ts"
+      },
+      {
+        "id": "portal-fixed-toolbar",
+        "description": "Khi cần element fixed/sticky nhưng bị trapped bởi CSS transform của parent → dùng createPortal render về document.body.",
+        "file": "components/project/TaskTab.tsx"
+      },
+      {
+        "id": "sticky-inside-overflow",
+        "description": "overflow-x-auto tạo scroll context mới → sticky children không stick vào viewport. Fix: cho container thêm overflow-y-auto có chiều cao cố định để sticky top-0 hoạt động đúng trong container.",
+        "file": "components/project/TaskTab.tsx"
+      },
+      {
+        "id": "click-outside-attribute-guard",
+        "description": "Global document click listener để clear multi-select. Phân biệt 'click inside' vs 'outside' bằng data-attribute (data-task-select, data-task-actions). Tất cả interactive elements PHẢI có đúng attribute.",
+        "file": "components/project/TaskTab.tsx"
+      }
     ],
     "gotchas": [
-      "Prisma with SQLite: Can't use `mode: 'insensitive'` in dev, only in PostgreSQL production",
-      "Voice recognition: Web Speech API only works in Chrome/Edge",
-      "AI responses: Always include confidence scores for transparency",
-      "Line items: isChargeable flag determines if included in total"
-    ],
-    "conventions": [
-      "File naming: kebab-case for all files",
-      "Component naming: PascalCase",
-      "API responses: { success: boolean, data?: any, error?: string }",
-      "AI prompts: Stored in lib/ai/*.ts for version control"
+      {
+        "id": "set-state-render",
+        "description": "useState<Set<T>>: thay đổi Set không trigger re-render nếu return cùng reference. Luôn return new Set(prev) khi update."
+      },
+      {
+        "id": "overflow-breaks-sticky",
+        "description": "Bất kỳ overflow value nào khác visible trên phần tử cha đều 'nhốt' sticky children bên trong. Không thể dùng sticky top-0 trong một div overflow-x-auto để stick vào viewport."
+      }
     ]
   }
 }

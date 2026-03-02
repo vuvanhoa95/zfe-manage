@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
+import { UserStatus } from '@prisma/client';
 
 /**
  * GET /api/users
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
                 experience: true,
                 bankAccount: true,
                 taxCode: true,
+                status: true,
             },
             orderBy: {
                 name: 'asc',
@@ -122,6 +124,50 @@ export async function GET(request: NextRequest) {
                 } : undefined,
             },
             { status: statusCode }
+        );
+    }
+}
+
+/**
+ * PATCH /api/users
+ * Cập nhật trạng thái user (Approve/Reject/Suspend)
+ */
+export async function PATCH(request: NextRequest) {
+    try {
+        const { prisma } = await import('@/lib/prisma');
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user || (session.user as any).role !== 'ADMIN') {
+            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const { userId, status } = body;
+
+        if (!userId || !status) {
+            return NextResponse.json({ success: false, error: 'Missing userId or status' }, { status: 400 });
+        }
+
+        const validStatuses = Object.values(UserStatus);
+        if (!validStatuses.includes(status as UserStatus)) {
+            return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: { status: status as UserStatus },
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: updatedUser,
+            message: `User ${updatedUser.email} has been updated to ${status}`
+        });
+    } catch (error: any) {
+        console.error('[API] Failed to update user status:', error);
+        return NextResponse.json(
+            { success: false, error: error.message || 'Lỗi khi cập nhật trạng thái user' },
+            { status: 500 }
         );
     }
 }

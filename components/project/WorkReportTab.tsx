@@ -44,6 +44,7 @@ type IssueItem = {
 
 type WorkReportTabProps = {
     projectId: string;
+    isActive?: boolean;
 };
 
 type ReportType = 'phase' | 'discipline' | 'assignee' | 'issue' | 'overview';
@@ -128,7 +129,7 @@ type ReportGroupsResponse = {
     error?: string;
 };
 
-export default function WorkReportTab({ projectId }: WorkReportTabProps) {
+export default function WorkReportTab({ projectId, isActive = true }: WorkReportTabProps) {
     const [reportType, setReportType] = useState<ReportType>('phase');
     const [datePreset, setDatePreset] = useState<DateFilterPreset>('all');
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('ALL');
@@ -145,6 +146,15 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
     const [reportWarning, setReportWarning] = useState<string | null>(null);
     const [issues, setIssues] = useState<IssueItem[]>([]);
     const [issueError, setIssueError] = useState<string | null>(null);
+    const [fetchCount, setFetchCount] = useState(0);
+
+    // Re-fetch when tab becomes active
+    useEffect(() => {
+        if (isActive && fetchCount > 0) {
+            setFetchCount((c) => c + 1);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isActive]);
 
     useEffect(() => {
         let isMounted = true;
@@ -153,28 +163,40 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
             setError(null);
             setIssueError(null);
             try {
-                // Tasks for Dashboard/Report
-                const taskRes = await fetch(`/api/projects/${projectId}/tasks`);
-                const taskJson = await taskRes.json();
-                if (!taskJson.success) {
-                    if (isMounted) {
+                // Fetch tasks + issues in PARALLEL instead of sequentially
+                const [taskResult, issueResult] = await Promise.allSettled([
+                    fetch(`/api/projects/${projectId}/tasks`).then(r => r.json()),
+                    fetch(`/api/projects/${projectId}/issues`).then(r => r.json()),
+                ]);
+
+                if (!isMounted) return;
+
+                // Handle tasks result
+                if (taskResult.status === 'fulfilled') {
+                    const taskJson = taskResult.value;
+                    if (!taskJson.success) {
                         setError(taskJson.error || 'Không tải được dữ liệu công việc.');
                         setTasks([]);
+                    } else {
+                        setTasks(taskJson.data ?? []);
                     }
-                } else if (isMounted) {
-                    setTasks(taskJson.data ?? []);
+                } else {
+                    setError('Không thể kết nối tới máy chủ.');
+                    setTasks([]);
                 }
 
-                // Issues for Issue & va chạm (demo data)
-                const issueRes = await fetch(`/api/projects/${projectId}/issues`);
-                const issueJson = await issueRes.json();
-                if (!issueJson.success) {
-                    if (isMounted) {
+                // Handle issues result
+                if (issueResult.status === 'fulfilled') {
+                    const issueJson = issueResult.value;
+                    if (!issueJson.success) {
                         setIssueError(issueJson.error || 'Không tải được dữ liệu issue & va chạm.');
                         setIssues([]);
+                    } else {
+                        setIssues(issueJson.data?.issues ?? []);
                     }
-                } else if (isMounted) {
-                    setIssues(issueJson.data?.issues ?? []);
+                } else {
+                    setIssueError('Không thể tải dữ liệu issue & va chạm.');
+                    setIssues([]);
                 }
             } catch (err) {
                 console.error('WorkReportTab fetch error', err);
@@ -208,7 +230,8 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
         return () => {
             isMounted = false;
         };
-    }, [projectId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId, fetchCount]);
 
     const now = useMemo(() => new Date(), []);
 
@@ -314,7 +337,7 @@ export default function WorkReportTab({ projectId }: WorkReportTabProps) {
         void fetchGroups();
 
         return () => controller.abort();
-    }, [datePreset, priorityFilter, projectId, statusFilter]);
+    }, [datePreset, priorityFilter, projectId, statusFilter, fetchCount]);
 
     const totalRowFor = (rows: GroupRow[]): GroupRow | null => {
         if (rows.length === 0) return null;

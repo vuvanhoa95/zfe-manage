@@ -1,12 +1,28 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import AzureADProvider from 'next-auth/providers/azure-ad';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { UserStatus } from '@prisma/client';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const authOptions: NextAuthOptions = {
+    adapter: PrismaAdapter(prisma),
     providers: [
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID || '',
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+            allowDangerousEmailAccountLinking: true,
+        }),
+        AzureADProvider({
+            clientId: process.env.AZURE_AD_CLIENT_ID || '',
+            clientSecret: process.env.AZURE_AD_CLIENT_SECRET || '',
+            tenantId: process.env.AZURE_AD_TENANT_ID || 'common',
+            allowDangerousEmailAccountLinking: true,
+        }),
         CredentialsProvider({
             name: 'Credentials',
             credentials: {
@@ -44,8 +60,20 @@ export const authOptions: NextAuthOptions = {
                         where: { email },
                     });
 
-                    if (!user || !user.password) {
+                    if (!user) {
                         throw new Error('Không tìm thấy người dùng với email này');
+                    }
+
+                    // Check user status
+                    if (user.status !== UserStatus.ACTIVE) {
+                        if (user.status === UserStatus.PENDING) {
+                            throw new Error('ACCOUNT_PENDING');
+                        }
+                        throw new Error('ACCOUNT_SUSPENDED');
+                    }
+
+                    if (!user.password) {
+                        throw new Error('Tài khoản này đã được đăng ký qua mạng xã hội. Vui lòng đăng nhập bằng Google hoặc Microsoft.');
                     }
 
                     const isValid = await bcrypt.compare(password, user.password);
@@ -59,6 +87,7 @@ export const authOptions: NextAuthOptions = {
                         name: user.name,
                         email: user.email,
                         role: user.role,
+                        status: user.status,
                     };
                 } catch (error: any) {
                     // Log error for debugging (only in development)
@@ -134,10 +163,43 @@ export const authOptions: NextAuthOptions = {
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async signIn({ user, account, profile }) {
+            // Super Admin: Always ADMIN + ACTIVE
+            const SUPER_ADMIN_EMAILS = ['7604vuhoa@gmail.com'];
+
+            // OAuth auto-creation logic: PrismaAdapter already handles creation.
+            // We just need to check the status of the user after they are looked up or created.
+            if (account?.provider !== 'credentials' && user?.id) {
+                const dbUser = await prisma.user.findUnique({
+                    where: { id: user.id },
+                    select: { status: true, role: true, email: true }
+                });
+
+                // Auto-promote super admin
+                if (dbUser && SUPER_ADMIN_EMAILS.includes(dbUser.email || '')) {
+                    if (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE) {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: { role: 'ADMIN', status: UserStatus.ACTIVE }
+                        });
+                    }
+                    return true; // Always allow super admin
+                }
+
+                if (dbUser && dbUser.status !== UserStatus.ACTIVE) {
+                    if (dbUser.status === UserStatus.PENDING) {
+                        return '/login?error=ACCOUNT_PENDING';
+                    }
+                    return '/login?error=ACCOUNT_SUSPENDED';
+                }
+            }
+            return true;
+        },
+        async jwt({ token, user, trigger, session }) {
             if (user) {
                 token.id = user.id;
                 token.role = (user as any).role;
+                token.status = (user as any).status;
             }
             return token;
         },
@@ -145,6 +207,7 @@ export const authOptions: NextAuthOptions = {
             if (session.user) {
                 (session.user as any).id = token.id;
                 (session.user as any).role = token.role;
+                (session.user as any).status = token.status;
             }
             return session;
         },

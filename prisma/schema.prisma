@@ -14,12 +14,21 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
 model User {
   id                 String              @id @default(uuid())
   email              String              @unique
-  password           String
-  name               String
+  emailVerified      DateTime?
+  image              String?
+  password           String?
+  name               String?
   role               String              @default("USER")
+  status             UserStatus          @default(PENDING)
   /// Chức danh công việc (ví dụ: Kỹ sư, Trưởng phòng, Giám đốc)
   title              String?
   /// Bộ môn chuyên môn (ví dụ: Kiến trúc, Kết cấu, MEP)
@@ -32,6 +41,8 @@ model User {
   taxCode            String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  accounts           Account[]
+  sessions           Session[]
   cashFlows          CashFlow[]
   projects           Project[]
   quotationRevisions QuotationRevision[]
@@ -44,6 +55,45 @@ model User {
   projectMembers     ProjectMember[]
 
   @@map("users")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
 }
 
 model CompanyProfile {

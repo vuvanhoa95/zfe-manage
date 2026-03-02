@@ -4,6 +4,8 @@ import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
+import { UserStatus } from '@prisma/client';
+import { sendUserInvitationEmail } from '@/lib/email/send';
 
 /**
  * API endpoint để cập nhật hoặc tạo user mới
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
                             experience: experience !== undefined ? (experience || null) : existingUser.experience,
                             bankAccount: bankAccount !== undefined ? (bankAccount || null) : existingUser.bankAccount,
                             taxCode: taxCode !== undefined ? (taxCode || null) : existingUser.taxCode,
+                            status: UserStatus.ACTIVE, // Manually updated users are ACTIVE
                         },
                     });
                 } else {
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
                             experience: experience || null,
                             bankAccount: bankAccount || null,
                             taxCode: taxCode || null,
+                            status: UserStatus.ACTIVE, // Manually created users are ACTIVE
                         },
                     });
                 }
@@ -128,6 +132,7 @@ export async function POST(request: NextRequest) {
                                 experience: experience !== undefined ? (experience || null) : existingUser.experience,
                                 bankAccount: bankAccount !== undefined ? (bankAccount || null) : existingUser.bankAccount,
                                 taxCode: taxCode !== undefined ? (taxCode || null) : existingUser.taxCode,
+                                status: UserStatus.ACTIVE,
                             },
                         });
                     } else {
@@ -142,6 +147,7 @@ export async function POST(request: NextRequest) {
                                 experience: experience || null,
                                 bankAccount: bankAccount || null,
                                 taxCode: taxCode || null,
+                                status: UserStatus.ACTIVE,
                             },
                         });
                     }
@@ -172,6 +178,21 @@ export async function POST(request: NextRequest) {
                 name: user.name,
                 role: user.role,
             });
+        }
+
+        // Send invitation email for NEW users
+        if (!existingUser) {
+            try {
+                await sendUserInvitationEmail({
+                    to: user.email,
+                    userName: user.name || 'User',
+                    adminName: session.user?.name || 'Admin',
+                    role: user.role,
+                });
+            } catch (emailError) {
+                console.error('[API] Failed to send invitation email:', emailError);
+                // Don't fail the whole request if email fails
+            }
         }
 
         return NextResponse.json({

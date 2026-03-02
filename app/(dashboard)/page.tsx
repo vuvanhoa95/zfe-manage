@@ -1,16 +1,21 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { formatVND } from '@/lib/number-to-words-vn';
-import PaymentMilestonesTimeline from '@/components/dashboard/PaymentMilestonesTimeline';
-import DashboardWorkOverview from '@/components/dashboard/DashboardWorkOverview';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
-import RevenueChart from '@/components/charts/RevenueChart';
-import QuotationChart from '@/components/charts/QuotationChart';
-import CostChart from '@/components/charts/CostChart';
-import GrowthChart from '@/components/charts/GrowthChart';
-import AlertsWidget from '@/components/dashboard/AlertsWidget';
+
+// ⚡ PERFORMANCE: Lazy-load heavy components (recharts ~200KB, work overview fetches API)
+// These are only visible on non-default tabs or below the fold
+const PaymentMilestonesTimeline = dynamic(() => import('@/components/dashboard/PaymentMilestonesTimeline'), { ssr: false });
+const DashboardWorkOverview = dynamic(() => import('@/components/dashboard/DashboardWorkOverview'), { ssr: false });
+const RevenueChart = dynamic(() => import('@/components/charts/RevenueChart'), { ssr: false });
+const QuotationChart = dynamic(() => import('@/components/charts/QuotationChart'), { ssr: false });
+const CostChart = dynamic(() => import('@/components/charts/CostChart'), { ssr: false });
+const GrowthChart = dynamic(() => import('@/components/charts/GrowthChart'), { ssr: false });
+const AlertsWidget = dynamic(() => import('@/components/dashboard/AlertsWidget'), { ssr: false });
+
 
 type DashboardStats = {
     totalQuotations: number;
@@ -87,6 +92,17 @@ export default function DashboardPage() {
     const [projectsLoaded, setProjectsLoaded] = useState<boolean>(false);
     const [projectError, setProjectError] = useState<string | null>(null);
 
+    const EMPTY_STATS: DashboardStats = {
+        totalQuotations: 0,
+        quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
+        projectedRevenue: { beforeVat: 0, afterVat: 0 },
+        costs: { outsource: 0, tax: 0, commission: 0, total: 0 },
+        profit: { amount: 0, margin: 0 },
+        monthlyChartData: [],
+        recentQuotations: [],
+        paymentMilestones: [],
+    };
+
     useEffect(() => {
         const fetchStats = async () => {
             try {
@@ -99,16 +115,7 @@ export default function DashboardPage() {
                             ? (result.error as string)
                             : `Không tải được Dashboard (HTTP ${res.status}).`);
                     setStatsError(msg);
-                    setStats({
-                        totalQuotations: 0,
-                        quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
-                        projectedRevenue: { beforeVat: 0, afterVat: 0 },
-                        costs: { outsource: 0, tax: 0, commission: 0, total: 0 },
-                        profit: { amount: 0, margin: 0 },
-                        monthlyChartData: [],
-                        recentQuotations: [],
-                        paymentMilestones: [],
-                    });
+                    setStats(EMPTY_STATS);
                     return;
                 }
 
@@ -118,34 +125,11 @@ export default function DashboardPage() {
                     return;
                 }
 
-                const fallbackMsg =
-                    result?.error && typeof result.error === 'string'
-                        ? result.error
-                        : 'Không lấy được dữ liệu Dashboard.';
-                setStatsError(fallbackMsg);
-                // Set default empty stats to prevent crash
-                setStats({
-                    totalQuotations: 0,
-                    quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
-                    projectedRevenue: { beforeVat: 0, afterVat: 0 },
-                    costs: { outsource: 0, tax: 0, commission: 0, total: 0 },
-                    profit: { amount: 0, margin: 0 },
-                    monthlyChartData: [],
-                    recentQuotations: [],
-                    paymentMilestones: [],
-                });
+                setStatsError(result?.error || 'Không lấy được dữ liệu Dashboard.');
+                setStats(EMPTY_STATS);
             } catch {
                 setStatsError('Không thể kết nối tới máy chủ. Vui lòng thử lại.');
-                setStats({
-                    totalQuotations: 0,
-                    quotationsByStatus: { draft: 0, sent: 0, accepted: 0, rejected: 0 },
-                    projectedRevenue: { beforeVat: 0, afterVat: 0 },
-                    costs: { outsource: 0, tax: 0, commission: 0, total: 0 },
-                    profit: { amount: 0, margin: 0 },
-                    monthlyChartData: [],
-                    recentQuotations: [],
-                    paymentMilestones: [],
-                });
+                setStats(EMPTY_STATS);
             } finally {
                 setLoading(false);
             }
@@ -153,18 +137,15 @@ export default function DashboardPage() {
         fetchStats();
     }, []);
 
+    // LAZY LOAD: Chỉ fetch dữ liệu dự án khi user chuyển sang tab 'status'
     useEffect(() => {
+        if (activeTab !== 'status' || projectsLoaded) return;
+
         const fetchProjectStatus = async () => {
-            if (projectsLoaded) return; // Tải dữ liệu dự án ngay khi component mount để sẵn sàng khi chuyển tab
             setLoadingProjects(true);
             setProjectError(null);
             try {
-                const res = await fetch('/api/projects', {
-                    cache: 'no-store',
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                    },
-                });
+                const res = await fetch('/api/projects');
                 const result = await res.json().catch(() => null);
                 if (!res.ok) {
                     const msg =
@@ -199,7 +180,7 @@ export default function DashboardPage() {
         };
 
         fetchProjectStatus();
-    }, [projectsLoaded]); // Bỏ activeTab khỏi dependency để không fetch lại khi đổi tab, chỉ fetch 1 lần khi mount
+    }, [activeTab, projectsLoaded]);
 
 
     // ✅ PERFORMANCE: Memoize chart data transformations

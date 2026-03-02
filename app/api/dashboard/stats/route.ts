@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { cache, cacheKeys } from '@/lib/cache';
+import { ensureCoreSchema } from '@/lib/db-schema';
 
 function getEmptyDashboardStats() {
     const quotationsByStatus = { draft: 0, sent: 0, accepted: 0, rejected: 0 };
@@ -62,6 +63,9 @@ export async function GET(request: NextRequest) {
         if (cached) {
             return NextResponse.json({ success: true, data: cached, cached: true });
         }
+
+        // Đảm bảo database đã sẵn sàng (chỉ chạy logic thật 1 lần duy nhất nhờ singleton cache)
+        await ensureCoreSchema();
 
         // Build where clause
         const where: any = {};

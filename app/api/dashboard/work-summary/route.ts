@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ensureCoreSchema } from '@/lib/db-schema';
+import { cache } from '@/lib/cache';
 
 type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'COMPLETED' | 'DELAYED';
 type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -83,6 +84,13 @@ function isTaskOverdue(task: RawTask, now: Date): boolean {
 
 export async function GET(_request: NextRequest) {
     try {
+        // Check cache first (30s TTL)
+        const CACHE_KEY = 'dashboard:work-summary';
+        const cached = cache.get(CACHE_KEY);
+        if (cached) {
+            return NextResponse.json({ success: true, data: cached, cached: true });
+        }
+
         let tasks: RawTask[];
 
         try {
@@ -249,6 +257,9 @@ export async function GET(_request: NextRequest) {
             upcomingWithin7Days,
             tasks: importantTasks,
         };
+
+        // Cache for 30 seconds
+        cache.set(CACHE_KEY, summary, 30000);
 
         return NextResponse.json({
             success: true,

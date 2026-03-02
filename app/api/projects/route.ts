@@ -7,84 +7,8 @@ import { projectCreateSchema, type ProjectCreateInput } from '@/lib/validation/p
 import { cache, cacheKeys } from '@/lib/cache';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
 
-/**
- * Tạo các bảng cơ bản nếu chưa tồn tại (users, customers, projects)
- * Được gọi tự động khi detect lỗi "table does not exist"
- * @deprecated Use ensureCoreSchema from '@/lib/db-schema' instead
- */
-async function ensureCoreSchemaLegacy() {
-    // 1. Tạo bảng users (cần thiết cho createdById)
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "users" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "email" TEXT NOT NULL UNIQUE,
-            "password" TEXT NOT NULL,
-            "name" TEXT NOT NULL,
-            "role" TEXT NOT NULL DEFAULT 'USER',
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
 
-    // 2. Tạo bảng customers (nếu chưa có)
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "customers" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "name" TEXT NOT NULL,
-            "taxCode" TEXT,
-            "address" TEXT,
-            "location" TEXT,
-            "contactName" TEXT,
-            "email" TEXT,
-            "phone" TEXT,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
 
-    // 3. Tạo bảng projects (phụ thuộc users và customers)
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS "projects" (
-            "id" TEXT NOT NULL PRIMARY KEY,
-            "projectNo" TEXT NOT NULL UNIQUE,
-            "name" TEXT NOT NULL,
-            "code" TEXT,
-            "description" TEXT,
-            "customerId" TEXT,
-            "location" TEXT NOT NULL DEFAULT 'Hà Nội',
-            "startDate" DATETIME,
-            "endDate" DATETIME,
-            "totalArea" REAL,
-            "totalBudget" REAL NOT NULL DEFAULT 0,
-            "totalRevenue" REAL NOT NULL DEFAULT 0,
-            "totalCost" REAL NOT NULL DEFAULT 0,
-            "totalProfit" REAL NOT NULL DEFAULT 0,
-            "status" TEXT NOT NULL DEFAULT 'PLANNING',
-            "notes" TEXT,
-            "imageUrl" TEXT,
-            "createdById" TEXT NOT NULL,
-            "finalQuotationId" TEXT UNIQUE,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT "projects_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
-            CONSTRAINT "projects_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE NO ACTION ON UPDATE CASCADE
-        )
-    `);
-
-    // Tạo index cơ bản
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_projectNo_idx" ON "projects"("projectNo")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_createdById_idx" ON "projects"("createdById")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_customerId_idx" ON "projects"("customerId")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects"("status")`);
-    } catch {}
-}
 
 export async function GET(request: NextRequest) {
     try {
@@ -93,15 +17,14 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get('search');
         const yearParam = searchParams.get('year');
         
-        // Check cache (only for non-search queries to avoid stale data)
-        // DISABLED: Cache có thể gây ra race condition và hiển thị data rỗng khi reload
-        // if (!search) {
-        //     const cacheKey = cacheKeys.projectList(searchParams.toString());
-        //     const cached = cache.get(cacheKey);
-        //     if (cached) {
-        //         return NextResponse.json({ ...cached, cached: true });
-        //     }
-        // }
+        // Short TTL cache (10s) to avoid duplicate DB queries during rapid navigation
+        if (!search) {
+            const cacheKey = cacheKeys.projectList(searchParams.toString());
+            const cached = cache.get(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...(cached as Record<string, unknown>), cached: true });
+            }
+        }
 
         const where: Prisma.ProjectWhereInput = {};
 
@@ -232,12 +155,11 @@ export async function GET(request: NextRequest) {
             },
         };
 
-        // DISABLED: Cache có thể gây ra race condition và hiển thị data rỗng khi reload
-        // Cache for 30 seconds (only if no search)
-        // if (!search) {
-        //     const cacheKey = cacheKeys.projectList(searchParams.toString());
-        //     cache.set(cacheKey, result, 30000);
-        // }
+        // Cache for 10 seconds (only if no search)
+        if (!search) {
+            const cacheKey = cacheKeys.projectList(searchParams.toString());
+            cache.set(cacheKey, result, 10000);
+        }
 
         return NextResponse.json(result);
     } catch (error: unknown) {

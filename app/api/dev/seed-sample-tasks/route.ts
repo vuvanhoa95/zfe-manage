@@ -253,7 +253,7 @@ export async function POST(request: NextRequest) {
         if (body.replace) {
             const escapedProjectId = escapeSqlString(body.projectId);
             const deleted = await prisma.$executeRawUnsafe(
-                `DELETE FROM tasks WHERE projectId = '${escapedProjectId}' AND title LIKE '[MẪU]%'`,
+                `DELETE FROM tasks WHERE "projectId" = '${escapedProjectId}' AND title LIKE '[MẪU]%'`,
             );
             console.log(`[DEV_SEED_SAMPLE_TASKS] Đã xóa ${deleted} task mẫu cũ`);
         }
@@ -286,10 +286,10 @@ export async function POST(request: NextRequest) {
 
                 await prisma.$executeRawUnsafe(`
                     INSERT INTO tasks (
-                        id, projectId, title, description,
-                        startDate, endDate, dueDate, phase, discipline, location,
-                        status, priority, progress, assignedToId, "order", parentId,
-                        createdAt, updatedAt
+                        id, "projectId", title, description,
+                        "startDate", "endDate", "dueDate", phase, discipline, location,
+                        status, priority, progress, "assignedToId", "order", "parentId",
+                        "createdAt", "updatedAt"
                     ) VALUES (
                         '${taskId}',
                         '${escapeSqlString(taskData.projectId)}',
