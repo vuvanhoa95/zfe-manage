@@ -7,6 +7,8 @@ import { getCurrentUser, getProjectMemberRole } from '@/lib/project-permissions'
 import { canViewReport } from '@/lib/permissions';
 import { reportLogger } from '@/lib/logging';
 
+import { ensureCoreSchema } from '@/lib/db-schema';
+
 const reportQuerySchema = z.object({
     groupBy: z.enum(['phase', 'discipline', 'assignee'] as const),
     datePreset: z.enum(['all', 'thisMonth', 'thisQuarter'] as const).default('all'),
@@ -38,52 +40,8 @@ type GroupRow = {
 };
 
 async function ensureTaskSchema() {
-    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (SQLite)
-    // - SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE, nên dùng try-catch
-    // - Có thể bảng tasks cũ chưa có các cột mới, nên dùng try-catch để bổ sung dần.
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT NOT NULL PRIMARY KEY,
-            projectId TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            startDate DATETIME,
-            endDate DATETIME,
-            status TEXT NOT NULL DEFAULT 'TODO',
-            priority TEXT NOT NULL DEFAULT 'MEDIUM',
-            progress INTEGER NOT NULL DEFAULT 0,
-            assignedToId TEXT,
-            "order" REAL NOT NULL DEFAULT 0,
-            parentId TEXT,
-            createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN dueDate DATETIME`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN phase TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN discipline TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN location TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN parentId TEXT`);
-    } catch {}
-
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_priority_idx" ON "tasks"("priority")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedTo_idx" ON "tasks"("assignedToId")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate")`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_parentId_idx" ON "tasks"("parentId")`);
+    // Delegate to the centralized schema helper (PostgreSQL-compatible)
+    await ensureCoreSchema();
 }
 
 function getEffectiveDueDate(task: ReportTask): Date | null {

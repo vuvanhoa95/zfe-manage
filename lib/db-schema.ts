@@ -2,13 +2,15 @@ import { prisma } from './prisma';
 import { Prisma } from '@prisma/client';
 
 /**
- * Tạo các bảng cơ bản nếu chưa tồn tại
+ * Tạo các bảng cơ bản nếu chưa tồn tại (PostgreSQL)
  * - users, customers, projects
  * - quotations, cash_flows
- * - outsourcing_staff
+ * - outsourcing_staff, tasks
+ * 
  * Được gọi tự động khi detect lỗi "table does not exist"
  * 
  * ⚠️ AN TOÀN: Chỉ dùng CREATE TABLE IF NOT EXISTS - KHÔNG xóa hoặc thay đổi dữ liệu hiện có
+ * ⚠️ LƯU Ý: Đây chỉ là safety net, schema CHÍNH thức được tạo bởi `prisma migrate deploy`
  */
 export async function ensureCoreSchema() {
     // 1. Tạo bảng users (cần thiết cho createdById)
@@ -24,27 +26,17 @@ export async function ensureCoreSchema() {
             "experience" TEXT,
             "bankAccount" TEXT,
             "taxCode" TEXT,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
-    
+
     // Thêm các cột mới vào bảng users nếu chưa có (migration cho database cũ)
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "title" TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "department" TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "experience" TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "bankAccount" TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN "taxCode" TEXT`);
-    } catch {}
+    try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "title" TEXT`); } catch {}
+    try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "department" TEXT`); } catch {}
+    try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "experience" TEXT`); } catch {}
+    try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "bankAccount" TEXT`); } catch {}
+    try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "taxCode" TEXT`); } catch {}
 
     // 2. Tạo bảng customers (nếu chưa có)
     await prisma.$executeRawUnsafe(`
@@ -57,8 +49,8 @@ export async function ensureCoreSchema() {
             "contactName" TEXT,
             "email" TEXT,
             "phone" TEXT,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
@@ -72,20 +64,20 @@ export async function ensureCoreSchema() {
             "description" TEXT,
             "customerId" TEXT,
             "location" TEXT NOT NULL DEFAULT 'Hà Nội',
-            "startDate" DATETIME,
-            "endDate" DATETIME,
-            "totalArea" REAL,
-            "totalBudget" REAL NOT NULL DEFAULT 0,
-            "totalRevenue" REAL NOT NULL DEFAULT 0,
-            "totalCost" REAL NOT NULL DEFAULT 0,
-            "totalProfit" REAL NOT NULL DEFAULT 0,
+            "startDate" TIMESTAMP(3),
+            "endDate" TIMESTAMP(3),
+            "totalArea" DOUBLE PRECISION,
+            "totalBudget" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "totalRevenue" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "totalCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "totalProfit" DOUBLE PRECISION NOT NULL DEFAULT 0,
             "status" TEXT NOT NULL DEFAULT 'PLANNING',
             "notes" TEXT,
             "imageUrl" TEXT,
             "createdById" TEXT NOT NULL,
             "finalQuotationId" TEXT UNIQUE,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT "projects_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE CASCADE,
             CONSTRAINT "projects_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE NO ACTION ON UPDATE CASCADE
         )
@@ -97,40 +89,40 @@ export async function ensureCoreSchema() {
             "id" TEXT NOT NULL PRIMARY KEY,
             "quotationNo" TEXT NOT NULL UNIQUE,
             "projectId" TEXT,
-            "date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
             "location" TEXT NOT NULL DEFAULT 'Hà Nội',
             "customerId" TEXT,
             "projectName" TEXT NOT NULL,
             "projectItem" TEXT,
             "projectNotes" TEXT,
-            "totalArea" REAL,
+            "totalArea" DOUBLE PRECISION,
             "title" TEXT,
             "introText" TEXT,
             "scopeText" TEXT,
             "deliverablesText" TEXT NOT NULL DEFAULT '',
             "scheduleText" TEXT,
-            "vatRate" REAL NOT NULL DEFAULT 0,
-            "outsourceCost" REAL NOT NULL DEFAULT 0,
+            "vatRate" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "outsourceCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
             "outsourceStaff" TEXT,
             "outsourceDiscipline" TEXT,
-            "outsourceRate" REAL,
+            "outsourceRate" DOUBLE PRECISION,
             "outsourceNote" TEXT,
-            "taxRate" REAL NOT NULL DEFAULT 0,
-            "taxCost" REAL NOT NULL DEFAULT 0,
+            "taxRate" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "taxCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
             "commissionType" TEXT,
-            "commissionRate" REAL,
-            "commissionCost" REAL NOT NULL DEFAULT 0,
-            "totalBeforeVat" REAL NOT NULL DEFAULT 0,
-            "vatAmount" REAL NOT NULL DEFAULT 0,
-            "totalAfterVat" REAL NOT NULL DEFAULT 0,
+            "commissionRate" DOUBLE PRECISION,
+            "commissionCost" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "totalBeforeVat" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "vatAmount" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "totalAfterVat" DOUBLE PRECISION NOT NULL DEFAULT 0,
             "totalInWords" TEXT,
             "status" TEXT NOT NULL DEFAULT 'DRAFT',
             "notes" TEXT,
             "theme" TEXT,
             "templateId" TEXT,
             "createdById" TEXT NOT NULL,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT "quotations_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE SET NULL ON UPDATE CASCADE,
             CONSTRAINT "quotations_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "customers"("id") ON DELETE SET NULL ON UPDATE CASCADE,
             CONSTRAINT "quotations_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE CASCADE
@@ -144,12 +136,12 @@ export async function ensureCoreSchema() {
             "projectId" TEXT,
             "type" TEXT NOT NULL,
             "category" TEXT,
-            "amount" REAL NOT NULL DEFAULT 0,
+            "amount" DOUBLE PRECISION NOT NULL DEFAULT 0,
             "description" TEXT NOT NULL,
-            "date" DATETIME NOT NULL,
+            "date" TIMESTAMP(3) NOT NULL,
             "quotationId" TEXT,
             "paymentMilestoneNo" INTEGER,
-            "paymentMilestonePercent" REAL,
+            "paymentMilestonePercent" DOUBLE PRECISION,
             "paymentMilestoneTitle" TEXT,
             "outsourcingStaffId" TEXT,
             "counterpartyName" TEXT,
@@ -157,8 +149,8 @@ export async function ensureCoreSchema() {
             "documentStatus" TEXT,
             "documentNote" TEXT,
             "createdById" TEXT NOT NULL,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT "cash_flows_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE
         )
     `);
@@ -170,9 +162,9 @@ export async function ensureCoreSchema() {
             "projectId" TEXT NOT NULL,
             "title" TEXT NOT NULL,
             "description" TEXT,
-            "startDate" DATETIME,
-            "endDate" DATETIME,
-            "dueDate" DATETIME,
+            "startDate" TIMESTAMP(3),
+            "endDate" TIMESTAMP(3),
+            "dueDate" TIMESTAMP(3),
             "status" TEXT NOT NULL DEFAULT 'TODO',
             "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
             "progress" INTEGER NOT NULL DEFAULT 0,
@@ -181,17 +173,14 @@ export async function ensureCoreSchema() {
             "phase" TEXT,
             "discipline" TEXT,
             "location" TEXT,
-            "order" REAL NOT NULL DEFAULT 0,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "order" DOUBLE PRECISION NOT NULL DEFAULT 0,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
             CONSTRAINT "tasks_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE CASCADE ON UPDATE CASCADE,
             CONSTRAINT "tasks_assignedToId_fkey" FOREIGN KEY ("assignedToId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE,
             CONSTRAINT "tasks_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "tasks"("id") ON DELETE SET NULL ON UPDATE CASCADE
         )
     `);
-    if (process.env.NODE_ENV === 'development') {
-        console.log('[DB Schema] "tasks" table ensured.');
-    }
 
     // 7. Tạo bảng outsourcing_staff (dùng cho quản lý nhân sự outsource)
     await prisma.$executeRawUnsafe(`
@@ -214,70 +203,40 @@ export async function ensureCoreSchema() {
             "skills" TEXT,
             "experience" TEXT,
             "certifications" TEXT,
-            "hourlyRate" REAL,
-            "dailyRate" REAL,
-            "monthlyRate" REAL,
+            "hourlyRate" DOUBLE PRECISION,
+            "dailyRate" DOUBLE PRECISION,
+            "monthlyRate" DOUBLE PRECISION,
             "rateType" TEXT,
-            "isActive" BOOLEAN NOT NULL DEFAULT 1,
+            "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
             "notes" TEXT,
-            "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
     // Tạo index cơ bản
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_projectNo_idx" ON "projects"("projectNo")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "projects_createdById_idx" ON "projects"("createdById")`,
-        );
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "projects_customerId_idx" ON "projects"("customerId")`,
-        );
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects"("status")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "quotations_quotationNo_idx" ON "quotations"("quotationNo")`,
-        );
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "quotations_status_idx" ON "quotations"("status")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "cash_flows_type_idx" ON "cash_flows"("type")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "cash_flows_date_idx" ON "cash_flows"("date")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "outsourcing_staff_isActive_idx" ON "outsourcing_staff"("isActive")`,
-        );
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(
-            `CREATE INDEX IF NOT EXISTS "outsourcing_staff_code_idx" ON "outsourcing_staff"("code")`,
-        );
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_assignedToId_idx" ON "tasks"("assignedToId")`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "tasks_parentId_idx" ON "tasks"("parentId")`);
-    } catch {}
+    const indexes = [
+        `CREATE INDEX IF NOT EXISTS "projects_projectNo_idx" ON "projects"("projectNo")`,
+        `CREATE INDEX IF NOT EXISTS "projects_createdById_idx" ON "projects"("createdById")`,
+        `CREATE INDEX IF NOT EXISTS "projects_customerId_idx" ON "projects"("customerId")`,
+        `CREATE INDEX IF NOT EXISTS "projects_status_idx" ON "projects"("status")`,
+        `CREATE INDEX IF NOT EXISTS "quotations_quotationNo_idx" ON "quotations"("quotationNo")`,
+        `CREATE INDEX IF NOT EXISTS "quotations_status_idx" ON "quotations"("status")`,
+        `CREATE INDEX IF NOT EXISTS "cash_flows_type_idx" ON "cash_flows"("type")`,
+        `CREATE INDEX IF NOT EXISTS "cash_flows_date_idx" ON "cash_flows"("date")`,
+        `CREATE INDEX IF NOT EXISTS "outsourcing_staff_isActive_idx" ON "outsourcing_staff"("isActive")`,
+        `CREATE INDEX IF NOT EXISTS "outsourcing_staff_code_idx" ON "outsourcing_staff"("code")`,
+        `CREATE INDEX IF NOT EXISTS "tasks_projectId_idx" ON "tasks"("projectId")`,
+        `CREATE INDEX IF NOT EXISTS "tasks_status_idx" ON "tasks"("status")`,
+        `CREATE INDEX IF NOT EXISTS "tasks_assignedToId_idx" ON "tasks"("assignedToId")`,
+        `CREATE INDEX IF NOT EXISTS "tasks_parentId_idx" ON "tasks"("parentId")`,
+        `CREATE INDEX IF NOT EXISTS "tasks_phase_idx" ON "tasks"("phase")`,
+        `CREATE INDEX IF NOT EXISTS "tasks_dueDate_idx" ON "tasks"("dueDate")`,
+    ];
+
+    for (const sql of indexes) {
+        try { await prisma.$executeRawUnsafe(sql); } catch {}
+    }
 }
 
 /**
@@ -290,6 +249,7 @@ export function isMissingTableError(error: unknown): boolean {
         (error instanceof Prisma.PrismaClientKnownRequestError &&
             (error.code === 'P2021' || error.code === 'P2022')) ||
         /does not exist in the current database/i.test(message) ||
+        /relation .+ does not exist/i.test(message) ||
         /no such table/i.test(message)
     );
 }

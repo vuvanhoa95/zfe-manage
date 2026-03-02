@@ -28,8 +28,6 @@ export async function GET(request: NextRequest) {
         databaseUrl.startsWith('prisma://') ||
         databaseUrl.startsWith('prisma+postgres://');
 
-    const isValidSqlite = databaseUrl.startsWith('file:');
-
     return NextResponse.json({
         success: true,
         data: {
@@ -37,14 +35,11 @@ export async function GET(request: NextRequest) {
             urlLength: databaseUrl.length,
             maskedUrl, // URL đã ẩn password
             isValidPostgres,
-            isValidSqlite,
             currentFormat: databaseUrl.substring(0, 20) + '...',
             requiredFormat: 'postgresql://user:password@host:port/database',
             hint: isValidPostgres
                 ? '✅ DATABASE_URL format đúng cho PostgreSQL'
-                : isValidSqlite
-                  ? '✅ DATABASE_URL format đúng cho SQLite (phù hợp với schema.prisma provider="sqlite")'
-                  : '❌ DATABASE_URL không đúng format. Vui lòng sửa thành: postgresql://user:password@host:port/database hoặc file:./prisma/dev.db',
+                : '❌ DATABASE_URL không đúng format. Vui lòng sửa thành: postgresql://user:password@host:port/database',
         },
     });
 }

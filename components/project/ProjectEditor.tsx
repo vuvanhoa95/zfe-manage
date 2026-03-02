@@ -373,7 +373,14 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                 body: JSON.stringify(cleanedData),
             });
 
-            const result = await res.json();
+            // Parse response body trước khi check res.ok
+            let result: { success?: boolean; data?: any; error?: string; details?: any };
+            try {
+                result = (await res.json()) as { success?: boolean; data?: any; error?: string; details?: any };
+            } catch (parseError) {
+                // Nếu không parse được JSON, throw error với message từ status
+                throw new Error(`Không thể đọc phản hồi từ server (status: ${res.status})`);
+            }
 
             if (!res.ok) {
                 // Nếu project không tồn tại (404), redirect về danh sách dự án
@@ -394,7 +401,26 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     router.push(`/projects?_refresh=${Date.now()}`);
                     return;
                 }
-                throw new Error(result.error || `HTTP error! status: ${res.status}`);
+                
+                // Parse error message từ result
+                let errorMessage = `HTTP error! status: ${res.status}`;
+                if (
+                    result &&
+                    typeof result === 'object' &&
+                    'error' in result &&
+                    typeof (result as { error?: string }).error === 'string'
+                ) {
+                    errorMessage = (result as { error: string }).error;
+                }
+                
+                // Tạo error object với response info để catch block có thể parse
+                const error = new Error(errorMessage) as Error & { 
+                    response?: Response; 
+                    result?: typeof result;
+                };
+                error.response = res;
+                error.result = result;
+                throw error;
             }
 
             if (result.success) {
@@ -418,43 +444,40 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     ? error.message
                     : 'Không thể lưu dự án. Vui lòng kiểm tra lại thông tin và thử lại.';
 
-            // Try to extract more detailed error from response
-            if (error && typeof error === 'object' && 'response' in error) {
+            // Try to extract more detailed error from result object (đã parse từ response)
+            if (error && typeof error === 'object' && 'result' in error) {
                 try {
-                    const { response } = error as ErrorWithResponse;
-                    const errorData: unknown = response ? await response.json() : undefined;
-                    if (!errorData || typeof errorData !== 'object') {
-                        throw new Error('No error data');
-                    }
-
-                    const parsedErrorData = errorData as {
-                        error?: unknown;
-                        details?: {
-                            fieldErrors?: unknown;
+                    const errorResult = (error as { result?: unknown }).result;
+                    if (errorResult && typeof errorResult === 'object') {
+                        const parsedErrorData = errorResult as {
+                            error?: unknown;
+                            details?: {
+                                fieldErrors?: unknown;
+                            };
                         };
-                    };
 
-                    if (typeof parsedErrorData.error === 'string' && parsedErrorData.error.trim()) {
-                        errorMessage = parsedErrorData.error;
-                    }
-                    if (parsedErrorData.details?.fieldErrors && typeof parsedErrorData.details.fieldErrors === 'object') {
-                        const fieldErrors = Object.entries(
-                            parsedErrorData.details.fieldErrors as Record<string, string[] | undefined>,
-                        )
-                            .map(([field, messages]) => {
-                                if (messages && messages.length > 0) {
-                                    return `${field}: ${messages.join(', ')}`;
-                                }
-                                return null;
-                            })
-                            .filter(Boolean)
-                            .join('\n');
-                        if (fieldErrors) {
-                            errorMessage = `${errorMessage}\n\nChi tiết:\n${fieldErrors}`;
+                        if (typeof parsedErrorData.error === 'string' && parsedErrorData.error.trim()) {
+                            errorMessage = parsedErrorData.error;
+                        }
+                        if (parsedErrorData.details?.fieldErrors && typeof parsedErrorData.details.fieldErrors === 'object') {
+                            const fieldErrors = Object.entries(
+                                parsedErrorData.details.fieldErrors as Record<string, string[] | undefined>,
+                            )
+                                .map(([field, messages]) => {
+                                    if (messages && messages.length > 0) {
+                                        return `${field}: ${messages.join(', ')}`;
+                                    }
+                                    return null;
+                                })
+                                .filter(Boolean)
+                                .join('\n');
+                            if (fieldErrors) {
+                                errorMessage = `${errorMessage}\n\nChi tiết:\n${fieldErrors}`;
+                            }
                         }
                     }
                 } catch {
-                    // Ignore JSON parse errors
+                    // Ignore parse errors
                 }
             }
 

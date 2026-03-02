@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { ensureCoreSchema } from '@/lib/db-schema';
 
 const seedSchema = z.object({
     projectId: z.string().trim().min(1),
@@ -11,55 +12,8 @@ const seedSchema = z.object({
 type SeedRequest = z.infer<typeof seedSchema>;
 
 async function ensureTaskSchema() {
-    // Tạo bảng tasks tối thiểu cho SQLite (đồng bộ với các API tasks khác)
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT NOT NULL PRIMARY KEY,
-            projectId TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            startDate DATETIME,
-            endDate DATETIME,
-            dueDate DATETIME,
-            phase TEXT,
-            discipline TEXT,
-            location TEXT,
-            status TEXT NOT NULL DEFAULT 'TODO',
-            priority TEXT NOT NULL DEFAULT 'MEDIUM',
-            progress INTEGER NOT NULL DEFAULT 0,
-            assignedToId TEXT,
-            "order" REAL NOT NULL DEFAULT 0,
-            parentId TEXT,
-            createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Bổ sung các cột mới nếu thiếu (an toàn khi bảng cũ tồn tại)
-    // SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE, nên dùng try-catch
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN dueDate DATETIME`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN phase TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN discipline TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN location TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN parentId TEXT`);
-    } catch {}
-
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks(priority)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedToId)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_phase_idx ON tasks(phase)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_dueDate_idx ON tasks(dueDate)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_parentId_idx ON tasks(parentId)`);
+    // Delegate to the centralized schema helper (PostgreSQL-compatible)
+    await ensureCoreSchema();
 }
 
 function escapeSqlString(input: string) {
@@ -353,8 +307,8 @@ export async function POST(request: NextRequest) {
                         ${assignedToIdStr},
                         ${taskData.order},
                         NULL,
-                        datetime('now'),
-                        datetime('now')
+                        NOW(),
+                        NOW()
                     )
                 `);
                 createdCount++;

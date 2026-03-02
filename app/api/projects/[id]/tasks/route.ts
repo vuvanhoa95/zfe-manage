@@ -45,55 +45,10 @@ const taskFilterSchema = z.object({
 });
 
 async function ensureTaskSchema() {
-    // Tạo bảng tasks và index tối thiểu nếu chưa tồn tại (SQLite).
-    // Lưu ý:
-    // - SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE, nên dùng try-catch
-    // - Có thể đã tồn tại bảng tasks cũ chưa có các cột mới (phase, discipline, ...),
-    //   nên dùng try-catch để bổ sung dần mà không lỗi.
-    await prisma.$executeRawUnsafe(`
-        CREATE TABLE IF NOT EXISTS tasks (
-            id TEXT NOT NULL PRIMARY KEY,
-            projectId TEXT NOT NULL,
-            title TEXT NOT NULL,
-            description TEXT,
-            startDate DATETIME,
-            endDate DATETIME,
-            status TEXT NOT NULL DEFAULT 'TODO',
-            priority TEXT NOT NULL DEFAULT 'MEDIUM',
-            progress INTEGER NOT NULL DEFAULT 0,
-            assignedToId TEXT,
-            "order" REAL NOT NULL DEFAULT 0,
-            parentId TEXT,
-            createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Bổ sung các cột mới nếu thiếu (SQLite không hỗ trợ IF NOT EXISTS cho ALTER TABLE)
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN dueDate DATETIME`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN phase TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN discipline TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN location TEXT`);
-    } catch {}
-    try {
-        await prisma.$executeRawUnsafe(`ALTER TABLE tasks ADD COLUMN parentId TEXT`);
-    } catch {}
-
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_projectId_idx ON tasks(projectId)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_status_idx ON tasks(status)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_priority_idx ON tasks(priority)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_assignedTo_idx ON tasks(assignedToId)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_parentId_idx ON tasks(parentId)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_phase_idx ON tasks(phase)`);
-    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS tasks_dueDate_idx ON tasks(dueDate)`);
+    // Delegate to the centralized schema helper (PostgreSQL-compatible)
+    await ensureCoreSchema();
 }
+
 
 export async function GET(
     request: NextRequest,

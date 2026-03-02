@@ -3,13 +3,15 @@ generator client {
 }
 
 datasource db {
-  /// Local development: dùng SQLite file-based cho đơn giản và không phụ thuộc mạng
-  /// DATABASE_URL format: file:./prisma/dev.db
+  /// PostgreSQL cho cả development và production
+  /// Development: Dùng Neon free tier (hoặc local PostgreSQL)
+  /// Production (Vercel): Dùng Neon pooled connection
   ///
-  /// Production/Staging: có thể chuyển sang PostgreSQL (Neon/Vercel/Postgres),
-  /// khi đó cần đổi `provider` sang `"postgresql"` và cập nhật lại DATABASE_URL + migrations.
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  /// DATABASE_URL format: postgresql://user:pass@host/dbname?sslmode=require
+  /// DIRECT_URL format:   postgresql://user:pass@host/dbname?sslmode=require (non-pooled, cho migrations)
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

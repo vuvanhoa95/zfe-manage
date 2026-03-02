@@ -64,6 +64,7 @@
     "@types/react-speech-recognition": "^3.9.6",
     "eslint": "^9",
     "eslint-config-next": "16.1.5",
+    "prettier": "^3.5.3",
     "puppeteer": "^24.37.5",
     "puppeteer-core": "^24.37.5",
     "tailwindcss": "^4",

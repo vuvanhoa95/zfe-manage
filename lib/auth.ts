@@ -111,9 +111,7 @@ export const authOptions: NextAuthOptions = {
                         errorMessage.includes('ECONNREFUSED') ||
                         errorMessage.includes('ENOTFOUND') ||
                         errorMessage.includes('timeout') ||
-                        errorMessage.includes('schema') ||
-                        errorMessage.includes('SQLITE_CANTOPEN') ||
-                        errorMessage.includes('SQLITE_BUSY');
+                        errorMessage.includes('schema');
                     
                     if (isDatabaseError) {
                         // Encode error code vào message để login page có thể parse
