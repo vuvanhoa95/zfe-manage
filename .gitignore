@@ -47,6 +47,10 @@ next-env.d.ts
 # database (local dev only - không commit database files)
 /prisma/*.db
 /prisma/*.db-journal
+/prisma/**/*.db
+/prisma/**/*.db-journal
+*.db
+*.db-journal
 
 # IDE
 .vscode/
