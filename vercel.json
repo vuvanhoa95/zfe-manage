@@ -1,9 +1,5 @@
 {
   "buildCommand": "npx prisma generate && npx prisma migrate deploy && npm run build",
-  "outputDirectory": ".next",
-  "devCommand": "next dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
   "functions": {
     "app/api/quotations/[id]/export-pdf/route.ts": {
       "maxDuration": 60
