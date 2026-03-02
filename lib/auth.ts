@@ -167,34 +167,54 @@ export const authOptions: NextAuthOptions = {
             // Super Admin: Always ADMIN + ACTIVE
             const SUPER_ADMIN_EMAILS = ['7604vuhoa@gmail.com'];
 
-            // OAuth auto-creation logic: PrismaAdapter already handles creation.
-            // We just need to check the status of the user after they are looked up or created.
-            if (account?.provider !== 'credentials' && user?.id) {
-                const dbUser = await prisma.user.findUnique({
-                    where: { id: user.id },
-                    select: { status: true, role: true, email: true }
+            // Only handle OAuth providers (Google, Microsoft)
+            if (account?.provider !== 'credentials') {
+                const userEmail = user?.email?.toLowerCase();
+                if (!userEmail) return false;
+
+                // Find user by email (more reliable than id during OAuth first-time creation)
+                let dbUser = await prisma.user.findUnique({
+                    where: { email: userEmail },
+                    select: { id: true, status: true, role: true, email: true }
                 });
 
-                // Auto-promote super admin
+                // If PrismaAdapter just created the user, it might be PENDING by default.
+                // We need to handle super admins immediately.
                 if (dbUser && SUPER_ADMIN_EMAILS.includes(dbUser.email || '')) {
+                    // Auto-promote super admin to ADMIN + ACTIVE
                     if (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE) {
                         await prisma.user.update({
-                            where: { id: user.id },
+                            where: { id: dbUser.id },
                             data: { role: 'ADMIN', status: UserStatus.ACTIVE }
                         });
                     }
                     return true; // Always allow super admin
                 }
 
-                if (dbUser && dbUser.status !== UserStatus.ACTIVE) {
-                    if (dbUser.status === UserStatus.PENDING) {
-                        return '/login?error=ACCOUNT_PENDING';
+                // For other OAuth users: check status
+                if (dbUser) {
+                    if (dbUser.status !== UserStatus.ACTIVE) {
+                        if (dbUser.status === UserStatus.PENDING) {
+                            return '/login?error=ACCOUNT_PENDING';
+                        }
+                        return '/login?error=ACCOUNT_SUSPENDED';
                     }
-                    return '/login?error=ACCOUNT_SUSPENDED';
+                    return true;
                 }
+
+                // User not found in DB yet (shouldn't happen with PrismaAdapter, but just in case)
+                // Check if this is a super admin email - create/allow
+                if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
+                    return true;
+                }
+
+                // New user via OAuth - they'll be PENDING, redirect to pending page
+                return '/login?error=ACCOUNT_PENDING';
             }
+
             return true;
         },
+
         async jwt({ token, user, trigger, session }) {
             if (user) {
                 token.id = user.id;
