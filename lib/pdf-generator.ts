@@ -13,10 +13,15 @@ const isVercel = !!(process.env.VERCEL === '1' || process.env.VERCEL_ENV);
 async function getPuppeteer() {
   if (!puppeteer) {
     if (isVercel) {
-      puppeteer = await import('puppeteer-core');
-      chromium = await import('@sparticuz/chromium');
+      // Dynamic import trả về ES module wrapper, cần unwrap .default
+      const puppeteerMod = await import('puppeteer-core');
+      puppeteer = puppeteerMod.default || puppeteerMod;
+      const chromiumMod = await import('@sparticuz/chromium');
+      chromium = chromiumMod.default || chromiumMod;
+      console.log('[PDF] Chromium module keys:', Object.keys(chromium).join(', '));
     } else {
-      puppeteer = await import('puppeteer');
+      const puppeteerMod = await import('puppeteer');
+      puppeteer = puppeteerMod.default || puppeteerMod;
     }
   }
   return { puppeteer, chromium };
