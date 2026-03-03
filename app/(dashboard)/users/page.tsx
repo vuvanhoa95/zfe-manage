@@ -48,6 +48,7 @@ export default function UsersPage() {
     const [users, setUsers] = useState<AppUser[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
     const [showModal, setShowModal] = useState<boolean>(false);
     const [editingUser, setEditingUser] = useState<AppUser | null>(null);
     const [form, setForm] = useState<UserFormState>(INITIAL_FORM);
@@ -236,29 +237,35 @@ export default function UsersPage() {
         }
     };
 
-    const handleStatusUpdate = async (userId: string, newStatus: string) => {
-        if (!confirm(`Bạn có chắc chắn muốn thay đổi trạng thái user này thành ${newStatus}?`)) {
-            return;
-        }
+    const handleToggleStatus = async (user: AppUser) => {
+        // Không toggle tài khoản đang đăng nhập
+        if (user.email === currentUser.email) return;
 
+        const newStatus = user.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
+        const actionLabel = newStatus === 'ACTIVE' ? 'kích hoạt' : 'tạm khóa';
+
+        if (!confirm(`Bạn có chắc muốn ${actionLabel} tài khoản "${user.name}"?`)) return;
+
+        setTogglingUserId(user.id);
         try {
             const res = await fetch('/api/users', {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ userId, status: newStatus }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, status: newStatus }),
             });
 
             const result = await res.json();
             if (result.success) {
-                await fetchUsers();
+                // Optimistic update
+                setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus as AppUser['status'] } : u));
             } else {
                 alert(result.error || 'Cập nhật trạng thái thất bại');
             }
         } catch (error) {
-            console.error('Update status error:', error);
+            console.error('Toggle status error:', error);
             alert('Có lỗi xảy ra khi cập nhật trạng thái');
+        } finally {
+            setTogglingUserId(null);
         }
     };
 
@@ -359,17 +366,44 @@ export default function UsersPage() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-center">
-                                            <span
-                                                className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                    user.status === 'ACTIVE'
-                                                        ? 'bg-green-50 text-green-700 border border-green-200'
-                                                        : user.status === 'PENDING'
-                                                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                                          : 'bg-gray-100 text-gray-600 border border-gray-200'
-                                                }`}
-                                            >
-                                                {user.status === 'PENDING' ? 'Đang chờ' : user.status === 'ACTIVE' ? 'Hoạt động' : 'Khóa'}
-                                            </span>
+                                            <div className="flex flex-col items-center gap-1">
+                                                {/* Toggle Switch */}
+                                                <button
+                                                    type="button"
+                                                    disabled={user.email === currentUser.email || togglingUserId === user.id}
+                                                    onClick={() => handleToggleStatus(user)}
+                                                    title={user.email === currentUser.email ? 'Không thể thay đổi tài khoản đang đăng nhập' : user.status === 'ACTIVE' ? 'Nhấn để khóa' : 'Nhấn để kích hoạt'}
+                                                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none disabled:cursor-not-allowed ${
+                                                        user.status === 'ACTIVE'
+                                                            ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                                                            : user.status === 'PENDING'
+                                                              ? 'bg-amber-400'
+                                                              : 'bg-gray-300'
+                                                    }`}
+                                                >
+                                                    {togglingUserId === user.id ? (
+                                                        <span className="absolute inset-0 flex items-center justify-center">
+                                                            <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                                            </svg>
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                                                user.status === 'ACTIVE' ? 'translate-x-6' : 'translate-x-1'
+                                                            }`}
+                                                        />
+                                                    )}
+                                                </button>
+                                                {/* Label */}
+                                                <span className={`text-[10px] font-semibold tracking-wide ${
+                                                    user.status === 'ACTIVE' ? 'text-emerald-600' :
+                                                    user.status === 'PENDING' ? 'text-amber-600' : 'text-gray-400'
+                                                }`}>
+                                                    {user.status === 'ACTIVE' ? 'Hoạt động' : user.status === 'PENDING' ? 'Chờ duyệt' : 'Đã khóa'}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">
                                             {user.createdAt
@@ -378,36 +412,6 @@ export default function UsersPage() {
                                         </td>
                                          <td className="px-6 py-4 text-right">
                                             <div className="flex items-center justify-end gap-2">
-                                                {user.status === 'PENDING' && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
-                                                        className="px-2 py-1 bg-green-600 text-white text-[10px] font-bold rounded hover:bg-green-700 transition-colors uppercase"
-                                                        title="Phê duyệt tài khoản"
-                                                    >
-                                                        Duyệt
-                                                    </button>
-                                                )}
-                                                {user.status === 'ACTIVE' && user.email !== currentUser.email && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleStatusUpdate(user.id, 'SUSPENDED')}
-                                                        className="text-gray-400 hover:text-amber-600 p-1"
-                                                        title="Tạm khóa user"
-                                                    >
-                                                        🚫
-                                                    </button>
-                                                )}
-                                                {user.status === 'SUSPENDED' && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
-                                                        className="text-gray-400 hover:text-green-600 p-1"
-                                                        title="Kích hoạt lại"
-                                                    >
-                                                        ✅
-                                                    </button>
-                                                )}
                                                 <button
                                                     type="button"
                                                     onClick={() => openEditModal(user)}
