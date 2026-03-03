@@ -147,6 +147,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
     const [activeWorkSubTab, setActiveWorkSubTab] = useState<WorkSubTabKey>('dashboard');
+    const [taskRefreshKey, setTaskRefreshKey] = useState(0); // Increment to force TaskTab remount
 
     // ── Setup danh sách tag-like (Phases / Disciplines / Areas / Levels) ──────
     const parseJsonList = (val: string | null | undefined): string[] => {
@@ -760,6 +761,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                     onChangeSubTab={setActiveWorkSubTab}
                                     showHeader={false}
                                     onAutoSaveProject={isNew ? handleAutoSaveProject : undefined}
+                                    taskRefreshKey={taskRefreshKey}
                                 />
                             ) : (
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
@@ -1413,6 +1415,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     projectLocation={project.location || undefined}
                     totalArea={project.totalArea || undefined}
                     onTasksImported={() => {
+                        setTaskRefreshKey(k => k + 1); // force TaskTab to remount + refetch
                         setActiveWorkSubTab('task');
                         setActiveTab('tasks');
                     }}

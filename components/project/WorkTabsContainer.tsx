@@ -27,6 +27,10 @@ type WorkTabsContainerProps = {
      * Callback để tự động lưu project khi tạo task (nếu project chưa được lưu)
      */
     onAutoSaveProject?: () => Promise<string | null>; // Returns projectId nếu save thành công, null nếu fail
+    /**
+     * Increment để force TaskTab remount + refetch sau khi AI import tasks
+     */
+    taskRefreshKey?: number;
 };
 
 function SubTabButton({
@@ -56,13 +60,13 @@ function SubTabButton({
     );
 }
 
-export default function WorkTabsContainer({ projectId, isNew, onAutoSaveProject }: WorkTabsContainerProps) {
+export default function WorkTabsContainer(props: WorkTabsContainerProps) {
+    const { projectId, isNew, onAutoSaveProject, taskRefreshKey = 0 } = props;
     const [internalSubTab, setInternalSubTab] = useState<SubTabKey>('dashboard');
 
     // Ưu tiên state điều khiển từ ngoài, fallback về state nội bộ
-    const activeSubTab = (arguments[0] as WorkTabsContainerProps).activeSubTab ?? internalSubTab;
-    const setActiveSubTab =
-        (arguments[0] as WorkTabsContainerProps).onChangeSubTab ?? ((tab: SubTabKey) => setInternalSubTab(tab));
+    const activeSubTab = props.activeSubTab ?? internalSubTab;
+    const setActiveSubTab = props.onChangeSubTab ?? ((tab: SubTabKey) => setInternalSubTab(tab));
 
     if (isNew || !projectId) {
         return (
@@ -75,7 +79,7 @@ export default function WorkTabsContainer({ projectId, isNew, onAutoSaveProject 
     return (
         <div className="px-4 pt-2 pb-4 md:px-6 md:pt-2 md:pb-5 space-y-3 md:space-y-4">
             {/* Sub tabs row: có thể ẩn khi dùng header ở ProjectEditor */}
-            {(arguments[0] as WorkTabsContainerProps).showHeader !== false && (
+            {props.showHeader !== false && (
                 <div className="flex justify-end">
                     <div className="inline-flex items-center gap-1 bg-white/80 rounded-2xl border border-gray-200 px-1 py-0.5 shadow-sm">
                         <SubTabButton
@@ -108,7 +112,8 @@ export default function WorkTabsContainer({ projectId, isNew, onAutoSaveProject 
                     <WorkDashboard projectId={projectId} isActive />
                 )}
                 {activeSubTab === 'task' && (
-                    <TaskTab 
+                    <TaskTab
+                        key={`task-tab-${taskRefreshKey}`}
                         projectId={projectId} 
                         isNew={false} 
                         onAutoSaveProject={isNew ? onAutoSaveProject : undefined}
