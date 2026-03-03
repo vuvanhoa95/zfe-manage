@@ -36,15 +36,15 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { email, password, name, role, title, department, experience, bankAccount, taxCode, sendEmail } = body;
 
-        if (!email || !password) {
+        if (!email) {
             return NextResponse.json(
-                { success: false, error: 'Email và password là bắt buộc' },
+                { success: false, error: 'Email là bắt buộc' },
                 { status: 400 }
             );
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash password chỉ khi được cung cấp
+        const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
         // Check if user exists
         let existingUser;
@@ -73,14 +73,15 @@ export async function POST(request: NextRequest) {
                         where: { email },
                         data: {
                             name: name || existingUser.name,
-                            password: hashedPassword,
+                            // Chỉ đổi password khi admin nhập mới, giữ nguyên nếu bỏ trống
+                            ...(hashedPassword ? { password: hashedPassword } : {}),
                             role: role || existingUser.role,
                             title: title !== undefined ? (title || null) : existingUser.title,
                             department: department !== undefined ? (department || null) : existingUser.department,
                             experience: experience !== undefined ? (experience || null) : existingUser.experience,
                             bankAccount: bankAccount !== undefined ? (bankAccount || null) : existingUser.bankAccount,
                             taxCode: taxCode !== undefined ? (taxCode || null) : existingUser.taxCode,
-                            status: UserStatus.ACTIVE, // Manually updated users are ACTIVE
+                            status: UserStatus.ACTIVE,
                         },
                     });
                 } else {

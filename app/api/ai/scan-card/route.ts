@@ -19,8 +19,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { image } = RequestSchema.parse(body);
 
-    // Remove base64 prefix if exists
     const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
+    // Detect đúng MIME type từ header base64 (tránh lỗi khi ảnh là PNG nhưng gửi như jpeg)
+    const mimeMatch = image.match(/^data:(image\/\w+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
 
     const completion = await openai.chat.completions.create({
       model: AI_MODELS.VISION,
@@ -29,11 +31,12 @@ export async function POST(req: NextRequest) {
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'Trích xuất thông tin từ danh thiếp này:' },
+            { type: 'text', text: 'Hãy trích xuất TOÀN BỘ thông tin từ danh thiếp này. Đọc kỹ từng dòng chữ, kể cả chữ nhỏ. Với số điện thoại Việt Nam, hãy giữ nguyên định dạng gốc (VD: 0901.234.567 hoặc +84 901 234 567).' },
             {
               type: 'image_url',
               image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`,
+                url: `data:${mimeType};base64,${base64Image}`,
+                detail: 'high',
               },
             },
           ],

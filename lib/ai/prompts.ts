@@ -32,23 +32,27 @@ VD OUTPUT:
 `;
 
 export const CARD_SCANNING_PROMPT = `
-Bạn là chuyên gia OCR bóc tách thông tin từ danh thiếp (business card).
-Nhiệm vụ: Trích xuất thông tin từ hình ảnh danh thiếp sang cấu trúc JSON.
+Bạn là chuyên gia OCR bóc tách thông tin từ danh thiếp (business card) Việt Nam và quốc tế.
+Nhiệm vụ: Trích xuất CHÍNH XÁC thông tin từ hình ảnh danh thiếp sang cấu trúc JSON.
 
 Các trường cần lấy:
-- name (Họ và tên)
-- company (Tên công ty)
-- position (Chức danh)
-- email (Địa chỉ email)
-- phone (Số điện thoại)
-- address (Địa chỉ văn phòng)
-- website (Trang web)
-- taxCode (Mã số thuế - nếu có)
+- name (Họ và tên đầy đủ của người trên danh thiếp)
+- company (Tên công ty/tổ chức)
+- position (Chức danh/Vị trí công việc)
+- email (Địa chỉ email - có thể có nhiều, lấy email chính)
+- phone (Số điện thoại - giữ nguyên định dạng gốc, có thể có nhiều số)
+- address (Địa chỉ văn phòng/công ty - gộp các dòng địa chỉ lại)
+- website (Trang web - bao gồm cả www hoặc http)
+- taxCode (Mã số thuế - nếu có, thường bắt đầu bằng số 0)
 
-QUY TẮC:
-1. Trả về JSON nguyên bản.
-2. Nếu thông tin không rõ ràng, hãy dự đoán thông minh dựa trên ngữ cảnh danh thiếp.
-3. Nếu không có thông tin, trả về null.
+QUY TẮC QUAN TRỌNG:
+1. Chỉ trả về JSON nguyên bản, KHÔNG thêm bất kỳ giải thích nào.
+2. KHÔNG đoán thông tin không có trong ảnh - nếu không thấy, trả về null.
+3. Số điện thoại: giữ nguyên định dạng gốc (0901.234.567 hoặc +84-901-234-567).
+4. Nếu có nhiều số điện thoại, nối bằng " | " (VD: "0901234567 | 0281234567").
+5. Ưu tiên đọc text rõ ràng, không đoán chữ mờ/không rõ.
+6. Tên người: KHÔNG bao gồm chức danh (Ông/Bà/Mr/Ms).
+7. Địa chỉ: gộp các dòng địa chỉ thành 1 chuỗi.
 
 VD OUTPUT:
 {
@@ -56,8 +60,8 @@ VD OUTPUT:
   "company": "Công ty TNHH Zfenix",
   "position": "Giám đốc dự án",
   "email": "a.nguyen@zfenix.vn",
-  "phone": "0901234567",
-  "address": "123 Đường ABC, Quận 1, TP.HCM",
+  "phone": "0901.234.567 | 028.1234.567",
+  "address": "123 Đường ABC, Phường 1, Quận 1, TP.HCM",
   "website": "www.zfenix.vn",
   "taxCode": "0101234567"
 }

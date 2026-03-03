@@ -178,13 +178,17 @@ export default function UsersPage() {
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!form.email.trim() || !form.password.trim() || !form.name.trim()) {
-            alert('Email, tên và mật khẩu là bắt buộc');
-            return;
-        }
-
         const isNew = !editingUser;
 
+        if (!form.email.trim() || !form.name.trim()) {
+            alert('Email và tên là bắt buộc');
+            return;
+        }
+        // Mật khẩu bắt buộc khi tạo mới, không bắt buộc khi edit
+        if (isNew && !form.password.trim()) {
+            alert('Mật khẩu là bắt buộc khi tạo user mới');
+            return;
+        }
         setIsSubmitting(true);
         try {
             const res = await fetch('/api/admin/update-user', {
@@ -504,21 +508,22 @@ export default function UsersPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Mật khẩu <span className="text-red-500">*</span>
+                                        Mật khẩu {!editingUser && <span className="text-red-500">*</span>}
+                                        {editingUser && <span className="text-gray-400 font-normal"> (để trống = giữ nguyên)</span>}
                                     </label>
                                     <input
                                         type="password"
-                                        required
+                                        required={!editingUser}
                                         value={form.password}
                                         onChange={(event) =>
                                             setForm((prev) => ({ ...prev, password: event.target.value }))
                                         }
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder={editingUser ? 'Nhập mật khẩu mới cho user' : 'Mật khẩu đăng nhập'}
+                                        placeholder={editingUser ? 'Nhập nếu muốn đổi mật khẩu mới' : 'Mật khẩu đăng nhập'}
                                     />
                                     {editingUser && (
                                         <p className="mt-1 text-xs text-gray-500">
-                                            Khi cập nhật user, mật khẩu sẽ được đặt lại theo giá trị mới này.
+                                            💡 Bỏ trống để giữ nguyên mật khẩu hiện tại. Chỉ nhập nếu muốn đặt lại mật khẩu mới.
                                         </p>
                                     )}
                                 </div>

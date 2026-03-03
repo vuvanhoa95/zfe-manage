@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { existsSync, mkdirSync } from 'fs';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
     try {
@@ -12,10 +10,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Không có file được upload' }, { status: 400 });
         }
 
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
         if (!allowedTypes.includes(file.type)) {
             return NextResponse.json(
-                { success: false, error: 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)' },
+                { success: false, error: 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP, SVG)' },
                 { status: 400 }
             );
         }
@@ -28,29 +26,30 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
-        const uploadsDir = join(process.cwd(), 'public', 'uploads', 'company-logo');
-        if (!existsSync(uploadsDir)) {
-            mkdirSync(uploadsDir, { recursive: true });
-        }
-
         const timestamp = Date.now();
-        const randomString = Math.random().toString(36).substring(2, 15);
-        const fileExtension = file.name.split('.').pop() || 'png';
-        const filename = `${timestamp}-${randomString}.${fileExtension}`;
-        const filepath = join(uploadsDir, filename);
+        const randomStr = Math.random().toString(36).substring(2, 10);
+        const ext = file.name.split('.').pop() || 'png';
+        const filename = `company-logo/${timestamp}-${randomStr}.${ext}`;
 
-        await writeFile(filepath, buffer);
+        // Upload lên Vercel Blob (persistent cloud storage)
+        const blob = await put(filename, file, {
+            access: 'public',
+            contentType: file.type,
+        });
 
-        const url = `/uploads/company-logo/${filename}`;
-
-        return NextResponse.json({ success: true, data: { url } }, { status: 201 });
+        return NextResponse.json({ success: true, data: { url: blob.url } }, { status: 201 });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Failed to upload file';
         console.error('Failed to upload company logo:', error);
+
+        // Fallback nếu Vercel Blob chưa được cấu hình (BLOB_READ_WRITE_TOKEN chưa set)
+        if (message.includes('BLOB_READ_WRITE_TOKEN') || message.includes('token')) {
+            return NextResponse.json(
+                { success: false, error: 'Chưa cấu hình Vercel Blob Storage. Vui lòng thêm BLOB_READ_WRITE_TOKEN vào biến môi trường.' },
+                { status: 500 }
+            );
+        }
+
         return NextResponse.json({ success: false, error: message }, { status: 500 });
     }
 }
-
