@@ -25,8 +25,8 @@ interface CashFlow {
     type: 'INCOME' | 'EXPENSE';
     amount: number;
     date: string;
-    description?: string;
-    category?: string;
+    description?: string | null;
+    category?: string | null;
 }
 
 interface ForecastPoint {

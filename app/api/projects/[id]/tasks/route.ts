@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { taskCreateSchema, TASK_PRIORITIES, TASK_STATUSES, type TaskCreateInput } from '@/lib/validation/task';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
@@ -260,7 +261,7 @@ export async function POST(
         let task;
         try {
             // Sử dụng transaction để đảm bảo atomicity
-            task = await prisma.$transaction(async (tx) => {
+            task = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
                 const created = await tx.task.create({
                     data: {
                         projectId,
@@ -332,7 +333,7 @@ export async function POST(
                 await ensureCoreSchema();
                 // Retry sau khi tạo schema - sử dụng transaction
                 try {
-                    task = await prisma.$transaction(async (tx) => {
+                    task = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
                         const created = await tx.task.create({
                             data: {
                                 projectId,
