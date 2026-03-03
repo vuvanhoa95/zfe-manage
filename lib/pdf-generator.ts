@@ -15,12 +15,9 @@ async function getPuppeteer() {
     if (isVercel) {
       puppeteer = await import('puppeteer-core');
       chromium = await import('@sparticuz/chromium');
-      // Disable graphics mode to reduce memory usage on serverless
-      chromium.setGraphicsMode(false);
-      // Set chromium path from environment variable if provided (for custom deployments)
-      if (process.env.CHROMIUM_PATH) {
-        chromium.setHeadlessMode = true;
-      }
+      // setGraphicsMode là PROPERTY, không phải function!
+      // Tắt WebGL để giảm memory usage trên serverless
+      chromium.setGraphicsMode = false;
     } else {
       puppeteer = await import('puppeteer');
     }
@@ -69,17 +66,26 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
       '--no-zygote',
     ];
 
-    const launchOptions: any = {
-      headless: true,
-      args: isVercel && chromiumLib ? [...chromiumLib.args, '--font-render-hinting=none'] : localArgs,
-    };
+    let launchOptions: any;
 
     if (isVercel && chromiumLib) {
-      // Use custom path from env if set, otherwise use sparticuz chromium
-      launchOptions.executablePath = process.env.CHROMIUM_PATH || await chromiumLib.executablePath();
-      console.log('[PDF] Vercel mode, executablePath:', launchOptions.executablePath);
+      // Vercel/serverless: dùng @sparticuz/chromium
+      // headless: 'shell' là mode được sparticuz/chromium recommend
+      const execPath = await chromiumLib.executablePath();
+      console.log('[PDF] Vercel mode, executablePath:', execPath);
+      launchOptions = {
+        args: [...chromiumLib.args, '--font-render-hinting=none'],
+        executablePath: execPath,
+        headless: 'shell' as const,
+        defaultViewport: { width: 1280, height: 900 },
+      };
     } else {
+      // Local: dùng bundled Puppeteer
       console.log('[PDF] Local mode, using bundled Puppeteer');
+      launchOptions = {
+        headless: true,
+        args: localArgs,
+      };
     }
 
     browser = await puppeteerLib.launch(launchOptions);
