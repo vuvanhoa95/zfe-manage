@@ -1,31 +1,32 @@
 'use client';
 
 /**
- * AITaskGenerator v4 — Direct Checklist Flow
+ * AITaskGenerator v5 — 2 Tab + AI Chat
  *
- * Step 1: PROJECT CONTEXT — Chọn nhanh loại CT + phạm vi BIM bằng chips (không bắt buộc)
- * Step 2: AI CHECKLIST   — Hiện NGAY checklist task theo gợi ý (offline template),
- *                          user tick chọn / bỏ chọn từng task & subtask
- * Step 3: IMPORT         — Tạo tasks đã chọn vào DB
+ * Tab 1: 📐 BIM Tasks   — Template checklist, AI auto-tick theo dự án
+ * Tab 2: 🏢 Quản lý nội bộ — Template + mini AI chat để thêm tasks tự do
+ *
+ * Sau khi chọn xong cả 2 tab → Import tất cả vào DB
  */
 
-import React, { useState, useMemo } from 'react';
-import { Wand2, X, ChevronDown, ChevronRight, Check, Loader2, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Wand2, X, ChevronDown, ChevronRight, Check, Loader2, Send, Plus, Trash2 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface TaskTemplate {
+interface TaskItem {
     id: string;
-    phase: string;           // Giai đoạn
     title: string;
-    discipline: string;      // ARC | STR | MEP | CIV | ALL
-    priority: string;        // HIGH | MEDIUM | LOW
+    description?: string;
+    discipline: string;
+    priority: string;
     estimatedDays: number;
-    subtasks: SubTaskTemplate[];
-    tags: string[];          // Dùng để filter theo loại CT / phạm vi BIM
+    subtasks: SubItem[];
+    phase?: string;
+    source?: 'template' | 'ai';
 }
 
-interface SubTaskTemplate {
+interface SubItem {
     id: string;
     title: string;
     discipline: string;
@@ -42,258 +43,496 @@ interface AITaskGeneratorProps {
     onClose: () => void;
 }
 
-// ─── BIM Task Template Library ────────────────────────────────────────────────
+// ─── BIM Task Templates ───────────────────────────────────────────────────────
 
-const TASK_TEMPLATES: TaskTemplate[] = [
+const BIM_TEMPLATES: TaskItem[] = [
     {
-        id: 'survey', phase: 'Khảo sát', title: 'Khảo sát hiện trạng & Thu thập tài liệu',
-        discipline: 'ALL', priority: 'HIGH', estimatedDays: 5,
-        tags: ['all'],
+        id: 'bim-survey', phase: 'Khảo sát', title: 'Khảo sát hiện trạng & Thu thập tài liệu',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 5, source: 'template',
         subtasks: [
-            { id: 's1', title: 'Khảo sát thực địa, chụp ảnh hiện trạng', discipline: 'ALL', estimatedDays: 2 },
-            { id: 's2', title: 'Thu thập hồ sơ pháp lý, bản vẽ quy hoạch', discipline: 'ALL', estimatedDays: 1 },
-            { id: 's3', title: 'Lập BIM Execution Plan (BEP)', discipline: 'ALL', estimatedDays: 2 },
+            { id: 'b-s1', title: 'Khảo sát thực địa, chụp ảnh hiện trạng', discipline: 'ALL', estimatedDays: 2 },
+            { id: 'b-s2', title: 'Thu thập hồ sơ pháp lý, bản vẽ quy hoạch', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'b-s3', title: 'Lập BIM Execution Plan (BEP)', discipline: 'ALL', estimatedDays: 2 },
         ],
     },
     {
-        id: 'arc-sd', phase: 'Thiết kế Kiến trúc', title: 'BIM Kiến trúc — Thiết kế cơ sở (SD)',
-        discipline: 'ARC', priority: 'HIGH', estimatedDays: 14,
-        tags: ['ARC', 'housing', 'office', 'resort', 'hospital', 'all'],
+        id: 'bim-arc-sd', phase: 'Thiết kế Kiến trúc', title: 'BIM Kiến trúc — Thiết kế cơ sở (SD)',
+        discipline: 'ARC', priority: 'HIGH', estimatedDays: 14, source: 'template',
         subtasks: [
-            { id: 's4', title: 'Mô hình tổng mặt bằng & phân khu chức năng', discipline: 'ARC', estimatedDays: 3 },
-            { id: 's5', title: 'Mô hình mặt bằng tầng điển hình', discipline: 'ARC', estimatedDays: 5 },
-            { id: 's6', title: 'Mô hình mặt đứng, mặt cắt', discipline: 'ARC', estimatedDays: 4 },
-            { id: 's7', title: 'LOD 200 — Kiểm tra tỉ lệ & không gian', discipline: 'ARC', estimatedDays: 2 },
+            { id: 'b-s4', title: 'Mô hình tổng mặt bằng & phân khu chức năng', discipline: 'ARC', estimatedDays: 3 },
+            { id: 'b-s5', title: 'Mô hình mặt bằng tầng điển hình', discipline: 'ARC', estimatedDays: 5 },
+            { id: 'b-s6', title: 'Mô hình mặt đứng, mặt cắt', discipline: 'ARC', estimatedDays: 4 },
+            { id: 'b-s7', title: 'LOD 200 — Kiểm tra tỉ lệ & không gian', discipline: 'ARC', estimatedDays: 2 },
         ],
     },
     {
-        id: 'arc-dd', phase: 'Thiết kế Kiến trúc', title: 'BIM Kiến trúc — Thiết kế kỹ thuật (DD)',
-        discipline: 'ARC', priority: 'HIGH', estimatedDays: 20,
-        tags: ['ARC', 'housing', 'office', 'resort', 'all'],
+        id: 'bim-arc-dd', phase: 'Thiết kế Kiến trúc', title: 'BIM Kiến trúc — Thiết kế kỹ thuật (DD)',
+        discipline: 'ARC', priority: 'HIGH', estimatedDays: 20, source: 'template',
         subtasks: [
-            { id: 's8', title: 'Chi tiết kiến trúc LOD 300', discipline: 'ARC', estimatedDays: 8 },
-            { id: 's9', title: 'Hoàn thiện bề mặt, vật liệu, màu sắc', discipline: 'ARC', estimatedDays: 5 },
-            { id: 's10', title: 'Lập Bảng thống kê vật tư từ BIM', discipline: 'ARC', estimatedDays: 4 },
-            { id: 's11', title: 'Kiểm tra sự phù hợp với quy chuẩn PCCC', discipline: 'ARC', estimatedDays: 3 },
+            { id: 'b-s8', title: 'Chi tiết kiến trúc LOD 300', discipline: 'ARC', estimatedDays: 8 },
+            { id: 'b-s9', title: 'Hoàn thiện bề mặt, vật liệu, màu sắc', discipline: 'ARC', estimatedDays: 5 },
+            { id: 'b-s10', title: 'Lập Bảng thống kê vật tư từ BIM', discipline: 'ARC', estimatedDays: 4 },
+            { id: 'b-s11', title: 'Kiểm tra PCCC theo quy chuẩn', discipline: 'ARC', estimatedDays: 3 },
         ],
     },
     {
-        id: 'str', phase: 'Thiết kế Kết cấu', title: 'BIM Kết cấu — Mô hình hóa & Phân tích',
-        discipline: 'STR', priority: 'HIGH', estimatedDays: 18,
-        tags: ['STR', 'housing', 'office', 'industry', 'all'],
+        id: 'bim-str', phase: 'Thiết kế Kết cấu', title: 'BIM Kết cấu — Mô hình hóa & Phân tích',
+        discipline: 'STR', priority: 'HIGH', estimatedDays: 18, source: 'template',
         subtasks: [
-            { id: 's12', title: 'Mô hình kết cấu móng, cọc, đài', discipline: 'STR', estimatedDays: 5 },
-            { id: 's13', title: 'Mô hình cột, dầm, sàn bê tông', discipline: 'STR', estimatedDays: 6 },
-            { id: 's14', title: 'Mô hình khung thép (nếu có)', discipline: 'STR', estimatedDays: 4 },
-            { id: 's15', title: 'Liên kết Revit ↔ ETABS / SAP2000', discipline: 'STR', estimatedDays: 3 },
+            { id: 'b-s12', title: 'Mô hình kết cấu móng, cọc, đài', discipline: 'STR', estimatedDays: 5 },
+            { id: 'b-s13', title: 'Mô hình cột, dầm, sàn bê tông', discipline: 'STR', estimatedDays: 6 },
+            { id: 'b-s14', title: 'Mô hình khung thép (nếu có)', discipline: 'STR', estimatedDays: 4 },
+            { id: 'b-s15', title: 'Liên kết mô hình với phần mềm tính toán', discipline: 'STR', estimatedDays: 3 },
         ],
     },
     {
-        id: 'mep', phase: 'Thiết kế MEP', title: 'BIM Cơ Điện — Hệ thống MEP',
-        discipline: 'MEP', priority: 'MEDIUM', estimatedDays: 20,
-        tags: ['MEP', 'office', 'resort', 'hospital', 'all'],
+        id: 'bim-mep', phase: 'Thiết kế MEP', title: 'BIM Cơ Điện — Hệ thống MEP',
+        discipline: 'MEP', priority: 'MEDIUM', estimatedDays: 20, source: 'template',
         subtasks: [
-            { id: 's16', title: 'Hệ thống điện (cấp điện, chiếu sáng, phòng chống sét)', discipline: 'MEP', estimatedDays: 5 },
-            { id: 's17', title: 'Hệ thống cấp thoát nước sinh hoạt', discipline: 'MEP', estimatedDays: 5 },
-            { id: 's18', title: 'Hệ thống HVAC (điều hòa, thông gió)', discipline: 'MEP', estimatedDays: 5 },
-            { id: 's19', title: 'Hệ thống PCCC (sprinkler, họng nước chữa cháy)', discipline: 'MEP', estimatedDays: 5 },
+            { id: 'b-s16', title: 'Hệ thống điện (cấp điện, chiếu sáng)', discipline: 'MEP', estimatedDays: 5 },
+            { id: 'b-s17', title: 'Hệ thống cấp thoát nước sinh hoạt', discipline: 'MEP', estimatedDays: 5 },
+            { id: 'b-s18', title: 'Hệ thống HVAC (điều hòa, thông gió)', discipline: 'MEP', estimatedDays: 5 },
+            { id: 'b-s19', title: 'Hệ thống PCCC (sprinkler, chữa cháy)', discipline: 'MEP', estimatedDays: 5 },
         ],
     },
     {
-        id: 'civ', phase: 'Hạ tầng & Cảnh quan', title: 'BIM Hạ tầng — San nền, Đường, Cảnh quan',
-        discipline: 'CIV', priority: 'MEDIUM', estimatedDays: 12,
-        tags: ['CIV', 'industry', 'resort', 'all'],
+        id: 'bim-civ', phase: 'Hạ tầng & Cảnh quan', title: 'BIM Hạ tầng — San nền & Đường nội bộ',
+        discipline: 'CIV', priority: 'MEDIUM', estimatedDays: 12, source: 'template',
         subtasks: [
-            { id: 's20', title: 'Mô hình địa hình số (DTM / TIN)', discipline: 'CIV', estimatedDays: 3 },
-            { id: 's21', title: 'Thiết kế san nền, thoát nước mặt', discipline: 'CIV', estimatedDays: 4 },
-            { id: 's22', title: 'Mô hình đường nội bộ, bãi đỗ xe', discipline: 'CIV', estimatedDays: 3 },
-            { id: 's23', title: 'Mô hình hạ tầng kỹ thuật ngầm', discipline: 'CIV', estimatedDays: 2 },
+            { id: 'b-s20', title: 'Mô hình địa hình số (DTM)', discipline: 'CIV', estimatedDays: 3 },
+            { id: 'b-s21', title: 'Thiết kế san nền, thoát nước mặt', discipline: 'CIV', estimatedDays: 4 },
+            { id: 'b-s22', title: 'Mô hình đường nội bộ, bãi đỗ xe', discipline: 'CIV', estimatedDays: 3 },
+            { id: 'b-s23', title: 'Mô hình hạ tầng kỹ thuật ngầm', discipline: 'CIV', estimatedDays: 2 },
         ],
     },
     {
-        id: 'clash', phase: 'Phối hợp BIM', title: 'Clash Detection — Phát hiện & Giải quyết xung đột',
-        discipline: 'ALL', priority: 'HIGH', estimatedDays: 10,
-        tags: ['clash', 'office', 'resort', 'hospital', 'all'],
+        id: 'bim-clash', phase: 'Phối hợp BIM', title: 'Clash Detection — Phát hiện & Giải quyết xung đột',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 10, source: 'template',
         subtasks: [
-            { id: 's24', title: 'Tích hợp các model ARC + STR + MEP vào Navisworks', discipline: 'ALL', estimatedDays: 2 },
-            { id: 's25', title: 'Chạy Clash Test & lọc xung đột', discipline: 'ALL', estimatedDays: 3 },
-            { id: 's26', title: 'Họp phối hợp & phân phối biên bản xử lý', discipline: 'ALL', estimatedDays: 2 },
-            { id: 's27', title: 'Cập nhật model sau phối hợp', discipline: 'ALL', estimatedDays: 3 },
+            { id: 'b-s24', title: 'Tích hợp model ARC + STR + MEP vào Navisworks', discipline: 'ALL', estimatedDays: 2 },
+            { id: 'b-s25', title: 'Chạy Clash Test & lọc xung đột', discipline: 'ALL', estimatedDays: 3 },
+            { id: 'b-s26', title: 'Họp phối hợp & phân phối biên bản xử lý', discipline: 'ALL', estimatedDays: 2 },
+            { id: 'b-s27', title: 'Cập nhật model sau phối hợp', discipline: 'ALL', estimatedDays: 3 },
         ],
     },
     {
-        id: 'shop', phase: 'Shopdrawing', title: 'Triển khai Shopdrawing từ BIM',
-        discipline: 'ALL', priority: 'HIGH', estimatedDays: 20,
-        tags: ['shop', 'housing', 'office', 'resort', 'hospital', 'all'],
+        id: 'bim-shop', phase: 'Shopdrawing', title: 'Triển khai Shopdrawing từ BIM',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 20, source: 'template',
         subtasks: [
-            { id: 's28', title: 'SD Kiến trúc: mặt bằng, mặt cắt chi tiết', discipline: 'ARC', estimatedDays: 7 },
-            { id: 's29', title: 'SD Kết cấu: cốt thép, chi tiết liên kết', discipline: 'STR', estimatedDays: 7 },
-            { id: 's30', title: 'SD MEP: tuyến ống, sơ đồ nguyên lý', discipline: 'MEP', estimatedDays: 6 },
+            { id: 'b-s28', title: 'SD Kiến trúc: mặt bằng, mặt cắt chi tiết', discipline: 'ARC', estimatedDays: 7 },
+            { id: 'b-s29', title: 'SD Kết cấu: cốt thép, chi tiết liên kết', discipline: 'STR', estimatedDays: 7 },
+            { id: 'b-s30', title: 'SD MEP: tuyến ống, sơ đồ nguyên lý', discipline: 'MEP', estimatedDays: 6 },
         ],
     },
     {
-        id: 'asbuilt', phase: 'As-built', title: 'BIM As-built — Cập nhật thực tế thi công',
-        discipline: 'ALL', priority: 'MEDIUM', estimatedDays: 15,
-        tags: ['asbuilt', 'housing', 'office', 'industry', 'all'],
+        id: 'bim-asbuilt', phase: 'As-built', title: 'BIM As-built — Cập nhật thực tế thi công',
+        discipline: 'ALL', priority: 'MEDIUM', estimatedDays: 15, source: 'template',
         subtasks: [
-            { id: 's31', title: 'Thu thập hoàn công từ công trường', discipline: 'ALL', estimatedDays: 3 },
-            { id: 's32', title: 'Cập nhật model ARC hoàn công', discipline: 'ARC', estimatedDays: 4 },
-            { id: 's33', title: 'Cập nhật model STR hoàn công', discipline: 'STR', estimatedDays: 4 },
-            { id: 's34', title: 'Xuất hồ sơ BIM As-built bàn giao', discipline: 'ALL', estimatedDays: 4 },
+            { id: 'b-s31', title: 'Thu thập hoàn công từ công trường', discipline: 'ALL', estimatedDays: 3 },
+            { id: 'b-s32', title: 'Cập nhật model ARC + STR hoàn công', discipline: 'ARC', estimatedDays: 8 },
+            { id: 'b-s33', title: 'Xuất hồ sơ BIM As-built bàn giao', discipline: 'ALL', estimatedDays: 4 },
         ],
     },
 ];
 
-// ─── Constants ─────────────────────────────────────────────────────────────
+// ─── Internal Management Templates ───────────────────────────────────────────
 
-const disciplineColors: Record<string, { bg: string; text: string; border: string }> = {
-    ARC: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
-    STR: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
-    MEP: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
-    CIV: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' },
-    ALL: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' },
+const MGMT_TEMPLATES: TaskItem[] = [
+    {
+        id: 'mgmt-contract', phase: 'Hợp đồng', title: 'Ký kết hợp đồng & Khởi động dự án',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 5, source: 'template',
+        subtasks: [
+            { id: 'm-s1', title: 'Soạn thảo & review hợp đồng dịch vụ BIM', discipline: 'ALL', estimatedDays: 2 },
+            { id: 'm-s2', title: 'Ký hợp đồng và thu phí khởi động', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s3', title: 'Kick-off meeting với khách hàng', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s4', title: 'Phân công nhân sự nội bộ', discipline: 'ALL', estimatedDays: 1 },
+        ],
+    },
+    {
+        id: 'mgmt-meeting', phase: 'Họp & Báo cáo', title: 'Họp tiến độ định kỳ & Báo cáo',
+        discipline: 'ALL', priority: 'MEDIUM', estimatedDays: 3, source: 'template',
+        subtasks: [
+            { id: 'm-s5', title: 'Họp nội bộ hàng tuần kiểm tra tiến độ', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s6', title: 'Họp với khách hàng định kỳ 2 tuần/lần', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s7', title: 'Lập báo cáo tiến độ hàng tháng', discipline: 'ALL', estimatedDays: 1 },
+        ],
+    },
+    {
+        id: 'mgmt-review', phase: 'Kiểm tra & Nghiệm thu', title: 'Review chất lượng & Nghiệm thu nội bộ',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 5, source: 'template',
+        subtasks: [
+            { id: 'm-s8', title: 'QC nội bộ trước khi giao khách hàng', discipline: 'ALL', estimatedDays: 2 },
+            { id: 'm-s9', title: 'Họp nghiệm thu với khách hàng', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s10', title: 'Xử lý góp ý và bổ sung', discipline: 'ALL', estimatedDays: 2 },
+        ],
+    },
+    {
+        id: 'mgmt-invoice', phase: 'Thanh toán', title: 'Lập & Theo dõi thanh toán',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 2, source: 'template',
+        subtasks: [
+            { id: 'm-s11', title: 'Lập hóa đơn theo đợt thanh toán hợp đồng', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s12', title: 'Theo dõi & nhắc nhở thanh toán', discipline: 'ALL', estimatedDays: 1 },
+        ],
+    },
+    {
+        id: 'mgmt-handover', phase: 'Bàn giao', title: 'Bàn giao hồ sơ & Kết thúc dự án',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 3, source: 'template',
+        subtasks: [
+            { id: 'm-s13', title: 'Đóng gói hồ sơ bàn giao đầy đủ', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s14', title: 'Ký biên bản bàn giao và nghiệm thu hoàn thành', discipline: 'ALL', estimatedDays: 1 },
+            { id: 'm-s15', title: 'Thanh lý hợp đồng & lưu trữ hồ sơ', discipline: 'ALL', estimatedDays: 1 },
+        ],
+    },
+];
+
+// ─── Style helpers ────────────────────────────────────────────────────────────
+
+const disciplineColors: Record<string, string> = {
+    ARC: 'bg-orange-100 text-orange-700 border-orange-200',
+    STR: 'bg-blue-100 text-blue-700 border-blue-200',
+    MEP: 'bg-green-100 text-green-700 border-green-200',
+    CIV: 'bg-purple-100 text-purple-700 border-purple-200',
+    ALL: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
-// Smart defaults based on keywords in project name/description
-function getSmartDefaults(name = '', desc = ''): Set<string> {
+function getSmartBimDefaults(name = '', desc = ''): Set<string> {
     const text = (name + ' ' + desc).toLowerCase();
-    const selected = new Set<string>();
-
-    // Luôn chọn một số tasks cơ bản
-    selected.add('survey');
-    selected.add('arc-sd');
-    selected.add('arc-dd');
-    selected.add('str');
-    selected.add('shop');
-
-    if (text.includes('mep') || text.includes('cơ điện') || text.includes('điện') || text.includes('hvac')
-        || text.includes('văn phòng') || text.includes('resort') || text.includes('khách sạn') || text.includes('bệnh viện')) {
-        selected.add('mep');
-        selected.add('clash');
+    const sel = new Set(['bim-survey', 'bim-arc-sd', 'bim-arc-dd', 'bim-str', 'bim-shop']);
+    if (text.includes('mep') || text.includes('văn phòng') || text.includes('resort') || text.includes('bệnh viện')) {
+        sel.add('bim-mep'); sel.add('bim-clash');
     }
-    if (text.includes('hạ tầng') || text.includes('cảnh quan') || text.includes('nhà máy') || text.includes('khu công nghiệp') || text.includes('resort')) {
-        selected.add('civ');
-    }
-    if (text.includes('hoàn công') || text.includes('as-built') || text.includes('bàn giao')) {
-        selected.add('asbuilt');
-    }
-
-    return selected;
+    if (text.includes('nhà máy') || text.includes('khu công nghiệp') || text.includes('hạ tầng')) sel.add('bim-civ');
+    if (text.includes('hoàn công') || text.includes('as-built')) sel.add('bim-asbuilt');
+    return sel;
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Reusable ChecklistPanel ──────────────────────────────────────────────────
+
+function ChecklistPanel({
+    templates, selectedTasks, selectedSubs, expanded,
+    onToggleTask, onToggleSub, onToggleExpand, onToggleGroup,
+}: {
+    templates: TaskItem[];
+    selectedTasks: Set<string>;
+    selectedSubs: Map<string, Set<string>>;
+    expanded: Set<string>;
+    onToggleTask: (id: string) => void;
+    onToggleSub: (taskId: string, subId: string) => void;
+    onToggleExpand: (id: string) => void;
+    onToggleGroup: (phase: string) => void;
+}) {
+    // Group by phase
+    const byPhase = useMemo(() => {
+        const m = new Map<string, TaskItem[]>();
+        templates.forEach(t => { if (!m.has(t.phase!)) m.set(t.phase!, []); m.get(t.phase!)!.push(t); });
+        return m;
+    }, [templates]);
+
+    const DisciplineBadge = ({ d }: { d: string }) => (
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${disciplineColors[d] || disciplineColors.ALL}`}>{d}</span>
+    );
+
+    return (
+        <div className="space-y-1.5">
+            {Array.from(byPhase.entries()).map(([phase, tasks]) => {
+                const allSel = tasks.every(t => selectedTasks.has(t.id));
+                const someSel = tasks.some(t => selectedTasks.has(t.id));
+                const phaseExp = tasks.some(t => expanded.has(t.id));
+
+                return (
+                    <div key={phase} className="border border-gray-200 rounded-xl overflow-hidden">
+                        {/* Phase header */}
+                        <div
+                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer select-none ${allSel ? 'bg-indigo-50' : someSel ? 'bg-indigo-50/30' : 'bg-gray-50'}`}
+                            onClick={() => onToggleGroup(phase)}
+                        >
+                            <input type="checkbox" checked={allSel}
+                                ref={el => { if (el) el.indeterminate = someSel && !allSel; }}
+                                onChange={() => onToggleGroup(phase)}
+                                onClick={e => e.stopPropagation()}
+                                className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0"
+                            />
+                            <span className="font-semibold text-sm text-gray-800 flex-1">{phase}</span>
+                            <span className="text-xs text-gray-400">{tasks.length} tasks</span>
+                            <button type="button" onClick={e => { e.stopPropagation(); tasks.forEach(t => onToggleExpand(t.id)); }}
+                                className="p-0.5 text-gray-400">
+                                {phaseExp ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                            </button>
+                        </div>
+
+                        {phaseExp && (
+                            <div className="divide-y divide-gray-100">
+                                {tasks.map(task => {
+                                    const isSel = selectedTasks.has(task.id);
+                                    const isExp = expanded.has(task.id);
+                                    const subsSel = selectedSubs.get(task.id)?.size || 0;
+                                    return (
+                                        <div key={task.id} className={isSel ? 'bg-white' : 'bg-gray-50/50'}>
+                                            <div className="flex items-center gap-2.5 px-4 py-2.5">
+                                                <input type="checkbox" checked={isSel} onChange={() => onToggleTask(task.id)}
+                                                    className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0 cursor-pointer" />
+                                                <button type="button" onClick={() => onToggleExpand(task.id)} className="flex-1 flex items-center gap-2 text-left">
+                                                    {isExp ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                                                    <span className={`text-sm flex-1 ${isSel ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{task.title}</span>
+                                                </button>
+                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                    <DisciplineBadge d={task.discipline} />
+                                                    <span className="text-[10px] text-gray-400">~{task.estimatedDays}d</span>
+                                                    {isSel && task.subtasks.length > 0 && (
+                                                        <span className="text-[10px] text-indigo-500 font-semibold">{subsSel}/{task.subtasks.length}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {isExp && task.subtasks.length > 0 && (
+                                                <div className="pl-10 pr-4 pb-2.5 space-y-1">
+                                                    {task.subtasks.map(sub => {
+                                                        const isSubSel = selectedSubs.get(task.id)?.has(sub.id) ?? false;
+                                                        return (
+                                                            <label key={sub.id} className={`flex items-center gap-2 py-1 px-2 rounded-lg cursor-pointer ${isSubSel ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                                                                <input type="checkbox" checked={isSubSel} onChange={() => onToggleSub(task.id, sub.id)}
+                                                                    className="w-3.5 h-3.5 rounded accent-indigo-500" />
+                                                                <span className={`text-xs flex-1 ${isSubSel ? 'text-gray-800' : 'text-gray-400'}`}>{sub.title}</span>
+                                                                <DisciplineBadge d={sub.discipline} />
+                                                                <span className="text-[10px] text-gray-400">{sub.estimatedDays}d</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AITaskGenerator({
     projectId, projectName, projectDescription, projectLocation, totalArea,
     onTasksImported, onClose,
 }: AITaskGeneratorProps) {
-    // Task selection state: task id → Set of subtask ids (empty set = chọn task nhưng không có subtask nào được tick)
-    const smartDefaults = useMemo(() => getSmartDefaults(projectName, projectDescription), [projectName, projectDescription]);
-
-    const [selectedTasks, setSelectedTasks] = useState<Set<string>>(smartDefaults);
-    const [selectedSubs, setSelectedSubs] = useState<Map<string, Set<string>>>(() => {
-        const map = new Map<string, Set<string>>();
-        TASK_TEMPLATES.forEach(t => {
-            if (smartDefaults.has(t.id)) {
-                map.set(t.id, new Set(t.subtasks.map(s => s.id)));
-            }
-        });
-        return map;
-    });
-    const [expanded, setExpanded] = useState<Set<string>>(new Set(TASK_TEMPLATES.map(t => t.id)));
-    const [step, setStep] = useState<'checklist' | 'importing' | 'done'>('checklist');
+    const [activeTab, setActiveTab] = useState<'bim' | 'mgmt'>('bim');
+    const [step, setStep] = useState<'select' | 'importing' | 'done'>('select');
     const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
 
-    // Group tasks by phase
-    const tasksByPhase = useMemo(() => {
-        const groups = new Map<string, TaskTemplate[]>();
-        TASK_TEMPLATES.forEach(t => {
-            if (!groups.has(t.phase)) groups.set(t.phase, []);
-            groups.get(t.phase)!.push(t);
-        });
-        return groups;
-    }, []);
+    // BIM checklist state
+    const bimDefaults = useMemo(() => getSmartBimDefaults(projectName, projectDescription), [projectName, projectDescription]);
+    const [bimSelected, setBimSelected] = useState<Set<string>>(bimDefaults);
+    const [bimSubs, setBimSubs] = useState<Map<string, Set<string>>>(() => {
+        const m = new Map<string, Set<string>>();
+        BIM_TEMPLATES.forEach(t => { if (bimDefaults.has(t.id)) m.set(t.id, new Set(t.subtasks.map(s => s.id))); });
+        return m;
+    });
+    const [bimExpanded, setBimExpanded] = useState<Set<string>>(new Set(BIM_TEMPLATES.map(t => t.id)));
 
-    const selectedCount = selectedTasks.size;
-    const totalSubsSelected = Array.from(selectedSubs.values()).reduce((acc, s) => acc + s.size, 0);
+    // Mgmt checklist state
+    const mgmtDefaults = new Set(['mgmt-contract', 'mgmt-meeting', 'mgmt-review', 'mgmt-invoice', 'mgmt-handover']);
+    const [mgmtSelected, setMgmtSelected] = useState<Set<string>>(mgmtDefaults);
+    const [mgmtSubs, setMgmtSubs] = useState<Map<string, Set<string>>>(() => {
+        const m = new Map<string, Set<string>>();
+        MGMT_TEMPLATES.forEach(t => { if (mgmtDefaults.has(t.id)) m.set(t.id, new Set(t.subtasks.map(s => s.id))); });
+        return m;
+    });
+    const [mgmtExpanded, setMgmtExpanded] = useState<Set<string>>(new Set(MGMT_TEMPLATES.map(t => t.id)));
 
-    // ─── Toggle helpers ──────────────────────────────────────────────────────
+    // AI chat for extra tasks (mgmt tab)
+    const [chatInput, setChatInput] = useState('');
+    const [chatLoading, setChatLoading] = useState(false);
+    const [aiExtraTasks, setAiExtraTasks] = useState<TaskItem[]>([]);
+    const [aiExtraSelected, setAiExtraSelected] = useState<Set<string>>(new Set());
+    const inputRef = useRef<HTMLInputElement>(null);
 
-    const toggleTask = (taskId: string) => {
-        const task = TASK_TEMPLATES.find(t => t.id === taskId)!;
-        setSelectedTasks(prev => {
+    const totalBimSel = bimSelected.size;
+    const totalMgmtSel = mgmtSelected.size + aiExtraSelected.size;
+    const totalSubs = [
+        ...Array.from(bimSubs.values()),
+        ...Array.from(mgmtSubs.values()),
+    ].reduce((a, s) => a + s.size, 0);
+    const totalAiExtraSubs = aiExtraTasks.filter(t => aiExtraSelected.has(t.id)).reduce((a, t) => a + t.subtasks.length, 0);
+
+    // ─── Toggle helpers (BIM) ────────────────────────────────────────────────
+
+    const makeToggler = (
+        setSelected: React.Dispatch<React.SetStateAction<Set<string>>>,
+        setSubs: React.Dispatch<React.SetStateAction<Map<string, Set<string>>>>,
+        templates: TaskItem[],
+    ) => ({
+        toggleTask: (id: string) => {
+            const task = templates.find(t => t.id === id)!;
+            setSelected(prev => {
+                const s = new Set(prev);
+                if (s.has(id)) { s.delete(id); setSubs(m => { const mm = new Map(m); mm.delete(id); return mm; }); }
+                else { s.add(id); setSubs(m => { const mm = new Map(m); mm.set(id, new Set(task.subtasks.map(sub => sub.id))); return mm; }); }
+                return s;
+            });
+        },
+        toggleSub: (taskId: string, subId: string) => {
+            setSubs(prev => {
+                const m = new Map(prev);
+                const subs = new Set(m.get(taskId) || []);
+                subs.has(subId) ? subs.delete(subId) : subs.add(subId);
+                m.set(taskId, subs);
+                if (subs.size === 0) setSelected(st => { const s = new Set(st); s.delete(taskId); return s; });
+                else setSelected(st => { const s = new Set(st); s.add(taskId); return s; });
+                return m;
+            });
+        },
+        toggleGroup: (phase: string) => {
+            const tasks = templates.filter(t => t.phase === phase);
+            const allSel = tasks.every(t => {
+                let sel = false;
+                setSelected(s => { sel = s.has(t.id); return s; });
+                return sel;
+            });
+            // Simple approach: check current state
+            setSelected(prev => {
+                const allSelected = tasks.every(t => prev.has(t.id));
+                const s = new Set(prev);
+                setSubs(sm => {
+                    const m = new Map(sm);
+                    if (allSelected) { tasks.forEach(t => { s.delete(t.id); m.delete(t.id); }); }
+                    else { tasks.forEach(t => { s.add(t.id); m.set(t.id, new Set(t.subtasks.map(sub => sub.id))); }); }
+                    return m;
+                });
+                if (tasks.every(t => s.has(t.id))) tasks.forEach(t => s.delete(t.id));
+                else tasks.forEach(t => s.add(t.id));
+                return s;
+            });
+        },
+    });
+
+    // Better toggle group using functional approach
+    const toggleBimGroup = (phase: string) => {
+        const tasks = BIM_TEMPLATES.filter(t => t.phase === phase);
+        setBimSelected(prev => {
+            const allSel = tasks.every(t => prev.has(t.id));
             const s = new Set(prev);
-            if (s.has(taskId)) {
-                s.delete(taskId);
-                setSelectedSubs(sm => { const m = new Map(sm); m.delete(taskId); return m; });
-            } else {
-                s.add(taskId);
-                // Auto-select all subtasks
-                setSelectedSubs(sm => { const m = new Map(sm); m.set(taskId, new Set(task.subtasks.map(sub => sub.id))); return m; });
-            }
+            setBimSubs(sm => {
+                const m = new Map(sm);
+                if (allSel) { tasks.forEach(t => { s.delete(t.id); m.delete(t.id); }); }
+                else { tasks.forEach(t => { s.add(t.id); m.set(t.id, new Set(t.subtasks.map(sub => sub.id))); }); }
+                return m;
+            });
             return s;
         });
     };
 
-    const toggleSub = (taskId: string, subId: string) => {
-        setSelectedSubs(prev => {
-            const m = new Map(prev);
-            const subs = new Set(m.get(taskId) || []);
-            subs.has(subId) ? subs.delete(subId) : subs.add(subId);
-            m.set(taskId, subs);
-            // If all subs deselected → deselect parent task too
-            if (subs.size === 0) {
-                setSelectedTasks(st => { const s = new Set(st); s.delete(taskId); return s; });
-            } else {
-                setSelectedTasks(st => { const s = new Set(st); s.add(taskId); return s; });
-            }
-            return m;
+    const toggleMgmtGroup = (phase: string) => {
+        const tasks = MGMT_TEMPLATES.filter(t => t.phase === phase);
+        setMgmtSelected(prev => {
+            const allSel = tasks.every(t => prev.has(t.id));
+            const s = new Set(prev);
+            setMgmtSubs(sm => {
+                const m = new Map(sm);
+                if (allSel) { tasks.forEach(t => { s.delete(t.id); m.delete(t.id); }); }
+                else { tasks.forEach(t => { s.add(t.id); m.set(t.id, new Set(t.subtasks.map(sub => sub.id))); }); }
+                return m;
+            });
+            return s;
         });
     };
 
-    const togglePhase = (phase: string) => {
-        const tasks = tasksByPhase.get(phase) || [];
-        const allSelected = tasks.every(t => selectedTasks.has(t.id));
-        if (allSelected) {
-            // Deselect all in phase
-            setSelectedTasks(prev => { const s = new Set(prev); tasks.forEach(t => s.delete(t.id)); return s; });
-            setSelectedSubs(prev => { const m = new Map(prev); tasks.forEach(t => m.delete(t.id)); return m; });
-        } else {
-            // Select all
-            setSelectedTasks(prev => { const s = new Set(prev); tasks.forEach(t => s.add(t.id)); return s; });
-            setSelectedSubs(prev => {
-                const m = new Map(prev);
-                tasks.forEach(t => m.set(t.id, new Set(t.subtasks.map(s => s.id))));
-                return m;
+    const bimTogglers = {
+        toggleTask: (id: string) => {
+            const task = BIM_TEMPLATES.find(t => t.id === id)!;
+            setBimSelected(prev => { const s = new Set(prev); if (s.has(id)) { s.delete(id); setBimSubs(m => { const mm = new Map(m); mm.delete(id); return mm; }); } else { s.add(id); setBimSubs(m => { const mm = new Map(m); mm.set(id, new Set(task.subtasks.map(sub => sub.id))); return mm; }); } return s; });
+        },
+        toggleSub: (taskId: string, subId: string) => {
+            setBimSubs(prev => { const m = new Map(prev); const subs = new Set(m.get(taskId) || []); subs.has(subId) ? subs.delete(subId) : subs.add(subId); m.set(taskId, subs); if (subs.size === 0) setBimSelected(st => { const s = new Set(st); s.delete(taskId); return s; }); else setBimSelected(st => { const s = new Set(st); s.add(taskId); return s; }); return m; });
+        },
+    };
+
+    const mgmtTogglers = {
+        toggleTask: (id: string) => {
+            const task = MGMT_TEMPLATES.find(t => t.id === id)!;
+            setMgmtSelected(prev => { const s = new Set(prev); if (s.has(id)) { s.delete(id); setMgmtSubs(m => { const mm = new Map(m); mm.delete(id); return mm; }); } else { s.add(id); setMgmtSubs(m => { const mm = new Map(m); mm.set(id, new Set(task.subtasks.map(sub => sub.id))); return mm; }); } return s; });
+        },
+        toggleSub: (taskId: string, subId: string) => {
+            setMgmtSubs(prev => { const m = new Map(prev); const subs = new Set(m.get(taskId) || []); subs.has(subId) ? subs.delete(subId) : subs.add(subId); m.set(taskId, subs); if (subs.size === 0) setMgmtSelected(st => { const s = new Set(st); s.delete(taskId); return s; }); else setMgmtSelected(st => { const s = new Set(st); s.add(taskId); return s; }); return m; });
+        },
+    };
+
+    // ─── AI Chat to add extra mgmt tasks ────────────────────────────────────
+
+    const QUICK_PROMPTS = [
+        'Thêm task xin cấp phép xây dựng',
+        'Thêm task đàm phán báo giá outsource',
+        'Thêm task kiểm tra & phê duyệt thiết kế từ chủ đầu tư',
+        'Thêm task onboarding nhân sự mới cho dự án',
+        'Thêm task backup & lưu trữ file BIM định kỳ',
+    ];
+
+    const systemPrompt = `Bạn là quản lý dự án BIM. Dựa trên yêu cầu user, tạo 1-3 task quản lý nội bộ cho dự án "${projectName || 'BIM'}".
+Trả về JSON: [{"title":"...","description":"...","priority":"HIGH|MEDIUM|LOW","estimatedDays":N,"subtasks":[{"title":"...","estimatedDays":N}]}]
+KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
+
+    const sendChat = async (msg: string) => {
+        if (!msg.trim() || chatLoading) return;
+        setChatLoading(true);
+        setChatInput('');
+
+        try {
+            const res = await fetch('/api/ai/task-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: msg }],
+                    systemPrompt,
+                }),
             });
+            const data = await res.json();
+            const raw = (data.message || '').trim()
+                .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+
+            const parsed: any[] = JSON.parse(raw);
+            if (!Array.isArray(parsed)) throw new Error();
+
+            const newTasks: TaskItem[] = parsed.map((t, i) => ({
+                id: `ai-extra-${Date.now()}-${i}`,
+                title: t.title,
+                description: t.description,
+                discipline: 'ALL',
+                priority: t.priority || 'MEDIUM',
+                estimatedDays: t.estimatedDays || 3,
+                phase: 'AI Tạo thêm',
+                source: 'ai',
+                subtasks: (t.subtasks || []).map((s: any, j: number) => ({
+                    id: `ai-sub-${Date.now()}-${i}-${j}`,
+                    title: s.title,
+                    discipline: 'ALL',
+                    estimatedDays: s.estimatedDays || 1,
+                })),
+            }));
+
+            setAiExtraTasks(prev => [...prev, ...newTasks]);
+            setAiExtraSelected(prev => { const s = new Set(prev); newTasks.forEach(t => s.add(t.id)); return s; });
+        } catch {
+            // fail silently - user can retry
+        } finally {
+            setChatLoading(false);
+            inputRef.current?.focus();
         }
-    };
-
-    const toggleExpand = (id: string) => setExpanded(prev => {
-        const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
-    });
-
-    const selectAll = () => {
-        setSelectedTasks(new Set(TASK_TEMPLATES.map(t => t.id)));
-        const m = new Map<string, Set<string>>();
-        TASK_TEMPLATES.forEach(t => m.set(t.id, new Set(t.subtasks.map(s => s.id))));
-        setSelectedSubs(m);
-    };
-
-    const deselectAll = () => {
-        setSelectedTasks(new Set());
-        setSelectedSubs(new Map());
     };
 
     // ─── Import ──────────────────────────────────────────────────────────────
 
     const handleImport = async () => {
-        const toImport = TASK_TEMPLATES.filter(t => selectedTasks.has(t.id));
-        if (toImport.length === 0) return;
+        const bimTasks = BIM_TEMPLATES.filter(t => bimSelected.has(t.id));
+        const mgmtTasks = MGMT_TEMPLATES.filter(t => mgmtSelected.has(t.id));
+        const extraTasks = aiExtraTasks.filter(t => aiExtraSelected.has(t.id));
+        const allTasks = [...bimTasks, ...mgmtTasks, ...extraTasks];
+        if (allTasks.length === 0) return;
 
-        const totalOps = toImport.reduce((acc, t) => {
-            const subs = selectedSubs.get(t.id);
-            return acc + 1 + (subs?.size || 0);
+        const totalOps = allTasks.reduce((acc, task) => {
+            const subsMap = bimSelected.has(task.id) ? bimSubs : mgmtSelected.has(task.id) ? mgmtSubs : null;
+            const subCount = subsMap ? (subsMap.get(task.id)?.size || 0) : task.subtasks.length;
+            return acc + 1 + subCount;
         }, 0);
 
         setImportProgress({ done: 0, total: totalOps });
@@ -302,13 +541,13 @@ export default function AITaskGenerator({
         let done = 0;
         const baseUrl = `/api/projects/${projectId}/tasks`;
 
-        for (const task of toImport) {
+        for (const task of allTasks) {
             const parentRes = await fetch(baseUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: task.title,
-                    description: `[${task.phase}] ${task.discipline} · ~${task.estimatedDays} ngày`,
+                    description: task.description || (task.phase ? `[${task.phase}]` : null),
                     discipline: task.discipline,
                     priority: task.priority,
                     status: 'TODO',
@@ -317,43 +556,29 @@ export default function AITaskGenerator({
             });
             done++;
             setImportProgress({ done, total: totalOps });
-
             if (!parentRes.ok) continue;
-            const parentData = await parentRes.json();
-            const parentId = parentData?.data?.id;
 
-            if (parentId) {
-                const selectedSubIds = selectedSubs.get(task.id) || new Set();
-                const subsToCreate = task.subtasks.filter(s => selectedSubIds.has(s.id));
+            const parentId = (await parentRes.json())?.data?.id;
+            if (!parentId) continue;
 
-                for (const sub of subsToCreate) {
-                    await fetch(baseUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title: sub.title,
-                            discipline: sub.discipline,
-                            parentId,
-                            priority: 'MEDIUM',
-                            status: 'TODO',
-                            progress: 0,
-                        }),
-                    });
-                    done++;
-                    setImportProgress({ done, total: totalOps });
-                }
+            const subsMap = bimSelected.has(task.id) ? bimSubs : mgmtSelected.has(task.id) ? mgmtSubs : null;
+            const subsToCreate = subsMap
+                ? task.subtasks.filter(s => subsMap.get(task.id)?.has(s.id))
+                : task.subtasks; // AI tasks: tạo tất cả subtasks
+
+            for (const sub of subsToCreate) {
+                await fetch(baseUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: sub.title, discipline: sub.discipline, parentId, priority: 'MEDIUM', status: 'TODO', progress: 0 }),
+                });
+                done++;
+                setImportProgress({ done, total: totalOps });
             }
         }
 
         setStep('done');
         setTimeout(() => { onTasksImported(); onClose(); }, 1200);
-    };
-
-    const DisciplineBadge = ({ d }: { d: string }) => {
-        const c = disciplineColors[d] || disciplineColors.ALL;
-        return (
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${c.bg} ${c.text} ${c.border}`}>{d}</span>
-        );
     };
 
     // ─── Render ──────────────────────────────────────────────────────────────
@@ -369,175 +594,159 @@ export default function AITaskGenerator({
                             <Wand2 className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold text-gray-900">✨ AI Gợi ý Tasks BIM</h2>
+                            <h2 className="text-base font-bold text-gray-900">✨ AI Tạo Tasks</h2>
                             <p className="text-xs text-gray-500 mt-0.5">
-                                {step === 'checklist' && <>Tick chọn tasks phù hợp để tạo · <span className="text-indigo-600 font-semibold">{selectedCount} giai đoạn, {totalSubsSelected} subtasks</span></>}
+                                {step === 'select' && <>Đã chọn <strong className="text-indigo-600">{totalBimSel + totalMgmtSel} giai đoạn</strong> · <strong className="text-indigo-600">{totalSubs + totalAiExtraSubs} subtasks</strong></>}
                                 {step === 'importing' && 'Đang tạo tasks...'}
                                 {step === 'done' && '✓ Hoàn tất!'}
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 transition-colors">
+                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* ══════════ CHECKLIST ══════════ */}
-                {step === 'checklist' && (
+                {step === 'select' && (
                     <>
-                        {/* Project + Quick filters */}
-                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                            <div className="flex items-center justify-between">
-                                <p className="text-xs text-gray-500">
-                                    📋 <strong className="text-gray-700">{projectName || 'Dự án'}</strong>
-                                    {projectLocation && <> · 📍 {projectLocation}</>}
-                                    {totalArea && <> · 📐 {totalArea.toLocaleString('vi-VN')} m²</>}
-                                </p>
-                                <div className="flex gap-2">
-                                    <button onClick={selectAll} className="text-xs text-indigo-600 hover:underline font-medium">Chọn tất cả</button>
-                                    <span className="text-gray-300">|</span>
-                                    <button onClick={deselectAll} className="text-xs text-gray-400 hover:underline">Bỏ chọn</button>
-                                </div>
-                            </div>
-                            {/* Discipline legend */}
-                            <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                                {Object.entries(disciplineColors).slice(0, 4).map(([d, c]) => (
-                                    <span key={d} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}>
-                                        {d === 'ARC' ? '🏛 ARC Kiến trúc' : d === 'STR' ? '🏗 STR Kết cấu' : d === 'MEP' ? '⚡ MEP Cơ điện' : '🌿 CIV Hạ tầng'}
-                                    </span>
-                                ))}
+                        {/* Tabs */}
+                        <div className="flex border-b border-gray-200 flex-shrink-0">
+                            <button type="button" onClick={() => setActiveTab('bim')}
+                                className={`flex-1 py-2.5 text-sm font-semibold transition-colors relative ${activeTab === 'bim' ? 'text-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                                📐 BIM Tasks
+                                {activeTab === 'bim' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t" />}
+                                {totalBimSel > 0 && <span className="ml-1.5 text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">{totalBimSel}</span>}
+                            </button>
+                            <button type="button" onClick={() => setActiveTab('mgmt')}
+                                className={`flex-1 py-2.5 text-sm font-semibold transition-colors relative ${activeTab === 'mgmt' ? 'text-purple-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                                🏢 Quản lý nội bộ
+                                {activeTab === 'mgmt' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600 rounded-t" />}
+                                {totalMgmtSel > 0 && <span className="ml-1.5 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full">{totalMgmtSel}</span>}
+                            </button>
+                        </div>
+
+                        {/* Project info */}
+                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between flex-shrink-0">
+                            <p className="text-xs text-gray-500">
+                                📋 <strong className="text-gray-700">{projectName || 'Dự án'}</strong>
+                                {projectLocation && <> · 📍 {projectLocation}</>}
+                                {totalArea && <> · 📐 {totalArea.toLocaleString('vi-VN')} m²</>}
+                            </p>
+                            <div className="flex gap-2">
+                                <button onClick={() => {
+                                    const sel = activeTab === 'bim' ? setBimSelected : setMgmtSelected;
+                                    const templates = activeTab === 'bim' ? BIM_TEMPLATES : MGMT_TEMPLATES;
+                                    const selSubs = activeTab === 'bim' ? setBimSubs : setMgmtSubs;
+                                    sel(new Set(templates.map(t => t.id)));
+                                    const m = new Map<string, Set<string>>();
+                                    templates.forEach(t => m.set(t.id, new Set(t.subtasks.map(s => s.id))));
+                                    selSubs(m);
+                                }} className="text-xs text-indigo-600 hover:underline font-medium">Tất cả</button>
+                                <span className="text-gray-300">|</span>
+                                <button onClick={() => {
+                                    if (activeTab === 'bim') { setBimSelected(new Set()); setBimSubs(new Map()); }
+                                    else { setMgmtSelected(new Set()); setMgmtSubs(new Map()); }
+                                }} className="text-xs text-gray-400 hover:underline">Bỏ chọn</button>
                             </div>
                         </div>
 
-                        {/* Task list grouped by phase */}
-                        <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
-                            {Array.from(tasksByPhase.entries()).map(([phase, tasks]) => {
-                                const allPhaseSelected = tasks.every(t => selectedTasks.has(t.id));
-                                const somePhaseSelected = tasks.some(t => selectedTasks.has(t.id));
-                                const phaseExpanded = tasks.some(t => expanded.has(t.id));
+                        {/* Tab content */}
+                        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+                            {activeTab === 'bim' && (
+                                <ChecklistPanel
+                                    templates={BIM_TEMPLATES}
+                                    selectedTasks={bimSelected} selectedSubs={bimSubs} expanded={bimExpanded}
+                                    onToggleTask={bimTogglers.toggleTask} onToggleSub={bimTogglers.toggleSub}
+                                    onToggleExpand={id => setBimExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
+                                    onToggleGroup={toggleBimGroup}
+                                />
+                            )}
 
-                                return (
-                                    <div key={phase} className="border border-gray-200 rounded-xl overflow-hidden">
-                                        {/* Phase header */}
-                                        <div
-                                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer select-none transition-colors ${allPhaseSelected ? 'bg-indigo-50' : somePhaseSelected ? 'bg-indigo-50/40' : 'bg-gray-50'}`}
-                                            onClick={() => togglePhase(phase)}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={allPhaseSelected}
-                                                ref={el => { if (el) el.indeterminate = somePhaseSelected && !allPhaseSelected; }}
-                                                onChange={() => togglePhase(phase)}
-                                                onClick={e => e.stopPropagation()}
-                                                className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0"
-                                            />
-                                            <span className="font-semibold text-sm text-gray-800 flex-1">{phase}</span>
-                                            <span className="text-xs text-gray-400">{tasks.length} tasks</span>
-                                            <button
-                                                type="button"
-                                                onClick={e => { e.stopPropagation(); tasks.forEach(t => toggleExpand(t.id)); }}
-                                                className="p-0.5 text-gray-400 hover:text-gray-600"
-                                            >
-                                                {phaseExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                                            </button>
-                                        </div>
+                            {activeTab === 'mgmt' && (
+                                <div className="space-y-3">
+                                    {/* Template checklist */}
+                                    <ChecklistPanel
+                                        templates={MGMT_TEMPLATES}
+                                        selectedTasks={mgmtSelected} selectedSubs={mgmtSubs} expanded={mgmtExpanded}
+                                        onToggleTask={mgmtTogglers.toggleTask} onToggleSub={mgmtTogglers.toggleSub}
+                                        onToggleExpand={id => setMgmtExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
+                                        onToggleGroup={toggleMgmtGroup}
+                                    />
 
-                                        {/* Tasks in phase */}
-                                        {phaseExpanded && (
+                                    {/* AI generated extras */}
+                                    {aiExtraTasks.length > 0 && (
+                                        <div className="border border-purple-200 rounded-xl overflow-hidden">
+                                            <div className="px-3 py-2 bg-purple-50 flex items-center gap-2">
+                                                <span className="text-xs font-semibold text-purple-700 flex-1">✨ AI tạo thêm ({aiExtraTasks.length})</span>
+                                            </div>
                                             <div className="divide-y divide-gray-100">
-                                                {tasks.map(task => {
-                                                    const isTaskSelected = selectedTasks.has(task.id);
-                                                    const isExpanded = expanded.has(task.id);
-                                                    const subsSelected = selectedSubs.get(task.id)?.size || 0;
-
-                                                    return (
-                                                        <div key={task.id} className={`transition-colors ${isTaskSelected ? 'bg-white' : 'bg-gray-50/50'}`}>
-                                                            {/* Task row */}
-                                                            <div className="flex items-center gap-2.5 px-4 py-2.5">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={isTaskSelected}
-                                                                    onChange={() => toggleTask(task.id)}
-                                                                    className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0 cursor-pointer"
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => toggleExpand(task.id)}
-                                                                    className="flex-1 flex items-center gap-2 text-left"
-                                                                >
-                                                                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-                                                                    <span className={`text-sm flex-1 ${isTaskSelected ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
-                                                                        {task.title}
-                                                                    </span>
-                                                                </button>
-                                                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                                    <DisciplineBadge d={task.discipline} />
-                                                                    <span className="text-[10px] text-gray-400">~{task.estimatedDays}d</span>
-                                                                    {isTaskSelected && task.subtasks.length > 0 && (
-                                                                        <span className="text-[10px] text-indigo-500 font-semibold">{subsSelected}/{task.subtasks.length} sub</span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Subtasks */}
-                                                            {isExpanded && task.subtasks.length > 0 && (
-                                                                <div className="pl-10 pr-4 pb-2.5 space-y-1">
-                                                                    {task.subtasks.map(sub => {
-                                                                        const isSubSelected = selectedSubs.get(task.id)?.has(sub.id) ?? false;
-                                                                        return (
-                                                                            <label
-                                                                                key={sub.id}
-                                                                                className={`flex items-center gap-2 py-1 px-2 rounded-lg cursor-pointer transition-colors ${isSubSelected ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
-                                                                            >
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={isSubSelected}
-                                                                                    onChange={() => toggleSub(task.id, sub.id)}
-                                                                                    className="w-3.5 h-3.5 rounded accent-indigo-500 flex-shrink-0"
-                                                                                />
-                                                                                <span className={`text-xs flex-1 ${isSubSelected ? 'text-gray-800' : 'text-gray-400'}`}>
-                                                                                    {sub.title}
-                                                                                </span>
-                                                                                <DisciplineBadge d={sub.discipline} />
-                                                                                <span className="text-[10px] text-gray-400">{sub.estimatedDays}d</span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                {aiExtraTasks.map(task => (
+                                                    <div key={task.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                                                        <input type="checkbox" checked={aiExtraSelected.has(task.id)}
+                                                            onChange={() => setAiExtraSelected(prev => { const s = new Set(prev); s.has(task.id) ? s.delete(task.id) : s.add(task.id); return s; })}
+                                                            className="w-4 h-4 rounded accent-purple-600 flex-shrink-0" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-medium text-gray-800">{task.title}</p>
+                                                            {task.subtasks.length > 0 && (
+                                                                <p className="text-xs text-gray-400">{task.subtasks.length} subtasks</p>
                                                             )}
                                                         </div>
-                                                    );
-                                                })}
+                                                        <button type="button" onClick={() => setAiExtraTasks(prev => prev.filter(t => t.id !== task.id))}
+                                                            className="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        )}
+                                        </div>
+                                    )}
+
+                                    {/* AI Chat box */}
+                                    <div className="border border-dashed border-purple-200 rounded-xl p-3 bg-purple-50/40">
+                                        <p className="text-xs font-semibold text-purple-700 mb-2">💬 Chat với AI để thêm tasks quản lý khác</p>
+                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                            {QUICK_PROMPTS.map((p, i) => (
+                                                <button key={i} type="button" onClick={() => sendChat(p)} disabled={chatLoading}
+                                                    className="text-xs px-2.5 py-1 rounded-full border border-purple-200 text-purple-700 bg-white hover:bg-purple-100 disabled:opacity-50 transition-colors">
+                                                    {p}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <input ref={inputRef} type="text" value={chatInput} onChange={e => setChatInput(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && sendChat(chatInput)}
+                                                placeholder="Mô tả task cần thêm..." disabled={chatLoading}
+                                                className="flex-1 px-3 py-1.5 text-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white disabled:opacity-60" />
+                                            <button type="button" onClick={() => sendChat(chatInput)}
+                                                disabled={!chatInput.trim() || chatLoading}
+                                                className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-40 flex items-center gap-1.5 text-xs font-semibold">
+                                                {chatLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Plus className="w-3.5 h-3.5" /> Thêm</>}
+                                            </button>
+                                        </div>
                                     </div>
-                                );
-                            })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Footer */}
                         <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-shrink-0">
                             <div className="text-sm text-gray-600">
-                                Đã chọn <strong className="text-indigo-700">{selectedCount} giai đoạn</strong> · <strong className="text-indigo-700">{totalSubsSelected} subtasks</strong>
+                                <span className="text-indigo-600 font-semibold">{totalBimSel}</span> BIM + <span className="text-purple-600 font-semibold">{totalMgmtSel}</span> quản lý
+                                <span className="text-gray-400 ml-1">· {totalSubs + totalAiExtraSubs} subtasks</span>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={handleImport}
-                                    disabled={selectedCount === 0}
-                                    className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all"
-                                >
+                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">Hủy</button>
+                                <button onClick={handleImport} disabled={totalBimSel + totalMgmtSel === 0}
+                                    className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-40 shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all">
                                     <Check className="w-4 h-4" />
-                                    Tạo {selectedCount} giai đoạn + {totalSubsSelected} subtasks
+                                    Tạo {totalBimSel + totalMgmtSel} giai đoạn
                                 </button>
                             </div>
                         </div>
                     </>
                 )}
 
-                {/* ══════════ IMPORTING ══════════ */}
+                {/* IMPORTING */}
                 {step === 'importing' && (
                     <div className="flex-1 flex flex-col items-center justify-center py-16">
                         <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
@@ -550,7 +759,7 @@ export default function AITaskGenerator({
                     </div>
                 )}
 
-                {/* ══════════ DONE ══════════ */}
+                {/* DONE */}
                 {step === 'done' && (
                     <div className="flex-1 flex flex-col items-center justify-center py-16">
                         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
