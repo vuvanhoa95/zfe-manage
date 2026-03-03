@@ -171,3 +171,58 @@ export async function PATCH(request: NextRequest) {
         );
     }
 }
+
+/**
+ * DELETE /api/users
+ * Xóa user (chỉ ADMIN, không tự xóa chính mình, không xóa super admin)
+ */
+export async function DELETE(request: NextRequest) {
+    try {
+        const { prisma } = await import('@/lib/prisma');
+        const session = await getServerSession(authOptions);
+
+        if (!session?.user || (session.user as any).role !== 'ADMIN') {
+            return NextResponse.json({ success: false, error: 'Không có quyền thực hiện' }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(request.url);
+        const userId = searchParams.get('userId');
+
+        if (!userId) {
+            return NextResponse.json({ success: false, error: 'Thiếu userId' }, { status: 400 });
+        }
+
+        // Không cho xóa chính mình
+        if ((session.user as any).id === userId) {
+            return NextResponse.json({ success: false, error: 'Không thể xóa tài khoản đang đăng nhập' }, { status: 400 });
+        }
+
+        // Kiểm tra user tồn tại
+        const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (!targetUser) {
+            return NextResponse.json({ success: false, error: 'Không tìm thấy user' }, { status: 404 });
+        }
+
+        // Không cho xóa super admin
+        const SUPER_ADMIN_EMAIL = '7604vuhoa@gmail.com';
+        if (targetUser.email === SUPER_ADMIN_EMAIL) {
+            return NextResponse.json({ success: false, error: 'Không thể xóa tài khoản Super Admin' }, { status: 403 });
+        }
+
+        // Xóa accounts, sessions liên quan trước (cascade có thể đã xử lý nhưng an toàn hơn)
+        await prisma.account.deleteMany({ where: { userId } });
+        await prisma.session.deleteMany({ where: { userId } });
+        await prisma.user.delete({ where: { id: userId } });
+
+        return NextResponse.json({
+            success: true,
+            message: `Đã xóa user ${targetUser.email}`,
+        });
+    } catch (error: any) {
+        console.error('[API] Failed to delete user:', error);
+        return NextResponse.json(
+            { success: false, error: error.message || 'Lỗi khi xóa user' },
+            { status: 500 }
+        );
+    }
+}

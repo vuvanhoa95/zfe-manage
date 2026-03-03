@@ -214,6 +214,28 @@ export default function UsersPage() {
         }
     };
 
+    const handleDeleteUser = async (user: AppUser) => {
+        if (!confirm(`⚠️ Bạn có chắc chắn muốn XÓA vĩnh viễn user "${user.name}" (${user.email})?\n\nHành động này không thể hoàn tác!`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/users?userId=${user.id}`, {
+                method: 'DELETE',
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                await fetchUsers();
+            } else {
+                alert(result.error || 'Không thể xóa user');
+            }
+        } catch (error) {
+            console.error('Delete user error:', error);
+            alert('Có lỗi xảy ra khi xóa user');
+        }
+    };
+
     const handleStatusUpdate = async (userId: string, newStatus: string) => {
         if (!confirm(`Bạn có chắc chắn muốn thay đổi trạng thái user này thành ${newStatus}?`)) {
             return;
@@ -394,6 +416,16 @@ export default function UsersPage() {
                                                 >
                                                     ✏️
                                                 </button>
+                                                {user.email !== currentUser.email && user.email !== '7604vuhoa@gmail.com' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteUser(user)}
+                                                        className="text-gray-400 hover:text-red-600 p-1"
+                                                        title="Xóa user vĩnh viễn"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
