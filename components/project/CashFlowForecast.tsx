@@ -271,7 +271,7 @@ export default function CashFlowForecast({ cashflows }: CashFlowForecastProps) {
                         <XAxis dataKey="month" tick={{ fontSize: 10 }} />
                         <YAxis tickFormatter={fmtM} tick={{ fontSize: 10 }} width={45} />
                         <Tooltip
-                            formatter={(val: number | undefined, name: string) => [fmtM(val) + ' VNĐ', name]}
+                            formatter={(val: number | undefined, name: string | undefined) => [fmtM(val) + ' VNĐ', name ?? '']}
                             contentStyle={{ borderRadius: '8px', fontSize: '11px', border: '1px solid #e5e7eb' }}
                         />
                         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
