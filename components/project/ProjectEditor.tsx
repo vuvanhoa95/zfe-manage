@@ -14,6 +14,7 @@ import ProjectQuotationsPanel from '@/components/project/ProjectQuotationsPanel'
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { formatVND } from '@/lib/number-to-words-vn';
 import AIImageSearch from '@/components/project/AIImageSearch';
+import AITaskGenerator from '@/components/project/AITaskGenerator';
 
 function formatDateInputWithSlashes(raw: string): string {
     const digits = raw.replace(/\D/g, '').slice(0, 8);
@@ -133,6 +134,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+    const [showAITaskGen, setShowAITaskGen] = useState(false);
     const [projectDataCache, setProjectDataCache] = useState<unknown>(null); // Cache full project data for tabs
     const [deleteConfirmName, setDeleteConfirmName] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
@@ -501,6 +503,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     }
 
     return (
+        <>
         <div className="h-full flex flex-col bg-gray-50">
             {/* Header */}
             <div className="bg-white border-b border-gray-200 px-3 py-1.5">
@@ -595,40 +598,53 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                     </div>
 
                     {activeTab === 'tasks' && (
-                        <div className="flex items-center gap-1 bg-white/80 rounded-2xl border border-gray-200 px-1 py-0.5 shadow-sm">
-                            <button
-                                type="button"
-                                onClick={() => setActiveWorkSubTab('dashboard')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
-                                    activeWorkSubTab === 'dashboard'
-                                        ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
-                                        : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
-                                }`}
-                            >
-                                <span className="hidden sm:inline">Dashboard</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveWorkSubTab('task')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
-                                    activeWorkSubTab === 'task'
-                                        ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
-                                        : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
-                                }`}
-                            >
-                                <span className="hidden sm:inline">Công việc</span>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setActiveWorkSubTab('report')}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
-                                    activeWorkSubTab === 'report'
-                                        ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
-                                        : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
-                                }`}
-                            >
-                                <span className="hidden sm:inline">Báo cáo</span>
-                            </button>
+                        <div className="flex items-center gap-2">
+                            {/* Phase 03: Nút AI tạo tasks */}
+                            {!isNew && (projectId || project.id) && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAITaskGen(true)}
+                                    title="AI tự động tạo danh sách công việc BIM cho dự án"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-xl hover:from-indigo-600 hover:to-blue-700 transition-all shadow-sm"
+                                >
+                                    ✨ AI Tạo Tasks
+                                </button>
+                            )}
+                            <div className="flex items-center gap-1 bg-white/80 rounded-2xl border border-gray-200 px-1 py-0.5 shadow-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveWorkSubTab('dashboard')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
+                                        activeWorkSubTab === 'dashboard'
+                                            ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
+                                            : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
+                                    }`}
+                                >
+                                    <span className="hidden sm:inline">Dashboard</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveWorkSubTab('task')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
+                                        activeWorkSubTab === 'task'
+                                            ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
+                                            : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
+                                    }`}
+                                >
+                                    <span className="hidden sm:inline">Công việc</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveWorkSubTab('report')}
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] md:text-xs font-semibold transition-all ${
+                                        activeWorkSubTab === 'report'
+                                            ? 'bg-zf-primary text-white shadow-[0_6px_18px_rgba(5,54,99,0.35)]'
+                                            : 'bg-white/80 text-gray-600 hover:text-zf-primary hover:bg-zf-primary/5'
+                                    }`}
+                                >
+                                    <span className="hidden sm:inline">Báo cáo</span>
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1081,5 +1097,22 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                 </div>
             </div>
         </div>
+
+            {/* Phase 03: AI Task Generator Modal */}
+            {showAITaskGen && (
+                <AITaskGenerator
+                    projectId={projectId || project.id}
+                    projectName={project.name}
+                    projectDescription={project.description || undefined}
+                    projectLocation={project.location || undefined}
+                    totalArea={project.totalArea || undefined}
+                    onTasksImported={() => {
+                        setActiveWorkSubTab('task');
+                        setActiveTab('tasks');
+                    }}
+                    onClose={() => setShowAITaskGen(false)}
+                />
+            )}
+        </>
     );
 }

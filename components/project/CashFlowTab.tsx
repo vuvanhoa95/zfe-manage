@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { DollarSign, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 
 import { formatVNDWithSymbol } from '@/lib/number-to-words-vn';
+import CashFlowForecast from '@/components/project/CashFlowForecast';
 
 type CashFlowType = 'INCOME' | 'EXPENSE';
 
@@ -354,6 +355,13 @@ export default function CashFlowTab({
                             </div>
                         </div>
                     </div>
+
+                    {/* Phase 05: Cash Flow Forecast Chart */}
+                    {!isLoading && cashFlows.length > 0 && (
+                        <div className="mt-6">
+                            <CashFlowForecast cashflows={cashFlows} />
+                        </div>
+                    )}
 
                     {isLoading ? (
                         <div className="text-center py-12">
