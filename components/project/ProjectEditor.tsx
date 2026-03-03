@@ -13,6 +13,7 @@ import WorkTabsContainer, { type SubTabKey as WorkSubTabKey } from '@/components
 import ProjectQuotationsPanel from '@/components/project/ProjectQuotationsPanel';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import { formatVND } from '@/lib/number-to-words-vn';
+import AIImageSearch from '@/components/project/AIImageSearch';
 
 function formatDateInputWithSlashes(raw: string): string {
     const digits = raw.replace(/\D/g, '').slice(0, 8);
@@ -726,18 +727,27 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
 
                                                 <div className="flex items-center justify-between gap-3">
                                                     <p className="text-xs text-gray-500">
-                                                        {isNew ? 'Vui lòng lưu dự án trước khi upload hình ảnh.' : 'Tối đa 5MB.'}
+                                                        {isNew ? 'Lưu dự án trước khi upload ảnh từ máy.' : 'Tối đa 5MB.'}
                                                     </p>
-                                                    {project.imageUrl ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setProject({ ...project, imageUrl: '' })}
-                                                            className="text-sm font-medium text-red-600 hover:text-red-700"
-                                                            aria-label="Xóa hình ảnh dự án"
-                                                        >
-                                                            Xóa ảnh
-                                                        </button>
-                                                    ) : null}
+                                                    <div className="flex items-center gap-2">
+                                                        {/* AI Image Search button */}
+                                                        <AIImageSearch
+                                                            projectName={project.name}
+                                                            description={project.description || ''}
+                                                            location={project.location || ''}
+                                                            onSelect={(url) => setProject(prev => ({ ...prev, imageUrl: url }))}
+                                                        />
+                                                        {project.imageUrl ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setProject({ ...project, imageUrl: '' })}
+                                                                className="text-sm font-medium text-red-600 hover:text-red-700"
+                                                                aria-label="Xóa hình ảnh dự án"
+                                                            >
+                                                                Xóa ảnh
+                                                            </button>
+                                                        ) : null}
+                                                    </div>
                                                 </div>
 
                                                 {isUploadingImage ? (
