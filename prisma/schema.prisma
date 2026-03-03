@@ -150,6 +150,12 @@ model Project {
   status           String          @default("PLANNING")
   notes            String?
   imageUrl         String?
+  /// Danh sách giai đoạn triển khai (JSON array of strings), VD: ["Thiết kế cơ sở","Shopdrawing","Thi công"]
+  phases           String?
+  /// Danh sách bộ môn (JSON array), VD: ["Kiến trúc","Kết cấu","MEP","Điện","Nước"]
+  disciplines      String?
+  /// Danh sách khu vực/vị trí (JSON array), VD: ["Tầng hầm 1","Tầng 1","Mái","Block A"]
+  areas            String?
   createdById      String
   finalQuotationId String?         @unique
   createdAt        DateTime        @default(now())

@@ -200,7 +200,8 @@ export async function PUT(
         }
 
         const body: ProjectUpdateInput = parsed.data;
-        const { name, code, description, customerId, location, startDate, endDate, totalArea, status, notes, imageUrl } = body;
+        const { name, code, description, customerId, location, startDate, endDate, totalArea, status, notes, imageUrl, phases, disciplines, areas } = body;
+
 
         // Verify project exists before updating
         const existingProject = await prisma.project.findUnique({
@@ -253,6 +254,9 @@ export async function PUT(
                         status,
                         notes,
                         imageUrl: imageUrl === undefined ? undefined : typeof imageUrl === 'string' ? imageUrl : imageUrl === null ? null : undefined,
+                        phases: phases === undefined ? undefined : phases || null,
+                        disciplines: disciplines === undefined ? undefined : disciplines || null,
+                        areas: areas === undefined ? undefined : areas || null,
                     },
                     include: {
                         customer: true,
@@ -310,6 +314,9 @@ export async function PUT(
                                 status,
                                 notes,
                                 imageUrl: imageUrl === undefined ? undefined : typeof imageUrl === 'string' ? imageUrl : imageUrl === null ? null : undefined,
+                                phases: phases === undefined ? undefined : phases || null,
+                                disciplines: disciplines === undefined ? undefined : disciplines || null,
+                                areas: areas === undefined ? undefined : areas || null,
                             },
                             include: {
                                 customer: true,

@@ -68,7 +68,14 @@ export const projectBaseSchema = z.object({
     status: z.enum(['PLANNING', 'ACTIVE', 'COMPLETED', 'CANCELLED']).default('PLANNING'),
     notes: emptyStringToNull(z.string().trim().optional().nullable()),
     imageUrl: optionalUrl(),
+    /// Danh sách giai đoạn (JSON array string)
+    phases: emptyStringToNull(z.string().trim().optional().nullable()),
+    /// Danh sách bộ môn (JSON array string)
+    disciplines: emptyStringToNull(z.string().trim().optional().nullable()),
+    /// Danh sách khu vực (JSON array string)
+    areas: emptyStringToNull(z.string().trim().optional().nullable()),
 });
+
 
 export const projectCreateSchema = projectBaseSchema.extend({
     createdById: z.string().uuid().optional(),

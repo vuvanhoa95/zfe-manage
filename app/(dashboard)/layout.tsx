@@ -7,10 +7,12 @@ import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { PageTransition } from '@/components/ui/PageTransition';
 import { useCommandPalette } from '@/lib/hooks/useCommandPalette';
+import { RBACProvider } from '@/components/auth/RBACProvider';
 
 // ⚡ PERFORMANCE: Lazy-load non-critical UI overlays
 const AiAssistant = dynamic(() => import('@/components/ai/AiAssistant'), { ssr: false });
 const TechnicalCommandPalette = dynamic(() => import('@/components/technical/TechnicalCommandPalette'), { ssr: false });
+
 
 export default function DashboardLayout({
     children,
@@ -50,29 +52,32 @@ export default function DashboardLayout({
     const shouldShowGlobalChatbot = !isQuotationEditorPage;
     
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-100">
-            {/* Sidebar */}
-            <Sidebar />
+        <RBACProvider>
+            <div className="h-screen flex overflow-hidden bg-gray-100">
+                {/* Sidebar */}
+                <Sidebar />
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
-                <Header />
+                {/* Main Content */}
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Header */}
+                    <Header />
 
-                {/* Page Content */}
-                <main className="flex-1 overflow-y-auto">
-                    <PageTransition className="h-full">{children}</PageTransition>
-                </main>
+                    {/* Page Content */}
+                    <main className="flex-1 overflow-y-auto">
+                        <PageTransition className="h-full">{children}</PageTransition>
+                    </main>
+                </div>
+
+                {shouldShowGlobalChatbot && <AiAssistant />}
+                
+                {/* Technical Command Palette */}
+                <TechnicalCommandPalette
+                    commands={commands}
+                    isOpen={isOpen}
+                    onClose={() => setIsOpen(false)}
+                />
             </div>
-
-            {shouldShowGlobalChatbot && <AiAssistant />}
-            
-            {/* Technical Command Palette */}
-            <TechnicalCommandPalette
-                commands={commands}
-                isOpen={isOpen}
-                onClose={() => setIsOpen(false)}
-            />
-        </div>
+        </RBACProvider>
     );
 }
+

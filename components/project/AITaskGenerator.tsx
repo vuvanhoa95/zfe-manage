@@ -227,6 +227,7 @@ function getSmartBimDefaults(name = '', desc = ''): Set<string> {
 function ChecklistPanel({
     templates, selectedTasks, selectedSubs, expanded,
     onToggleTask, onToggleSub, onToggleExpand, onToggleGroup,
+    isDuplicate = () => false,
 }: {
     templates: TaskItem[];
     selectedTasks: Set<string>;
@@ -236,6 +237,7 @@ function ChecklistPanel({
     onToggleSub: (taskId: string, subId: string) => void;
     onToggleExpand: (id: string) => void;
     onToggleGroup: (phase: string) => void;
+    isDuplicate?: (title: string) => boolean;
 }) {
     // Group by phase
     const byPhase = useMemo(() => {
@@ -302,6 +304,11 @@ function ChecklistPanel({
                                                         {taskIndexMap.get(task.id)}
                                                     </span>
                                                     <span className={`text-sm flex-1 ${isSel ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{task.title}</span>
+                                                    {isDuplicate(task.title) && (
+                                                        <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap flex-shrink-0">
+                                                            ⚠️ Đã tồn tại
+                                                        </span>
+                                                    )}
                                                 </button>
                                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                                     <DisciplineBadge d={task.discipline} />
@@ -352,7 +359,35 @@ export default function AITaskGenerator({
     // ISO 19650 naming
     const [companyCode, setCompanyCode] = useState('ZFE');
     const isoProjectCode = toIsoCode(projectNo);
-    useEffect(() => { setCompanyCode(getCompanyCode()); }, []);
+    useEffect(() => {
+        setCompanyCode(getCompanyCode());
+    }, []);
+
+    // Save companyCode khi thay đổi
+    const updateCompanyCode = (code: string) => {
+        const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+        setCompanyCode(clean);
+        try {
+            const s = JSON.parse(localStorage.getItem('ai_settings') || '{}');
+            localStorage.setItem('ai_settings', JSON.stringify({ ...s, companyCode: clean }));
+        } catch {}
+    };
+
+    // Fetch existing tasks để detect duplicate
+    const [existingTitles, setExistingTitles] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        fetch(`/api/projects/${projectId}/tasks?limit=200`)
+            .then(r => r.json())
+            .then(d => {
+                const titles = new Set<string>(
+                    (d?.data || d?.tasks || []).map((t: { title: string }) => t.title.toLowerCase().trim())
+                );
+                setExistingTitles(titles);
+            })
+            .catch(() => {});
+    }, [projectId]);
+
+    const isDuplicate = (title: string) => existingTitles.has(title.toLowerCase().trim());
 
     // BIM checklist state
     const bimDefaults = useMemo(() => getSmartBimDefaults(projectName, projectDescription), [projectName, projectDescription]);
@@ -389,13 +424,27 @@ export default function AITaskGenerator({
     const inputRef = useRef<HTMLInputElement>(null);
 
 
-    const totalBimSel = bimSelected.size;
+    const totalBimSel = bimSelected.size + (bimAiSelected.size > 0 ? 1 : 0);
     const totalMgmtSel = mgmtSelected.size + aiExtraSelected.size;
     const totalSubs = [
         ...Array.from(bimSubs.values()),
         ...Array.from(mgmtSubs.values()),
     ].reduce((a, s) => a + s.size, 0);
     const totalAiExtraSubs = aiExtraTasks.filter(t => aiExtraSelected.has(t.id)).reduce((a, t) => a + t.subtasks.length, 0);
+
+    // Tổng ngày dự kiến
+    const totalEstDays = [
+        ...BIM_TEMPLATES.filter(t => bimSelected.has(t.id)),
+        ...bimAiTasks.filter(t => bimAiSelected.has(t.id)),
+        ...MGMT_TEMPLATES.filter(t => mgmtSelected.has(t.id)),
+        ...aiExtraTasks.filter(t => aiExtraSelected.has(t.id)),
+    ].reduce((a, t) => a + t.estimatedDays, 0);
+
+    // Số task bị duplicate
+    const dupCount = [
+        ...BIM_TEMPLATES.filter(t => bimSelected.has(t.id) && isDuplicate(t.title)),
+        ...MGMT_TEMPLATES.filter(t => mgmtSelected.has(t.id) && isDuplicate(t.title)),
+    ].length;
 
     // ─── Toggle helpers (BIM) ────────────────────────────────────────────────
 
@@ -704,24 +753,45 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
 
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+                <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
+                    <div className="flex items-center gap-3 flex-1">
+                        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
                             <Wand2 className="w-4 h-4 text-white" />
                         </div>
-                        <div>
-                            <h2 className="text-base font-bold text-gray-900">✨ AI Tạo Tasks</h2>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                                {step === 'select' && <>Đã chọn <strong className="text-indigo-600">{totalBimSel + totalMgmtSel} giai đoạn</strong> · <strong className="text-indigo-600">{totalSubs + totalAiExtraSubs} subtasks</strong></>}
-                                {step === 'importing' && 'Đang tạo tasks...'}
-                                {step === 'done' && '✓ Hoàn tất!'}
-                            </p>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-base font-bold text-gray-900">✨ AI Tạo Tasks BIM</h2>
+                                {/* Mini settings: Company Code */}
+                                <div className="flex items-center gap-1.5 bg-white/80 border border-indigo-200 rounded-lg px-2 py-0.5">
+                                    <span className="text-[10px] text-indigo-500 font-semibold">Mã CT:</span>
+                                    <input
+                                        type="text" value={companyCode}
+                                        onChange={e => updateCompanyCode(e.target.value)}
+                                        maxLength={5}
+                                        className="w-14 text-xs font-mono font-bold text-indigo-700 bg-transparent outline-none uppercase"
+                                        title="Mã công ty ISO 19650 (VD: ZFE)"
+                                    />
+                                </div>
+                                <span className="text-[10px] font-mono text-gray-400 bg-white/60 px-2 py-0.5 rounded-lg">{companyCode}_{isoProjectCode}_...</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                {step === 'select' && (
+                                    <>
+                                        <span className="text-xs text-gray-500">Đã chọn <strong className="text-indigo-600">{totalBimSel + totalMgmtSel}</strong> nhóm · <strong className="text-indigo-600">{totalSubs + totalAiExtraSubs}</strong> subtasks · <strong className="text-amber-600">~{totalEstDays} ngày</strong></span>
+                                        {dupCount > 0 && (
+                                            <span className="text-[10px] bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-full font-semibold">⚠️ {dupCount} task trùng tên</span>
+                                        )}
+                                    </>
+                                )}
+                                {step === 'importing' && <span className="text-xs text-gray-500">Đang tạo tasks...</span>}
+                                {step === 'done' && <span className="text-xs text-emerald-600 font-semibold">✓ Hoàn tất!</span>}
+                            </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60">
+                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 flex-shrink-0">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -780,6 +850,7 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                         onToggleTask={bimTogglers.toggleTask} onToggleSub={bimTogglers.toggleSub}
                                         onToggleExpand={id => setBimExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
                                         onToggleGroup={toggleBimGroup}
+                                        isDuplicate={isDuplicate}
                                     />
 
                                     {/* AI mô hình chi tiết theo tầng (ISO 19650) */}
@@ -857,6 +928,7 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                         onToggleTask={mgmtTogglers.toggleTask} onToggleSub={mgmtTogglers.toggleSub}
                                         onToggleExpand={id => setMgmtExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
                                         onToggleGroup={toggleMgmtGroup}
+                                        isDuplicate={isDuplicate}
                                     />
 
                                     {/* AI generated extras */}

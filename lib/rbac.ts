@@ -1,8 +1,8 @@
 /**
  * ZFENIX RBAC – Role-Based Access Control Matrix
  *
- * NGUỒN SỰ THẬT DUY NHẤT cho toàn hệ thống.
- * Mọi quyết định phân quyền đều phải tham chiếu tại đây.
+ * Hỗ trợ DYNAMIC OVERRIDES: Admin có thể bật/tắt quyền qua UI
+ * và lưu vào DB. Runtime sẽ merge defaults + overrides.
  *
  * =====================================================
  * ROLE HIERARCHY (System-level):
@@ -37,18 +37,18 @@ export type Permission =
 
   // --- DASHBOARD ---
   | 'dashboard:view'
-  | 'dashboard:view_financials'   // Xem số liệu tài chính tổng hợp
-  | 'dashboard:view_all_projects' // Xem tất cả dự án (admin/pm)
+  | 'dashboard:view_financials'
+  | 'dashboard:view_all_projects'
 
   // --- PROJECTS ---
   | 'project:create'
   | 'project:view'
-  | 'project:view_own'            // Chỉ xem dự án mình tạo hoặc là thành viên
+  | 'project:view_own'
   | 'project:edit'
   | 'project:edit_own'
   | 'project:delete'
   | 'project:manage_members'
-  | 'project:view_financials'     // Xem: doanh thu, chi phí, lợi nhuận
+  | 'project:view_financials'
 
   // --- QUOTATIONS ---
   | 'quotation:create'
@@ -57,7 +57,7 @@ export type Permission =
   | 'quotation:edit'
   | 'quotation:edit_own'
   | 'quotation:delete'
-  | 'quotation:approve'           // ADMIN/PM: set ACCEPTED
+  | 'quotation:approve'
   | 'quotation:export'
   | 'quotation:manage_templates'
 
@@ -71,9 +71,9 @@ export type Permission =
   | 'task:create'
   | 'task:view'
   | 'task:edit'
-  | 'task:edit_own'               // Chỉ edit task được giao cho mình
+  | 'task:edit_own'
   | 'task:delete'
-  | 'task:view_all'               // Xem tất cả task trong dự án
+  | 'task:view_all'
 
   // --- CASH FLOWS ---
   | 'cashflow:create'
@@ -95,7 +95,7 @@ export type Permission =
   | 'company_profile:view'
   | 'company_profile:edit'
 
-  // --- SETTINGS (Catalog, Units, Custom Fields) ---
+  // --- SETTINGS ---
   | 'settings:view'
   | 'settings:edit'
 
@@ -108,86 +108,254 @@ export type Permission =
   | 'user:toggle_status';
 
 // =====================================================
-// SYSTEM-LEVEL PERMISSION MATRIX
+// PERMISSION GROUPS — Dùng để hiển thị theo nhóm trên UI
 // =====================================================
-const SYSTEM_PERMISSIONS: Record<SystemRole, Permission[]> = {
+export type PermissionGroup = {
+  group: string;
+  icon: string;
+  permissions: { key: Permission; label: string; description?: string }[];
+};
+
+export const PERMISSION_GROUPS: PermissionGroup[] = [
+  {
+    group: 'Điều hướng',
+    icon: '🗺️',
+    permissions: [
+      { key: 'nav:dashboard',        label: 'Menu: Tổng quan' },
+      { key: 'nav:projects',         label: 'Menu: Dự án' },
+      { key: 'nav:quotations',       label: 'Menu: Báo giá' },
+      { key: 'nav:customers',        label: 'Menu: Khách hàng' },
+      { key: 'nav:outsourcing_staff',label: 'Menu: Nhân sự ngoài' },
+      { key: 'nav:reports',          label: 'Menu: Báo cáo' },
+      { key: 'nav:users',            label: 'Menu: Quản lý User', description: 'Trang quản lý tài khoản' },
+      { key: 'nav:company_profile',  label: 'Menu: Hồ sơ công ty' },
+      { key: 'nav:settings',         label: 'Menu: Cài đặt' },
+    ],
+  },
+  {
+    group: 'Dashboard',
+    icon: '📊',
+    permissions: [
+      { key: 'dashboard:view',             label: 'Xem Dashboard' },
+      { key: 'dashboard:view_financials',  label: 'Xem số liệu tài chính', description: 'Doanh thu, chi phí, lợi nhuận tổng hợp' },
+      { key: 'dashboard:view_all_projects',label: 'Xem tất cả dự án', description: 'Không chỉ dự án mình tham gia' },
+    ],
+  },
+  {
+    group: 'Dự án',
+    icon: '🏗️',
+    permissions: [
+      { key: 'project:create',          label: 'Tạo dự án mới' },
+      { key: 'project:view',            label: 'Xem dự án' },
+      { key: 'project:edit',            label: 'Sửa dự án' },
+      { key: 'project:delete',          label: 'Xóa dự án' },
+      { key: 'project:manage_members',  label: 'Quản lý thành viên' },
+      { key: 'project:view_financials', label: 'Xem tài chính dự án', description: 'Ngân sách, doanh thu, chi phí của dự án' },
+    ],
+  },
+  {
+    group: 'Báo giá',
+    icon: '📄',
+    permissions: [
+      { key: 'quotation:create',            label: 'Tạo báo giá' },
+      { key: 'quotation:view',              label: 'Xem báo giá' },
+      { key: 'quotation:edit',              label: 'Sửa báo giá' },
+      { key: 'quotation:delete',            label: 'Xóa báo giá' },
+      { key: 'quotation:approve',           label: 'Phê duyệt báo giá', description: 'Đặt trạng thái ACCEPTED' },
+      { key: 'quotation:export',            label: 'Xuất PDF/DOCX' },
+      { key: 'quotation:manage_templates',  label: 'Quản lý mẫu báo giá' },
+    ],
+  },
+  {
+    group: 'Khách hàng',
+    icon: '🏢',
+    permissions: [
+      { key: 'customer:create', label: 'Tạo khách hàng' },
+      { key: 'customer:view',   label: 'Xem khách hàng' },
+      { key: 'customer:edit',   label: 'Sửa khách hàng' },
+      { key: 'customer:delete', label: 'Xóa khách hàng' },
+    ],
+  },
+  {
+    group: 'Công việc (Task)',
+    icon: '✅',
+    permissions: [
+      { key: 'task:create',   label: 'Tạo task' },
+      { key: 'task:view',     label: 'Xem task' },
+      { key: 'task:edit',     label: 'Sửa task' },
+      { key: 'task:delete',   label: 'Xóa task' },
+      { key: 'task:view_all', label: 'Xem tất cả task', description: 'Kể cả task chưa được giao cho mình' },
+    ],
+  },
+  {
+    group: 'Dòng tiền',
+    icon: '💰',
+    permissions: [
+      { key: 'cashflow:create', label: 'Tạo giao dịch' },
+      { key: 'cashflow:view',   label: 'Xem giao dịch' },
+      { key: 'cashflow:edit',   label: 'Sửa giao dịch' },
+      { key: 'cashflow:delete', label: 'Xóa giao dịch' },
+    ],
+  },
+  {
+    group: 'Nhân sự ngoài',
+    icon: '👷',
+    permissions: [
+      { key: 'outsourcing:create', label: 'Thêm nhân sự ngoài' },
+      { key: 'outsourcing:view',   label: 'Xem nhân sự ngoài' },
+      { key: 'outsourcing:edit',   label: 'Sửa nhân sự ngoài' },
+      { key: 'outsourcing:delete', label: 'Xóa nhân sự ngoài' },
+    ],
+  },
+  {
+    group: 'Báo cáo',
+    icon: '📈',
+    permissions: [
+      { key: 'report:view',   label: 'Xem báo cáo' },
+      { key: 'report:export', label: 'Xuất báo cáo' },
+    ],
+  },
+  {
+    group: 'Hệ thống',
+    icon: '⚙️',
+    permissions: [
+      { key: 'company_profile:view', label: 'Xem hồ sơ công ty' },
+      { key: 'company_profile:edit', label: 'Sửa hồ sơ công ty' },
+      { key: 'settings:view',        label: 'Xem cài đặt' },
+      { key: 'settings:edit',        label: 'Sửa cài đặt (danh mục, đơn vị)' },
+    ],
+  },
+  {
+    group: 'Quản lý User',
+    icon: '👥',
+    permissions: [
+      { key: 'user:create',        label: 'Tạo user mới' },
+      { key: 'user:view',          label: 'Xem danh sách user' },
+      { key: 'user:edit',          label: 'Sửa thông tin user' },
+      { key: 'user:delete',        label: 'Xóa user' },
+      { key: 'user:toggle_status', label: 'Kích hoạt / Khóa user' },
+      { key: 'user:manage_roles',  label: 'Phân quyền role', description: 'Thay đổi role của user, chỉnh sửa permission' },
+    ],
+  },
+];
+
+// =====================================================
+// DEFAULT PERMISSION MATRIX (hardcoded baseline)
+// =====================================================
+export const RBAC_DEFAULTS: Record<SystemRole, Permission[]> = {
   ADMIN: [
-    // Navigation — tất cả
     'nav:dashboard', 'nav:projects', 'nav:quotations', 'nav:customers',
     'nav:outsourcing_staff', 'nav:reports', 'nav:users', 'nav:company_profile', 'nav:settings',
-    // Dashboard
     'dashboard:view', 'dashboard:view_financials', 'dashboard:view_all_projects',
-    // Projects — toàn quyền
     'project:create', 'project:view', 'project:edit', 'project:delete',
     'project:manage_members', 'project:view_financials',
-    // Quotations — toàn quyền
     'quotation:create', 'quotation:view', 'quotation:edit', 'quotation:delete',
     'quotation:approve', 'quotation:export', 'quotation:manage_templates',
-    // Customers — toàn quyền
     'customer:create', 'customer:view', 'customer:edit', 'customer:delete',
-    // Tasks — toàn quyền
     'task:create', 'task:view', 'task:edit', 'task:delete', 'task:view_all',
-    // Cash flows — toàn quyền
     'cashflow:create', 'cashflow:view', 'cashflow:edit', 'cashflow:delete',
-    // Outsourcing — toàn quyền
     'outsourcing:create', 'outsourcing:view', 'outsourcing:edit', 'outsourcing:delete',
-    // Reports
     'report:view', 'report:export',
-    // Company Profile
     'company_profile:view', 'company_profile:edit',
-    // Settings
     'settings:view', 'settings:edit',
-    // Users — toàn quyền
     'user:create', 'user:view', 'user:edit', 'user:delete', 'user:manage_roles', 'user:toggle_status',
   ],
 
   PM: [
-    // Navigation — không có User Management
     'nav:dashboard', 'nav:projects', 'nav:quotations', 'nav:customers',
     'nav:outsourcing_staff', 'nav:reports', 'nav:company_profile', 'nav:settings',
-    // Dashboard
     'dashboard:view', 'dashboard:view_financials', 'dashboard:view_all_projects',
-    // Projects — tạo, sửa, xóa dự án của mình (không del dự án của người khác)
     'project:create', 'project:view', 'project:edit', 'project:edit_own', 'project:delete',
     'project:manage_members', 'project:view_financials',
-    // Quotations — toàn quyền trừ delete (chỉ xóa DRAFT)
     'quotation:create', 'quotation:view', 'quotation:edit', 'quotation:edit_own',
     'quotation:approve', 'quotation:export', 'quotation:manage_templates',
-    // Customers
     'customer:create', 'customer:view', 'customer:edit',
-    // Tasks
     'task:create', 'task:view', 'task:edit', 'task:delete', 'task:view_all',
-    // Cash flows
     'cashflow:create', 'cashflow:view', 'cashflow:edit', 'cashflow:delete',
-    // Outsourcing
     'outsourcing:create', 'outsourcing:view', 'outsourcing:edit',
-    // Reports
     'report:view', 'report:export',
-    // Company Profile — chỉ xem
     'company_profile:view',
-    // Settings — chỉ xem
     'settings:view',
   ],
 
   USER: [
-    // Navigation — giới hạn
     'nav:dashboard', 'nav:projects', 'nav:quotations',
-    // Dashboard — xem nhưng không thấy tài chính tổng
     'dashboard:view',
-    // Projects — chỉ xem dự án mình là thành viên
     'project:view', 'project:view_own',
-    // Quotations — tự tạo và sửa của mình
     'quotation:create', 'quotation:view', 'quotation:view_own',
     'quotation:edit_own', 'quotation:export',
-    // Tasks — tạo và sửa task được giao
     'task:create', 'task:view', 'task:edit_own',
-    // Cash flows — chỉ xem
     'cashflow:view',
   ],
 };
 
 // =====================================================
-// PROJECT-LEVEL PERMISSION MATRIX (override system-role khi trong context project)
+// TYPE cho overrides (lưu trong DB)
+// override[role][permission] = true (grant) | false (revoke)
+// Chỉ lưu những gì KHÁC với defaults
+// =====================================================
+export type PermissionOverrides = Partial<Record<SystemRole, Partial<Record<Permission, boolean>>>>;
+
+// =====================================================
+// RUNTIME STATE — Loaded from DB overrides
+// Được hydrate khi app start hoặc sau khi admin save
+// =====================================================
+
+/**
+ * Runtime permission matrix (defaults + overrides).
+ * Client dùng cái này thông qua /api/admin/permissions/runtime
+ */
+let _runtimePermissions: Record<SystemRole, Set<Permission>> | null = null;
+
+/**
+ * Tính toán runtime permissions từ defaults + overrides
+ */
+export function computePermissions(
+  overrides: PermissionOverrides
+): Record<SystemRole, Set<Permission>> {
+  const result: Record<SystemRole, Set<Permission>> = {
+    ADMIN: new Set(RBAC_DEFAULTS.ADMIN),
+    PM:    new Set(RBAC_DEFAULTS.PM),
+    USER:  new Set(RBAC_DEFAULTS.USER),
+  };
+
+  for (const roleKey of Object.keys(overrides) as SystemRole[]) {
+    const roleOverrides = overrides[roleKey];
+    if (!roleOverrides) continue;
+    for (const [perm, granted] of Object.entries(roleOverrides) as [Permission, boolean][]) {
+      if (granted) {
+        result[roleKey].add(perm);
+      } else {
+        result[roleKey].delete(perm);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Set runtime permissions (gọi sau khi load từ DB)
+ */
+export function setRuntimePermissions(overrides: PermissionOverrides) {
+  _runtimePermissions = computePermissions(overrides);
+}
+
+/**
+ * Lấy runtime permissions (nếu chưa có thì dùng defaults)
+ */
+function getRuntimePermissions(): Record<SystemRole, Set<Permission>> {
+  if (_runtimePermissions) return _runtimePermissions;
+  return {
+    ADMIN: new Set(RBAC_DEFAULTS.ADMIN),
+    PM:    new Set(RBAC_DEFAULTS.PM),
+    USER:  new Set(RBAC_DEFAULTS.USER),
+  };
+}
+
+// =====================================================
+// PROJECT-LEVEL PERMISSION MATRIX (không thay đổi được qua UI)
+// Đây là cấu trúc cứng — thay đổi qua code
 // =====================================================
 const PROJECT_PERMISSIONS: Record<ProjectRole, Permission[]> = {
   MANAGER: [
@@ -214,12 +382,11 @@ const PROJECT_PERMISSIONS: Record<ProjectRole, Permission[]> = {
 };
 
 // =====================================================
-// CORE PERMISSION CHECKER
+// CORE PERMISSION CHECKERS
 // =====================================================
 
 /**
- * Kiểm tra system-level permission.
- * Dùng khi không có context của project cụ thể.
+ * Kiểm tra system-level permission (dùng runtime matrix).
  */
 export function can(
   userRole: string | null | undefined,
@@ -227,93 +394,70 @@ export function can(
 ): boolean {
   if (!userRole) return false;
   const role = userRole.toUpperCase() as SystemRole;
-  return SYSTEM_PERMISSIONS[role]?.includes(permission) ?? false;
+  const runtime = getRuntimePermissions();
+  return runtime[role]?.has(permission) ?? false;
 }
 
 /**
  * Kiểm tra permission có xét đến project membership.
- * Project role sẽ được THÊM VÀO (không thay thế) system role permissions.
  */
 export function canInProject(
   userRole: string | null | undefined,
   projectMemberRole: string | null | undefined,
   permission: Permission
 ): boolean {
-  // Kiểm tra system role trước
   if (can(userRole, permission)) return true;
-
-  // Nếu không có project membership → deny
   if (!projectMemberRole) return false;
-
   const pRole = projectMemberRole.toUpperCase() as ProjectRole;
   return PROJECT_PERMISSIONS[pRole]?.includes(permission) ?? false;
 }
 
 /**
- * Lấy tất cả permissions của user (có thể dùng để debug)
+ * Lấy tất cả permissions của user (runtime)
  */
 export function getAllPermissions(
   userRole: string | null | undefined,
   projectMemberRole?: string | null | undefined
 ): Permission[] {
   const role = (userRole ?? '').toUpperCase() as SystemRole;
-  const systemPerms = SYSTEM_PERMISSIONS[role] ?? [];
+  const runtime = getRuntimePermissions();
+  const systemPerms = Array.from(runtime[role] ?? []);
 
   if (!projectMemberRole) return systemPerms;
-
   const pRole = projectMemberRole.toUpperCase() as ProjectRole;
   const projectPerms = PROJECT_PERMISSIONS[pRole] ?? [];
   return [...new Set([...systemPerms, ...projectPerms])];
 }
 
-/**
- * Kiểm tra nếu user là ADMIN
- */
 export function isAdmin(userRole: string | null | undefined): boolean {
   return (userRole ?? '').toUpperCase() === 'ADMIN';
 }
 
-/**
- * Kiểm tra nếu user là ADMIN hoặc PM
- */
 export function isAdminOrPM(userRole: string | null | undefined): boolean {
   const role = (userRole ?? '').toUpperCase();
   return role === 'ADMIN' || role === 'PM';
 }
 
-/**
- * Lấy label tiếng Việt của role
- */
 export function getRoleLabel(role: string | null | undefined): string {
   switch ((role ?? '').toUpperCase()) {
-    case 'ADMIN': return 'Quản trị viên';
-    case 'PM': return 'Quản lý dự án';
-    case 'USER': return 'Nhân viên';
+    case 'ADMIN':   return 'Quản trị viên';
+    case 'PM':      return 'Quản lý dự án';
+    case 'USER':    return 'Nhân viên';
     case 'MANAGER': return 'Trưởng nhóm';
-    case 'MEMBER': return 'Thành viên';
-    case 'VIEWER': return 'Chỉ xem';
-    default: return role ?? 'Không xác định';
+    case 'MEMBER':  return 'Thành viên';
+    case 'VIEWER':  return 'Chỉ xem';
+    default:        return role ?? 'Không xác định';
   }
 }
 
-/**
- * Lấy màu badge cho role
- */
 export function getRoleBadgeStyle(role: string | null | undefined): string {
   switch ((role ?? '').toUpperCase()) {
-    case 'ADMIN':
-      return 'bg-red-50 text-red-700 border border-red-200';
-    case 'PM':
-      return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'USER':
-      return 'bg-blue-50 text-blue-700 border border-blue-200';
-    case 'MANAGER':
-      return 'bg-purple-50 text-purple-700 border border-purple-200';
-    case 'MEMBER':
-      return 'bg-teal-50 text-teal-700 border border-teal-200';
-    case 'VIEWER':
-      return 'bg-gray-50 text-gray-600 border border-gray-200';
-    default:
-      return 'bg-gray-50 text-gray-500';
+    case 'ADMIN':   return 'bg-red-50 text-red-700 border border-red-200';
+    case 'PM':      return 'bg-amber-50 text-amber-700 border border-amber-200';
+    case 'USER':    return 'bg-blue-50 text-blue-700 border border-blue-200';
+    case 'MANAGER': return 'bg-purple-50 text-purple-700 border border-purple-200';
+    case 'MEMBER':  return 'bg-teal-50 text-teal-700 border border-teal-200';
+    case 'VIEWER':  return 'bg-gray-50 text-gray-600 border border-gray-200';
+    default:        return 'bg-gray-50 text-gray-500';
   }
 }

@@ -73,6 +73,9 @@ type Project = {
     notes?: string;
     imageUrl?: string;
     projectYear?: number;
+    phases?: string | null;      // JSON array string
+    disciplines?: string | null; // JSON array string
+    areas?: string | null;       // JSON array string
 };
 
 type ProjectCustomerOption = {
@@ -142,6 +145,33 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [isDeleting, setIsDeleting] = useState(false);
     const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
     const [activeWorkSubTab, setActiveWorkSubTab] = useState<WorkSubTabKey>('dashboard');
+
+    // ── Setup danh sách tag-like (Phases / Disciplines / Areas) ──────────────
+    const parseJsonList = (val: string | null | undefined): string[] => {
+        if (!val) return [];
+        try { return JSON.parse(val) as string[]; } catch { return []; }
+    };
+
+    const [phaseInput, setPhaseInput] = useState('');
+    const [disciplineInput, setDisciplineInput] = useState('');
+    const [areaInput, setAreaInput] = useState('');
+
+    // Helper để thêm item vào list (lưu vào project state)
+    const addToList = (field: 'phases' | 'disciplines' | 'areas', value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return;
+        const current = parseJsonList(project[field]);
+        if (current.includes(trimmed)) return; // Không duplicate
+        const updated = JSON.stringify([...current, trimmed]);
+        setProject(prev => ({ ...prev, [field]: updated }));
+    };
+
+    const removeFromList = (field: 'phases' | 'disciplines' | 'areas', value: string) => {
+        const current = parseJsonList(project[field]);
+        const updated = JSON.stringify(current.filter(item => item !== value));
+        setProject(prev => ({ ...prev, [field]: updated }));
+    };
+
 
     // Callback để tự động lưu project khi tạo task (nếu project chưa được lưu)
     const handleAutoSaveProject = useCallback(async (): Promise<string | null> => {
@@ -1044,9 +1074,164 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                         />
                                     </div>
 
+                                    {/* ─── Setup Danh sách Công việc ───────────────────────────────── */}
+                                    <div className="border border-blue-100 bg-gradient-to-br from-blue-50/60 to-indigo-50/60 rounded-2xl p-5 space-y-5">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-base">⚙️</span>
+                                            <h3 className="text-sm font-bold text-gray-800">Setup Danh sách Công việc</h3>
+                                            <span className="text-xs text-gray-500 font-normal">— Dùng khi tạo Task để chọn nhanh thay vì nhập tay</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                            {/* Giai đoạn */}
+                                            <div className="space-y-2">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 uppercase tracking-wider">
+                                                    <span>🏗️</span> Giai đoạn
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={phaseInput}
+                                                        onChange={e => setPhaseInput(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                addToList('phases', phaseInput);
+                                                                setPhaseInput('');
+                                                            }
+                                                        }}
+                                                        placeholder="VD: Thiết kế cơ sở..."
+                                                        className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { addToList('phases', phaseInput); setPhaseInput(''); }}
+                                                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition-colors"
+                                                    >+</button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                                                    {parseJsonList(project.phases).map((item) => (
+                                                        <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                                                            {item}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeFromList('phases', item)}
+                                                                className="ml-0.5 text-indigo-500 hover:text-red-600 transition-colors font-bold leading-none"
+                                                            >×</button>
+                                                        </span>
+                                                    ))}
+                                                    {parseJsonList(project.phases).length === 0 && (
+                                                        <p className="text-xs text-gray-400 italic">Chưa có giai đoạn nào</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Bộ môn */}
+                                            <div className="space-y-2">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 uppercase tracking-wider">
+                                                    <span>📐</span> Bộ môn
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={disciplineInput}
+                                                        onChange={e => setDisciplineInput(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                addToList('disciplines', disciplineInput);
+                                                                setDisciplineInput('');
+                                                            }
+                                                        }}
+                                                        placeholder="VD: Kiến trúc, MEP..."
+                                                        className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-400 focus:border-transparent bg-white"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { addToList('disciplines', disciplineInput); setDisciplineInput(''); }}
+                                                        className="px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm font-semibold transition-colors"
+                                                    >+</button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                                                    {parseJsonList(project.disciplines).map((item) => (
+                                                        <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 bg-violet-100 text-violet-800 rounded-full text-xs font-medium">
+                                                            {item}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeFromList('disciplines', item)}
+                                                                className="ml-0.5 text-violet-500 hover:text-red-600 transition-colors font-bold leading-none"
+                                                            >×</button>
+                                                        </span>
+                                                    ))}
+                                                    {parseJsonList(project.disciplines).length === 0 && (
+                                                        <p className="text-xs text-gray-400 italic">Chưa có bộ môn nào</p>
+                                                    )}
+                                                </div>
+                                                {/* Gợi ý mặc định */}
+                                                <div className="flex flex-wrap gap-1">
+                                                    {['Kiến trúc', 'Kết cấu', 'MEP', 'Điện', 'Nước', 'PCCC'].filter(s => !parseJsonList(project.disciplines).includes(s)).map(s => (
+                                                        <button
+                                                            key={s}
+                                                            type="button"
+                                                            onClick={() => addToList('disciplines', s)}
+                                                            className="px-2 py-0.5 text-[10px] border border-violet-200 text-violet-600 rounded-full hover:bg-violet-50 transition-colors"
+                                                        >{s}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Khu vực / Vị trí */}
+                                            <div className="space-y-2">
+                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-teal-700 uppercase tracking-wider">
+                                                    <span>📍</span> Khu vực / Vị trí
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={areaInput}
+                                                        onChange={e => setAreaInput(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                addToList('areas', areaInput);
+                                                                setAreaInput('');
+                                                            }
+                                                        }}
+                                                        placeholder="VD: Tầng hầm, Block A..."
+                                                        className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent bg-white"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { addToList('areas', areaInput); setAreaInput(''); }}
+                                                        className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-semibold transition-colors"
+                                                    >+</button>
+                                                </div>
+                                                <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                                                    {parseJsonList(project.areas).map((item) => (
+                                                        <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-medium">
+                                                            {item}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeFromList('areas', item)}
+                                                                className="ml-0.5 text-teal-500 hover:text-red-600 transition-colors font-bold leading-none"
+                                                            >×</button>
+                                                        </span>
+                                                    ))}
+                                                    {parseJsonList(project.areas).length === 0 && (
+                                                        <p className="text-xs text-gray-400 italic">Chưa có khu vực nào</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500">
+                                            💡 Nhập tên và nhấn <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Enter</kbd> hoặc bấm <strong>+</strong> để thêm. Danh sách này sẽ xuất hiện dạng dropdown khi tạo/sửa Task trong dự án.
+                                        </p>
+                                    </div>
+
                                     {!isNew && (
                                         <div className="mt-6">
                                             {!isDeleteSectionOpen ? (
+
                                                 <button
                                                     type="button"
                                                     onClick={() => setIsDeleteSectionOpen(true)}
