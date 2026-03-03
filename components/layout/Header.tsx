@@ -358,7 +358,7 @@ export default function Header() {
         void performSearch();
     }, [debouncedSearchQuery, isDashboard]);
 
-    return (
+    return (<>
         <header className="bg-white border-b border-gray-200 px-4 py-1.5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0 flex items-center gap-3">
