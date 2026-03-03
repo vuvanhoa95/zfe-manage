@@ -244,9 +244,18 @@ function ChecklistPanel({
         return m;
     }, [templates]);
 
+    // Đánh số thứ tự toàn bộ tasks (1, 2, 3...)
+    const taskIndexMap = useMemo(() => {
+        const m = new Map<string, number>();
+        let idx = 1;
+        templates.forEach(t => { m.set(t.id, idx++); });
+        return m;
+    }, [templates]);
+
     const DisciplineBadge = ({ d }: { d: string }) => (
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${disciplineColors[d] || disciplineColors.ALL}`}>{d}</span>
     );
+
 
     return (
         <div className="space-y-1.5">
@@ -287,8 +296,11 @@ function ChecklistPanel({
                                             <div className="flex items-center gap-2.5 px-4 py-2.5">
                                                 <input type="checkbox" checked={isSel} onChange={() => onToggleTask(task.id)}
                                                     className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0 cursor-pointer" />
-                                                <button type="button" onClick={() => onToggleExpand(task.id)} className="flex-1 flex items-center gap-2 text-left">
+                                                     <button type="button" onClick={() => onToggleExpand(task.id)} className="flex-1 flex items-center gap-2 text-left">
                                                     {isExp ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                                                    <span className={`text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded flex-shrink-0 ${isSel ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                                        {taskIndexMap.get(task.id)}
+                                                    </span>
                                                     <span className={`text-sm flex-1 ${isSel ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{task.title}</span>
                                                 </button>
                                                 <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -813,7 +825,7 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                         </div>
                                         <div className="flex flex-wrap gap-1.5 mb-2">
                                             {BIM_QUICK_PROMPTS.map((p, i) => (
-                                                <button key={i} type="button" onClick={() => sendBimChat(p)} disabled={bimChatLoading}
+                                                <button key={i} type="button" onClick={() => { setBimChatInput(p); setTimeout(() => bimChatRef.current?.focus(), 50); }} disabled={bimChatLoading}
                                                     className="text-xs px-2.5 py-1 rounded-full border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-100 disabled:opacity-50 transition-colors">
                                                     {p}
                                                 </button>
@@ -880,7 +892,7 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                         <p className="text-xs font-semibold text-purple-700 mb-2">💬 Chat với AI để thêm tasks quản lý khác</p>
                                         <div className="flex flex-wrap gap-1.5 mb-2">
                                             {QUICK_PROMPTS.map((p, i) => (
-                                                <button key={i} type="button" onClick={() => sendChat(p)} disabled={chatLoading}
+                                                <button key={i} type="button" onClick={() => { setChatInput(p); setTimeout(() => inputRef.current?.focus(), 50); }} disabled={chatLoading}
                                                     className="text-xs px-2.5 py-1 rounded-full border border-purple-200 text-purple-700 bg-white hover:bg-purple-100 disabled:opacity-50 transition-colors">
                                                     {p}
                                                 </button>

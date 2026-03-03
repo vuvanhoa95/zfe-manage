@@ -15,9 +15,6 @@ async function getPuppeteer() {
     if (isVercel) {
       puppeteer = await import('puppeteer-core');
       chromium = await import('@sparticuz/chromium');
-      // setGraphicsMode là PROPERTY, không phải function!
-      // Tắt WebGL để giảm memory usage trên serverless
-      chromium.setGraphicsMode = false;
     } else {
       puppeteer = await import('puppeteer');
     }
