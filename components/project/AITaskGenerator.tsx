@@ -393,35 +393,38 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
 
                         {/* ⚡ Per-phase AI mini chat box */}
                         {isChatOpen && (
-                            <div className="px-3 py-2 bg-indigo-50/80 border-t border-indigo-100 flex gap-2 items-center">
-                                <Wand2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                                <input
-                                    type="text"
-                                    value={chatInput}
-                                    onChange={e => setPhaseChatInputs(prev => { const m = new Map(prev); m.set(phase, e.target.value); return m; })}
-                                    onKeyDown={e => e.key === 'Enter' && sendPhaseAI(phase, tasks)}
-                                    placeholder={`VD: "chia đều mỗi subtask 3 ngày", "đặt tên theo ISO 19650 tầng B1-RF"...`}
-                                    disabled={isChatLoading}
-                                    autoFocus
-                                    className="flex-1 px-2.5 py-1.5 text-xs border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white disabled:opacity-60"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => sendPhaseAI(phase, tasks)}
-                                    disabled={!chatInput.trim() || isChatLoading}
-                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
-                                >
-                                    {isChatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                                    Sửa
-                                </button>
-                            </div>
-                            {phaseError && (
-                                <div className="px-3 py-1.5 bg-red-50 border-t border-red-100 flex items-center gap-1.5">
-                                    <span className="text-[11px] text-red-600 flex-1">⚠️ {phaseError}</span>
-                                    <button type="button" onClick={() => setPhaseChatErrors(prev => { const m = new Map(prev); m.delete(phase); return m; })} className="text-red-400 hover:text-red-600 text-sm font-bold">×</button>
+                            <>
+                                <div className="px-3 py-2 bg-indigo-50/80 border-t border-indigo-100 flex gap-2 items-center">
+                                    <Wand2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={e => setPhaseChatInputs(prev => { const m = new Map(prev); m.set(phase, e.target.value); return m; })}
+                                        onKeyDown={e => e.key === 'Enter' && sendPhaseAI(phase, tasks)}
+                                        placeholder={`VD: "chia đều mỗi subtask 3 ngày", "đặt tên theo ISO 19650 tầng B1-RF"...`}
+                                        disabled={isChatLoading}
+                                        autoFocus
+                                        className="flex-1 px-2.5 py-1.5 text-xs border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white disabled:opacity-60"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => sendPhaseAI(phase, tasks)}
+                                        disabled={!chatInput.trim() || isChatLoading}
+                                        className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
+                                    >
+                                        {isChatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                        Sửa
+                                    </button>
                                 </div>
-                            )}
+                                {phaseError && (
+                                    <div className="px-3 py-1.5 bg-red-50 border-t border-red-100 flex items-center gap-1.5">
+                                        <span className="text-[11px] text-red-600 flex-1">⚠️ {phaseError}</span>
+                                        <button type="button" onClick={() => setPhaseChatErrors(prev => { const m = new Map(prev); m.delete(phase); return m; })} className="text-red-400 hover:text-red-600 text-sm font-bold">×</button>
+                                    </div>
+                                )}
+                            </>
                         )}
+
 
                         {phaseExp && (
                             <div className="divide-y divide-gray-100">

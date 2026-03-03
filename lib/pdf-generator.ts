@@ -4,6 +4,7 @@ import { formatVND } from './number-to-words-vn';
 import { QuotationWithRelations } from '@/types/quotation';
 
 // Dynamic imports for Vercel compatibility
+// Use eval() to prevent webpack/turbopack from statically analyzing these imports
 let puppeteer: any;
 let chromium: any;
 
@@ -13,19 +14,20 @@ const isVercel = !!(process.env.VERCEL === '1' || process.env.VERCEL_ENV);
 async function getPuppeteer() {
   if (!puppeteer) {
     if (isVercel) {
-      // Dynamic import trả về ES module wrapper, cần unwrap .default
-      const puppeteerMod = await import('puppeteer-core');
+      // Use eval to bypass bundler static analysis — these packages only exist at Vercel runtime
+      const puppeteerMod = await eval("import('puppeteer-core')");
       puppeteer = puppeteerMod.default || puppeteerMod;
-      const chromiumMod = await import('@sparticuz/chromium');
+      const chromiumMod = await eval("import('@sparticuz/chromium')");
       chromium = chromiumMod.default || chromiumMod;
       console.log('[PDF] Chromium module keys:', Object.keys(chromium).join(', '));
     } else {
-      const puppeteerMod = await import('puppeteer');
+      const puppeteerMod = await eval("import('puppeteer')");
       puppeteer = puppeteerMod.default || puppeteerMod;
     }
   }
   return { puppeteer, chromium };
 }
+
 
 function escapeHtml(value: string) {
   if (!value) return '';
