@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
+import { requirePermission, requireAuth, ApiAuthError } from '@/lib/api-auth';
 const UserStatus = { ACTIVE: 'ACTIVE', PENDING: 'PENDING', SUSPENDED: 'SUSPENDED' } as const;
 
 /**
@@ -23,11 +22,8 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Kiểm tra authentication
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ success: false, error: 'Chưa đăng nhập' }, { status: 401 });
-        }
+        // Kiểm tra authentication — mọi user đã login đều có thể xem danh sách
+        const currentUser = await requireAuth();
 
         const { searchParams } = new URL(request.url);
         const search = searchParams.get('search');
@@ -135,11 +131,8 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const { prisma } = await import('@/lib/prisma');
-        const session = await getServerSession(authOptions);
-
-        if (!session?.user || (session.user as any).role !== 'ADMIN') {
-            return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-        }
+        // Chỉ ADMIN mới toggle status
+        const session = await requirePermission('user:toggle_status');
 
         const body = await request.json();
         const { userId, status } = body;
@@ -183,11 +176,8 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const { prisma } = await import('@/lib/prisma');
-        const session = await getServerSession(authOptions);
-
-        if (!session?.user || (session.user as any).role !== 'ADMIN') {
-            return NextResponse.json({ success: false, error: 'Không có quyền thực hiện' }, { status: 401 });
-        }
+        // Chỉ ADMIN mới xóa user
+        const session = await requirePermission('user:delete');
 
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
@@ -197,11 +187,11 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Không cho xóa chính mình
-        if ((session.user as any).id === userId) {
+        if (session.id === userId) {
             return NextResponse.json({ success: false, error: 'Không thể xóa tài khoản đang đăng nhập' }, { status: 400 });
         }
 
-        const adminId = (session.user as any).id as string;
+        const adminId = session.id;
 
         // Kiểm tra user tồn tại
         const targetUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -285,6 +275,9 @@ export async function DELETE(request: NextRequest) {
             message: `Đã xóa user ${targetUser.email}`,
         });
     } catch (error: any) {
+        if (error instanceof ApiAuthError) {
+            return NextResponse.json({ success: false, error: error.message }, { status: error.statusCode });
+        }
         console.error('[API] Failed to delete user:', error);
         return NextResponse.json(
             { success: false, error: error.message || 'Lỗi khi xóa user' },

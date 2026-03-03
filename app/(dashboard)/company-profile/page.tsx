@@ -210,7 +210,7 @@ export default function CompanyProfilePage() {
                                     )}
                                 </div>
                             </div>
-                            {profile.logoUrl && (
+                            {profile.logoUrl && !profile.logoUrl.startsWith('data:') && (
                                 <p className="mt-2 text-xs text-gray-500 break-all">
                                     URL: <span className="font-mono">{profile.logoUrl}</span>
                                 </p>
