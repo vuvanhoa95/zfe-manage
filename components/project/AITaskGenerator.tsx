@@ -1,24 +1,27 @@
 'use client';
 
 /**
- * AITaskGenerator v2 — Chat-first flow
+ * AITaskGenerator v3 — Guided Wizard Flow
  *
- * Step 1: CHAT  → User cung cấp thêm thông tin qua hội thoại với AI
- * Step 2: PREVIEW → AI generate tasks dựa trên toàn bộ hội thoại, user tick chọn
+ * AI tự phân tích thông tin đã có → hỏi đúng những gì còn thiếu
+ * → Mỗi câu hỏi kèm chips gợi ý để click chọn → không cần gõ nhiều
+ *
+ * Step 1: WIZARD  → AI hỏi từng câu, user click chip hoặc gõ tự do
+ * Step 2: PREVIEW → AI generate tasks phù hợp, user tick chọn
  * Step 3: IMPORT  → Lưu vào DB với progress bar
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
     Wand2, X, ChevronDown, ChevronRight, Check,
-    Loader2, AlertCircle, Send, MessageSquare, ArrowRight,
+    Loader2, ArrowRight, MessageSquare, RefreshCw,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-interface ChatMessage {
-    role: 'user' | 'assistant';
-    content: string;
+interface WizardAnswer {
+    question: string;
+    answer: string;
 }
 
 interface GeneratedSubTask {
@@ -47,6 +50,95 @@ interface AITaskGeneratorProps {
     onClose: () => void;
 }
 
+// ─── Smart Questions ──────────────────────────────────────────────────────────
+// Mỗi câu hỏi có chips gợi ý để user click chọn
+
+interface SmartQuestion {
+    key: string;
+    question: string;
+    chips: string[];         // Gợi ý click nhanh
+    freeInput?: boolean;     // Cho phép tự gõ thêm
+    placeholder?: string;
+    skipIf?: (info: ProjectInfo) => boolean; // Bỏ qua nếu đã có thông tin
+}
+
+interface ProjectInfo {
+    name?: string;
+    description?: string;
+    location?: string;
+    totalArea?: number;
+}
+
+function buildQuestions(info: ProjectInfo): SmartQuestion[] {
+    return [
+        {
+            key: 'buildingType',
+            question: '🏗️ Loại công trình này là gì?',
+            chips: [
+                'Nhà ở, biệt thự, nhà phố',
+                'Căn hộ chung cư, cao tầng',
+                'Resort, khách sạn',
+                'Văn phòng, tòa nhà thương mại',
+                'Trung tâm thương mại',
+                'Nhà máy, kho xưởng công nghiệp',
+                'Công trình hạ tầng, cầu đường',
+                'Bệnh viện, trường học',
+            ],
+            freeInput: true,
+            placeholder: 'Hoặc nhập loại công trình khác...',
+        },
+        {
+            key: 'bimScope',
+            question: '📐 Phạm vi BIM cần thực hiện?',
+            chips: [
+                'BIM 3D - Đủ cả ARC + STR + MEP',
+                'Chỉ BIM kiến trúc (ARC)',
+                'Chỉ BIM kết cấu (STR)',
+                'ARC + STR (không MEP)',
+                'ARC + STR + MEP + CIV (đầy đủ)',
+                'BIM phối hợp + phát hiện xung đột',
+            ],
+        },
+        {
+            key: 'deliverables',
+            question: '📦 Sản phẩm bàn giao cuối cùng?',
+            chips: [
+                'Model BIM LOD 200 (thiết kế cơ sở)',
+                'Model BIM LOD 300 (thiết kế chi tiết)',
+                'Model + Shopdrawing đầy đủ',
+                'Model + Shopdrawing + As-built',
+                'Chỉ bản vẽ 2D từ BIM',
+                'Báo cáo phối hợp (Clash Detection)',
+            ],
+        },
+        {
+            key: 'timeline',
+            question: '⏱️ Timeline thực hiện dự kiến?',
+            chips: [
+                '1-2 tháng (dự án nhỏ)',
+                '3-6 tháng',
+                '6-12 tháng',
+                'Trên 12 tháng (dự án lớn)',
+                'Chưa xác định',
+            ],
+        },
+        {
+            key: 'special',
+            question: '⭐ Yêu cầu đặc biệt nào không?',
+            chips: [
+                'Không có yêu cầu đặc biệt',
+                'Cần BIM Execution Plan (BEP)',
+                'Phối hợp với nhiều đơn vị thiết kế',
+                'Export IFC để tích hợp phần mềm khác',
+                'Cần họp phối hợp định kỳ hàng tuần',
+                'Dự án có vốn đầu tư nước ngoài (tiêu chuẩn quốc tế)',
+            ],
+            freeInput: true,
+            placeholder: 'Hoặc bổ sung yêu cầu khác...',
+        },
+    ];
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const disciplineColors: Record<string, string> = {
@@ -63,16 +155,6 @@ const priorityColors: Record<string, string> = {
     LOW: 'text-green-600',
 };
 
-// Gợi ý câu hỏi nhanh để user click luôn
-const QUICK_PROMPTS = [
-    'Công trình dân dụng (nhà ở, căn hộ, resort)',
-    'Công trình thương mại (văn phòng, trung tâm thương mại)',
-    'Công trình công nghiệp (nhà máy, kho xưởng)',
-    'Chỉ cần BIM LOD 200, không shopdrawing',
-    'Cần đủ cả ARC + STR + MEP + CIV',
-    'Dự án nhỏ, ưu tiên nhanh trong 3 tháng',
-];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AITaskGenerator({
@@ -84,127 +166,72 @@ export default function AITaskGenerator({
     onTasksImported,
     onClose,
 }: AITaskGeneratorProps) {
-    // flow steps
-    const [step, setStep] = useState<'chat' | 'generating' | 'preview' | 'importing' | 'done'>('chat');
+    const projectInfo: ProjectInfo = { name: projectName, description: projectDescription, location: projectLocation, totalArea };
+    const questions = buildQuestions(projectInfo);
 
-    // chat state
-    const [messages, setMessages] = useState<ChatMessage[]>([
-        {
-            role: 'assistant',
-            content: `Tôi sẽ giúp bạn tạo danh sách tasks BIM cho dự án **"${projectName || 'chưa đặt tên'}"**.
+    const [step, setStep] = useState<'wizard' | 'generating' | 'preview' | 'importing' | 'done'>('wizard');
+    const [currentQ, setCurrentQ] = useState(0);
+    const [answers, setAnswers] = useState<WizardAnswer[]>([]);
+    const [freeInput, setFreeInput] = useState('');
+    const [selectedChip, setSelectedChip] = useState<string | null>(null);
 
-Để tổng hợp đúng nhất, hãy cho tôi biết thêm về dự án:
-• Loại công trình (nhà ở, văn phòng, nhà máy...)?
-• Phạm vi BIM cần làm (LOD, bộ môn ARC/STR/MEP/CIV)?
-• Timeline dự kiến hoặc yêu cầu đặc biệt nào không?
-
-Bạn có thể gõ hoặc chọn gợi ý phía dưới.`,
-        },
-    ]);
-    const [inputValue, setInputValue] = useState('');
-    const [isChatLoading, setIsChatLoading] = useState(false);
-
-    // preview/import state
+    // preview/import
     const [tasks, setTasks] = useState<GeneratedTask[]>([]);
     const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
     const [expanded, setExpanded] = useState<Set<number>>(new Set());
     const [error, setError] = useState<string | null>(null);
     const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
 
-    const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const summaryRef = useRef<HTMLDivElement>(null);
 
-    // Auto scroll to bottom of chat
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        setSelectedChip(null);
+        setFreeInput('');
+        inputRef.current?.focus();
+    }, [currentQ]);
 
-    // ─── Chat ─────────────────────────────────────────────────────────────
+    const curQuestion = questions[currentQ];
+    const isLastQ = currentQ === questions.length - 1;
 
-    const systemContext = `Bạn là chuyên gia BIM với 15 năm kinh nghiệm tại Việt Nam, đang tư vấn cho dự án:
-Tên: ${projectName || 'Chưa đặt tên'}
-${projectDescription ? `Mô tả: ${projectDescription}` : ''}
-${projectLocation ? `Địa điểm: ${projectLocation}` : ''}
-${totalArea ? `Diện tích: ${totalArea.toLocaleString('vi-VN')} m²` : ''}
+    // ─── Answer a question ───────────────────────────────────────────────────
 
-Hỏi thêm user nếu chưa đủ thông tin, trả lời ngắn gọn bằng tiếng Việt. 
-Khi user đã cung cấp đủ thông tin về loại công trình và phạm vi BIM, hãy nhắc user nhấn nút "Tạo Tasks ngay" để generate.`;
+    const submitAnswer = (answer: string) => {
+        if (!answer.trim()) return;
+        const newAnswers = [...answers, { question: curQuestion.question, answer: answer.trim() }];
+        setAnswers(newAnswers);
 
-    const sendMessage = async (content: string) => {
-        if (!content.trim() || isChatLoading) return;
-
-        const userMsg: ChatMessage = { role: 'user', content: content.trim() };
-        const newMessages = [...messages, userMsg];
-        setMessages(newMessages);
-        setInputValue('');
-        setIsChatLoading(true);
-
-        try {
-            const res = await fetch('/api/ai/task-chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: newMessages,
-                    systemPrompt: systemContext,
-                }),
-            });
-
-            if (!res.ok) throw new Error('Lỗi kết nối AI');
-            const data = await res.json();
-            const aiReply = data.message || 'Tôi cần thêm thông tin để hỗ trợ bạn.';
-
-            setMessages(prev => [...prev, { role: 'assistant', content: aiReply }]);
-        } catch (err: any) {
-            setMessages(prev => [
-                ...prev,
-                { role: 'assistant', content: `⚠️ ${err.message || 'Lỗi kết nối, vui lòng thử lại'}` },
-            ]);
-        } finally {
-            setIsChatLoading(false);
-            inputRef.current?.focus();
+        if (isLastQ) {
+            generateTasks(newAnswers);
+        } else {
+            setCurrentQ(prev => prev + 1);
         }
     };
 
-    // ─── Generate tasks từ hội thoại ──────────────────────────────────────
+    const handleChipClick = (chip: string) => {
+        setSelectedChip(chip);
+        // Nếu không có free input → submit luôn
+        if (!curQuestion.freeInput) {
+            submitAnswer(chip);
+        }
+    };
 
-    const handleGenerate = async () => {
+    const handleSubmitWithOptionalFreeInput = () => {
+        const base = selectedChip || '';
+        const extra = freeInput.trim();
+        const final = extra ? (base ? `${base}; ${extra}` : extra) : base;
+        if (final) submitAnswer(final);
+    };
+
+    // ─── Generate tasks từ answers ───────────────────────────────────────────
+
+    const generateTasks = async (finalAnswers: WizardAnswer[]) => {
         setStep('generating');
         setError(null);
 
-        // Tóm tắt context từ toàn bộ hội thoại
-        const chatSummary = messages
-            .filter(m => m.role === 'user')
-            .map(m => m.content)
-            .join('\n');
-
-        const prompt = `Bạn là chuyên gia BIM. Dựa trên thông tin dự án và hội thoại với khách hàng, tạo danh sách tasks BIM phù hợp.
-
-=== THÔNG TIN DỰ ÁN ===
-Tên: ${projectName}
-${projectDescription ? `Mô tả: ${projectDescription}` : ''}
-${projectLocation ? `Địa điểm: ${projectLocation}` : ''}
-${totalArea ? `Diện tích: ${totalArea.toLocaleString('vi-VN')} m²` : ''}
-
-=== YÊU CẦU BỔ SUNG TỪ KHÁCH HÀNG ===
-${chatSummary || '(Chưa có yêu cầu bổ sung)'}
-
-Tạo 5-8 công việc cha (giai đoạn chính), mỗi công việc có 3-5 subtasks.
-Bộ môn: ARC (kiến trúc), STR (kết cấu), MEP (cơ điện), CIV (hạ tầng).
-
-Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
-[
-  {
-    "title": "Tên giai đoạn",
-    "description": "Mô tả ngắn",
-    "phase": "Khảo sát / Thiết kế / Shopdrawing / ...",
-    "discipline": "ARC|STR|MEP|CIV|ALL",
-    "priority": "HIGH|MEDIUM|LOW",
-    "estimatedDays": 14,
-    "subtasks": [
-      { "title": "Tên subtask", "discipline": "ARC", "estimatedDays": 5 }
-    ]
-  }
-]`;
+        const context = finalAnswers
+            .map(a => `${a.question}\n→ ${a.answer}`)
+            .join('\n\n');
 
         try {
             const res = await fetch('/api/ai/generate-tasks', {
@@ -215,8 +242,7 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
                     description: projectDescription,
                     location: projectLocation,
                     totalArea,
-                    chatContext: chatSummary, // TRUYỀN THÊM CONTEXT TỪ CHAT
-                    customPrompt: prompt,
+                    chatContext: context,
                 }),
             });
             const data = await res.json();
@@ -229,11 +255,20 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
             setStep('preview');
         } catch (err: any) {
             setError(err.message || 'Không thể tạo tasks');
-            setStep('chat');
+            setStep('wizard');
         }
     };
 
-    // ─── Import tasks vào DB ───────────────────────────────────────────────
+    const handleRestart = () => {
+        setAnswers([]);
+        setCurrentQ(0);
+        setFreeInput('');
+        setSelectedChip(null);
+        setError(null);
+        setStep('wizard');
+    };
+
+    // ─── Import ──────────────────────────────────────────────────────────────
 
     const handleImport = async () => {
         const toImport = tasks.filter((_, i) => selectedTasks.has(i));
@@ -291,8 +326,6 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
         setTimeout(() => { onTasksImported(); onClose(); }, 1500);
     };
 
-    // ─── Helpers ──────────────────────────────────────────────────────────
-
     const toggleTask = (idx: number) => setSelectedTasks(prev => {
         const s = new Set(prev); s.has(idx) ? s.delete(idx) : s.add(idx); return s;
     });
@@ -300,46 +333,36 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
         const s = new Set(prev); s.has(idx) ? s.delete(idx) : s.add(idx); return s;
     });
 
-    // Render markdown-lite (chỉ bold và bullet)
-    const renderMd = (text: string) => {
-        return text.split('\n').map((line, i) => {
-            const bold = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-            const bullet = bold.startsWith('•') ? `<span class="pl-3">${bold}</span>` : bold;
-            return <p key={i} className="leading-relaxed" dangerouslySetInnerHTML={{ __html: bullet }} />;
-        });
-    };
-
-    // ─── Render ───────────────────────────────────────────────────────────
-
-    const modalSize = step === 'chat' ? 'max-w-2xl' : 'max-w-2xl';
+    // ─── Render ──────────────────────────────────────────────────────────────
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60] animate-in fade-in duration-200">
-            <div className={`bg-white rounded-2xl shadow-2xl w-full ${modalSize} max-h-[90vh] flex flex-col overflow-hidden`}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
-                            {step === 'chat' ? <MessageSquare className="w-4 h-4 text-white" /> : <Wand2 className="w-4 h-4 text-white" />}
+                            <Wand2 className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold text-gray-900">
-                                {step === 'chat' && '✨ AI Tạo Tasks — Chat để làm rõ yêu cầu'}
-                                {step === 'generating' && 'AI đang tạo danh sách tasks...'}
-                                {step === 'preview' && 'Xem & chọn tasks để import'}
-                                {step === 'importing' && 'Đang lưu vào hệ thống...'}
-                                {step === 'done' && 'Import hoàn tất!'}
-                            </h2>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                {(['chat', 'preview', 'done'] as const).map((s, i) => (
-                                    <React.Fragment key={s}>
-                                        <span className={`text-[10px] font-semibold ${step === s || (step === 'generating' && s === 'preview') ? 'text-indigo-600' : step === 'done' ? 'text-emerald-600' : 'text-gray-400'}`}>
-                                            {i + 1}. {s === 'chat' ? 'Trao đổi' : s === 'preview' ? 'Xem & chọn' : 'Xong'}
-                                        </span>
-                                        {i < 2 && <span className="text-gray-300 text-[10px]">→</span>}
-                                    </React.Fragment>
+                            <h2 className="text-base font-bold text-gray-900">✨ AI Tạo Tasks BIM</h2>
+                            {/* Progress dots */}
+                            <div className="flex items-center gap-1 mt-1">
+                                {step === 'wizard' && questions.map((_, i) => (
+                                    <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${
+                                        i < currentQ ? 'bg-indigo-600 w-4' :
+                                        i === currentQ ? 'bg-indigo-400 w-3' :
+                                        'bg-gray-200 w-2'
+                                    }`} />
                                 ))}
+                                {step !== 'wizard' && (
+                                    <span className="text-xs text-indigo-600 font-semibold">
+                                        {step === 'generating' ? 'Đang tạo tasks...' :
+                                         step === 'preview' ? 'Xem & chọn tasks' :
+                                         step === 'importing' ? 'Đang lưu...' : 'Hoàn tất!'}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -348,137 +371,202 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
                     </button>
                 </div>
 
-                {/* ══════════ STEP 1: CHAT ══════════ */}
-                {step === 'chat' && (
+                {/* ══════════ WIZARD ══════════ */}
+                {step === 'wizard' && (
                     <>
-                        {/* Info bar */}
-                        <div className="px-4 py-2 bg-indigo-600/5 border-b border-indigo-100 flex-shrink-0">
-                            <p className="text-xs text-indigo-700">
-                                📋 Dự án: <strong>{projectName}</strong>
-                                {projectLocation && ` · 📍 ${projectLocation}`}
-                                {totalArea && ` · 📐 ${totalArea.toLocaleString('vi-VN')} m²`}
-                            </p>
-                        </div>
-
-                        {/* Chat messages */}
-                        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0">
-                            {messages.map((msg, idx) => (
-                                <div key={idx} className={`flex gap-2.5 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                                    {msg.role === 'assistant' && (
-                                        <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                            <span className="text-white text-[10px] font-bold">AI</span>
-                                        </div>
-                                    )}
-                                    <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm space-y-1 ${
-                                        msg.role === 'user'
-                                            ? 'bg-indigo-600 text-white rounded-tr-sm'
-                                            : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-                                    }`}>
-                                        {msg.role === 'assistant'
-                                            ? renderMd(msg.content)
-                                            : <p className="leading-relaxed">{msg.content}</p>
-                                        }
-                                    </div>
-                                </div>
-                            ))}
-                            {isChatLoading && (
-                                <div className="flex gap-2.5">
-                                    <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0">
-                                        <span className="text-white text-[10px] font-bold">AI</span>
-                                    </div>
-                                    <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5">
-                                        <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                        <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                        <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                    </div>
-                                </div>
-                            )}
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        {/* Quick prompts */}
-                        <div className="px-4 pb-2 flex-shrink-0">
-                            <div className="flex flex-wrap gap-1.5 mb-3">
-                                {QUICK_PROMPTS.map((prompt, i) => (
-                                    <button
-                                        key={i}
-                                        type="button"
-                                        onClick={() => sendMessage(prompt)}
-                                        disabled={isChatLoading}
-                                        className="text-xs px-2.5 py-1 rounded-full border border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-50"
-                                    >
-                                        {prompt}
-                                    </button>
-                                ))}
+                        {/* Project info bar */}
+                        <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-600/8 to-blue-600/5 border-b border-indigo-100 flex-shrink-0">
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                                <span>📋 <strong className="text-gray-800">{projectName || 'Dự án chưa đặt tên'}</strong></span>
+                                {projectLocation && <span>📍 {projectLocation}</span>}
+                                {totalArea && <span>📐 {totalArea.toLocaleString('vi-VN')} m²</span>}
+                                {projectDescription && (
+                                    <span className="truncate max-w-xs opacity-70">💬 {projectDescription}</span>
+                                )}
                             </div>
                         </div>
 
-                        {/* Error */}
-                        {error && (
-                            <div className="mx-4 mb-2 flex items-center gap-2 bg-red-50 text-red-700 text-xs px-3 py-2 rounded-xl flex-shrink-0">
-                                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
+                        {/* Answers so far (mini timeline) */}
+                        {answers.length > 0 && (
+                            <div ref={summaryRef} className="px-4 pt-3 flex-shrink-0">
+                                <div className="space-y-1.5">
+                                    {answers.map((a, i) => (
+                                        <div key={i} className="flex items-start gap-2 text-xs">
+                                            <span className="text-indigo-400 flex-shrink-0 mt-0.5">✓</span>
+                                            <span className="text-gray-500 flex-shrink-0">{a.question.replace(/^[^\s]+ /, '')}</span>
+                                            <span className="font-semibold text-gray-700 ml-auto text-right">{a.answer}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="border-t border-dashed border-gray-200 mt-3" />
                             </div>
                         )}
 
-                        {/* Input + Generate button */}
-                        <div className="p-4 border-t border-gray-100 flex-shrink-0 space-y-2">
-                            <div className="flex gap-2">
-                                <input
-                                    ref={inputRef}
-                                    type="text"
-                                    value={inputValue}
-                                    onChange={e => setInputValue(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && sendMessage(inputValue)}
-                                    placeholder="Nhập thông tin bổ sung về dự án..."
-                                    disabled={isChatLoading}
-                                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
-                                />
+                        {/* Current question */}
+                        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
+                            <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                        Câu {currentQ + 1}/{questions.length}
+                                    </span>
+                                </div>
+                                <p className="text-base font-semibold text-gray-900 leading-snug">
+                                    {curQuestion.question}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">Click chọn hoặc tự nhập bên dưới</p>
+                            </div>
+
+                            {/* Chips */}
+                            <div className="flex flex-wrap gap-2">
+                                {curQuestion.chips.map((chip, i) => (
+                                    <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => handleChipClick(chip)}
+                                        className={`px-3 py-2 text-sm rounded-xl border transition-all duration-150 text-left ${
+                                            selectedChip === chip
+                                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50'
+                                        }`}
+                                    >
+                                        {chip}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Free input (optional) */}
+                            {curQuestion.freeInput && (
+                                <div className="mt-3">
+                                    <input
+                                        ref={inputRef}
+                                        type="text"
+                                        value={freeInput}
+                                        onChange={e => setFreeInput(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleSubmitWithOptionalFreeInput()}
+                                        placeholder={curQuestion.placeholder || 'Nhập thêm nếu cần...'}
+                                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Error */}
+                            {error && (
+                                <div className="mt-3 flex items-center gap-2 bg-red-50 text-red-700 text-xs px-3 py-2 rounded-xl">
+                                    ⚠️ {error}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50 flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                                {currentQ > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setCurrentQ(prev => prev - 1); setAnswers(prev => prev.slice(0, -1)); }}
+                                        className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                                    >
+                                        ← Quay lại
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {/* Skip câu hỏi */}
                                 <button
                                     type="button"
-                                    onClick={() => sendMessage(inputValue)}
-                                    disabled={!inputValue.trim() || isChatLoading}
-                                    className="p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors"
+                                    onClick={() => {
+                                        const newAnswers = [...answers, { question: curQuestion.question, answer: 'Không yêu cầu cụ thể' }];
+                                        setAnswers(newAnswers);
+                                        if (isLastQ) generateTasks(newAnswers);
+                                        else setCurrentQ(prev => prev + 1);
+                                    }}
+                                    className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
                                 >
-                                    <Send className="w-4 h-4" />
+                                    Bỏ qua
                                 </button>
+
+                                {/* Nút tiếp / tạo tasks */}
+                                {curQuestion.freeInput ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleSubmitWithOptionalFreeInput}
+                                        disabled={!selectedChip && !freeInput.trim()}
+                                        className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors flex items-center gap-2"
+                                    >
+                                        {isLastQ ? (
+                                            <><Wand2 className="w-4 h-4" /> Tạo Tasks ngay</>
+                                        ) : (
+                                            <>Tiếp theo <ArrowRight className="w-4 h-4" /></>
+                                        )}
+                                    </button>
+                                ) : (
+                                    // Non-freeInput: chip click đã submit luôn, nút này chỉ submit nếu đã chọn chip
+                                    selectedChip && curQuestion.freeInput === undefined && (
+                                        <div className="text-xs text-indigo-500 italic">Tự động chuyển câu tiếp...</div>
+                                    )
+                                )}
+
+                                {/* Nút Tạo luôn không cần trả lời hết */}
+                                {!isLastQ && (
+                                    <button
+                                        type="button"
+                                        onClick={() => generateTasks(answers)}
+                                        className="text-sm text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-200 hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
+                                    >
+                                        <Wand2 className="w-3.5 h-3.5" /> Tạo luôn
+                                    </button>
+                                )}
                             </div>
-                            <button
-                                type="button"
-                                onClick={handleGenerate}
-                                disabled={isChatLoading}
-                                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
-                            >
-                                <Wand2 className="w-4 h-4" />
-                                Tạo Tasks ngay dựa trên thông tin vừa trao đổi
-                                <ArrowRight className="w-4 h-4" />
-                            </button>
                         </div>
                     </>
                 )}
 
-                {/* ══════════ STEP: GENERATING ══════════ */}
+                {/* ══════════ GENERATING ══════════ */}
                 {step === 'generating' && (
                     <div className="flex-1 flex flex-col items-center justify-center py-16">
-                        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-                        <p className="text-base font-semibold text-gray-700">AI đang phân tích & tạo tasks...</p>
-                        <p className="text-sm text-gray-400 mt-2">Dựa trên cuộc hội thoại + thông tin dự án</p>
+                        <div className="relative mb-6">
+                            <Loader2 className="w-14 h-14 text-indigo-600 animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Wand2 className="w-5 h-5 text-indigo-400" />
+                            </div>
+                        </div>
+                        <p className="text-base font-semibold text-gray-700">AI đang tạo danh sách tasks...</p>
+                        <p className="text-sm text-gray-400 mt-2">Dựa trên {answers.length} thông tin bạn đã cung cấp</p>
+                        {/* Summary chips */}
+                        <div className="flex flex-wrap gap-1.5 mt-4 max-w-sm justify-center">
+                            {answers.map((a, i) => (
+                                <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full">{a.answer}</span>
+                            ))}
+                        </div>
                     </div>
                 )}
 
-                {/* ══════════ STEP 2: PREVIEW ══════════ */}
+                {/* ══════════ PREVIEW ══════════ */}
                 {step === 'preview' && (
                     <>
                         <div className="flex-1 overflow-y-auto p-4 min-h-0">
+                            {/* Summary */}
+                            <div className="mb-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                                <p className="text-xs font-semibold text-indigo-700 mb-1.5">📋 Tạo dựa trên:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {answers.map((a, i) => (
+                                        <span key={i} className="text-xs bg-white border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">{a.answer}</span>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="flex items-center justify-between mb-3">
                                 <p className="text-sm text-gray-600">
-                                    AI đề xuất <strong>{tasks.length}</strong> giai đoạn, <strong>{tasks.reduce((a, t) => a + (t.subtasks?.length || 0), 0)}</strong> subtasks:
+                                    <strong>{tasks.length}</strong> giai đoạn · <strong>{tasks.reduce((a, t) => a + (t.subtasks?.length || 0), 0)}</strong> subtasks
                                 </p>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setSelectedTasks(new Set(tasks.map((_, i) => i)))} className="text-xs text-indigo-600 hover:underline">Chọn tất cả</button>
+                                    <button onClick={() => setSelectedTasks(new Set(tasks.map((_, i) => i)))} className="text-xs text-indigo-600 hover:underline">Tất cả</button>
                                     <span className="text-gray-300">|</span>
                                     <button onClick={() => setSelectedTasks(new Set())} className="text-xs text-gray-500 hover:underline">Bỏ chọn</button>
                                 </div>
                             </div>
+
                             <div className="space-y-2">
                                 {tasks.map((task, idx) => (
                                     <div key={idx} className={`border rounded-xl overflow-hidden transition-all ${selectedTasks.has(idx) ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-200 opacity-60'}`}>
@@ -489,11 +577,7 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
                                                 {expanded.has(idx) ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
                                                 <span className="font-semibold text-sm text-gray-900 flex-1">{task.title}</span>
                                                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                    {task.discipline && (
-                                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${disciplineColors[task.discipline] || 'bg-gray-100 text-gray-600'}`}>
-                                                            {task.discipline}
-                                                        </span>
-                                                    )}
+                                                    {task.discipline && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${disciplineColors[task.discipline] || 'bg-gray-100 text-gray-600'}`}>{task.discipline}</span>}
                                                     {task.estimatedDays && <span className="text-[10px] text-gray-400">{task.estimatedDays}d</span>}
                                                     {task.priority && <span className={`text-[10px] font-semibold ${priorityColors[task.priority] || ''}`}>{task.priority}</span>}
                                                 </div>
@@ -505,11 +589,7 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
                                                     <div key={si} className="flex items-center gap-2 py-1 pl-6">
                                                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
                                                         <span className="text-xs text-gray-700 flex-1">{sub.title}</span>
-                                                        {sub.discipline && (
-                                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${disciplineColors[sub.discipline] || 'bg-gray-100 text-gray-600'}`}>
-                                                                {sub.discipline}
-                                                            </span>
-                                                        )}
+                                                        {sub.discipline && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${disciplineColors[sub.discipline] || 'bg-gray-100 text-gray-600'}`}>{sub.discipline}</span>}
                                                         {sub.estimatedDays && <span className="text-[10px] text-gray-400">{sub.estimatedDays}d</span>}
                                                     </div>
                                                 ))}
@@ -521,29 +601,24 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
                         </div>
 
                         <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50 flex-shrink-0">
-                            <button onClick={() => setStep('chat')}
-                                className="text-sm text-gray-500 hover:text-indigo-600 flex items-center gap-1 transition-colors">
-                                ← Quay lại chat
+                            <button onClick={handleRestart} className="text-sm text-gray-500 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
+                                <RefreshCw className="w-3.5 h-3.5" /> Làm lại từ đầu
                             </button>
                             <div className="flex gap-2">
-                                <button onClick={handleGenerate}
-                                    className="text-sm text-gray-500 hover:text-indigo-600 flex items-center gap-1 transition-colors px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white">
+                                <button onClick={() => generateTasks(answers)} className="text-sm text-gray-500 hover:text-indigo-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white flex items-center gap-1.5">
                                     <Wand2 className="w-3.5 h-3.5" /> Tạo lại
                                 </button>
-                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-                                    Hủy
-                                </button>
+                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium">Hủy</button>
                                 <button onClick={handleImport} disabled={selectedTasks.size === 0}
                                     className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-2">
-                                    <Check className="w-4 h-4" />
-                                    Import {selectedTasks.size} giai đoạn
+                                    <Check className="w-4 h-4" /> Import {selectedTasks.size} giai đoạn
                                 </button>
                             </div>
                         </div>
                     </>
                 )}
 
-                {/* ══════════ STEP: IMPORTING ══════════ */}
+                {/* ══════════ IMPORTING ══════════ */}
                 {step === 'importing' && (
                     <div className="flex-1 flex flex-col items-center justify-center py-16">
                         <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
@@ -556,7 +631,7 @@ Trả về JSON array (KHÔNG markdown, KHÔNG giải thích):
                     </div>
                 )}
 
-                {/* ══════════ STEP: DONE ══════════ */}
+                {/* ══════════ DONE ══════════ */}
                 {step === 'done' && (
                     <div className="flex-1 flex flex-col items-center justify-center py-16">
                         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
