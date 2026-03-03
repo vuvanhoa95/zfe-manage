@@ -27,6 +27,7 @@ import {
     Upload,
     Download,
 } from 'lucide-react';
+import RiskBadge from '@/components/project/RiskBadge';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -55,7 +56,9 @@ type Project = {
     _count: {
         quotations: number;
         cashFlows: number;
+        tasks: number;
     };
+    tasks?: { status: string }[];
 };
 
 const getProjectImageUrl = (imageUrl?: string | null): string | null => {
@@ -744,6 +747,15 @@ export default function ProjectTab() {
                                                 >
                                                     {status.label}
                                                 </span>
+                                                {/* Phase 04: Risk Badge - chỉ hiện cho dự án đang chạy */}
+                                                {project.status === 'ACTIVE' && (
+                                                    <RiskBadge
+                                                        startDate={project.startDate}
+                                                        endDate={project.endDate}
+                                                        totalTasks={project.tasks?.length ?? 0}
+                                                        doneTasks={project.tasks?.filter(t => t.status === 'DONE' || t.status === 'COMPLETED').length ?? 0}
+                                                    />
+                                                )}
                                             </div>
 
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">

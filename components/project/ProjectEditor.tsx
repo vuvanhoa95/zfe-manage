@@ -132,6 +132,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [customers, setCustomers] = useState<ProjectCustomerOption[]>([]);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [projectDataCache, setProjectDataCache] = useState<unknown>(null); // Cache full project data for tabs
     const [deleteConfirmName, setDeleteConfirmName] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
@@ -783,12 +784,61 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                             </div>
 
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-sm font-medium text-gray-700">Mô tả</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            if (!project.name?.trim()) {
+                                                                alert('Vui lòng nhập tên dự án trước khi dùng AI viết mô tả');
+                                                                return;
+                                                            }
+                                                            setProject(prev => ({ ...prev, description: '' }));
+                                                            setIsGeneratingDesc(true);
+                                                            try {
+                                                                const res = await fetch('/api/ai/enhance-project-description', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        projectName: project.name,
+                                                                        location: project.location,
+                                                                        description: project.description,
+                                                                        totalArea: project.totalArea,
+                                                                    }),
+                                                                });
+                                                                if (!res.ok || !res.body) throw new Error('Lỗi kết nối AI');
+                                                                const reader = res.body.getReader();
+                                                                const decoder = new TextDecoder();
+                                                                let acc = '';
+                                                                while (true) {
+                                                                    const { done, value } = await reader.read();
+                                                                    if (done) break;
+                                                                    acc += decoder.decode(value, { stream: true });
+                                                                    setProject(prev => ({ ...prev, description: acc }));
+                                                                }
+                                                            } catch (err) {
+                                                                console.error('[AI Desc]', err);
+                                                            } finally {
+                                                                setIsGeneratingDesc(false);
+                                                            }
+                                                        }}
+                                                        disabled={isGeneratingDesc}
+                                                        title="AI tự động viết mô tả chuyên nghiệp từ tên & thông tin dự án"
+                                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold bg-gradient-to-r from-indigo-500 to-blue-600 text-white rounded-lg hover:from-indigo-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-wait transition-all shadow-sm"
+                                                    >
+                                                        {isGeneratingDesc ? (
+                                                            <><span className="animate-spin">⏳</span> Đang viết...</>
+                                                        ) : (
+                                                            <>✨ AI viết mô tả</>
+                                                        )}
+                                                    </button>
+                                                </div>
                                                 <textarea
                                                     value={project.description || ''}
                                                     onChange={(e) => setProject({ ...project, description: e.target.value })}
-                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
-                                                    placeholder="Mô tả về dự án"
+                                                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px] transition-colors ${isGeneratingDesc ? 'bg-indigo-50 border-indigo-200' : ''}`}
+                                                    placeholder={isGeneratingDesc ? '✨ AI đang viết mô tả...' : 'Mô tả về dự án (hoặc bấm ✨ AI viết mô tả)'}
+                                                    readOnly={isGeneratingDesc}
                                                 />
                                             </div>
                                         </div>

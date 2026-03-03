@@ -14,6 +14,8 @@ import PreviewTab from './PreviewTab';
 import CatalogTab from './CatalogTab';
 import VoiceInputModal from './VoiceInputModal';
 import AIAssistant from './AIAssistant';
+import TemplatePickerModal from './TemplatePickerModal';
+import SaveTemplateModal from './SaveTemplateModal';
 
 type WizardStep = 1 | 2 | 3 | 4;
 
@@ -177,6 +179,8 @@ export default function QuotationEditor({
     const [completedSteps, setCompletedSteps] = useState<Partial<Record<WizardStep, boolean>>>({});
     const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
     const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
+    const [showTemplatePickerModal, setShowTemplatePickerModal] = useState(false);
+    const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
 
     // Load existing quotation by id (ProjectEditor passes only id, not full quotation data)
     useEffect(() => {
@@ -360,81 +364,51 @@ export default function QuotationEditor({
         window.open(`/api/quotations/${id}/export-pdf`, '_blank');
     };
 
-    const handleSaveAsTemplate = async () => {
-        try {
-            const name = window.prompt('Nhập tên mẫu báo giá (ví dụ: BIM cơ bản, BIM cao cấp):', formData.title);
-            if (!name) return;
+    // Mở modal lưu template thay vì window.prompt
+    const handleSaveAsTemplate = () => {
+        setShowSaveTemplateModal(true);
+    };
 
-            const description = window.prompt('Mô tả ngắn cho mẫu (tùy chọn):', '');
+    const doSaveAsTemplate = async ({ name, description, category }: { name: string; description: string; category: string }) => {
+        const payload = {
+            name,
+            description: description || undefined,
+            category,
+            vatRate: formData.vatRate,
+            title: formData.title,
+            introText: formData.introText,
+            scopeText: formData.scopeText,
+            deliverablesText: formData.deliverablesText,
+            scheduleText: formData.scheduleText,
+            theme: formData.theme,
+            layoutTemplate: formData.templateId,
+            lines: formData.lines,
+            paymentMilestones: formData.paymentMilestones,
+        };
 
-            const payload = {
-                name,
-                description: description || undefined,
-                category: 'BIM_SERVICE',
-                vatRate: formData.vatRate,
-                title: formData.title,
-                introText: formData.introText,
-                scopeText: formData.scopeText,
-                deliverablesText: formData.deliverablesText,
-                scheduleText: formData.scheduleText,
-                theme: formData.theme,
-                layoutTemplate: formData.templateId,
-                lines: formData.lines,
-                paymentMilestones: formData.paymentMilestones,
-            };
+        const res = await fetch('/api/quotation-templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
 
-            const res = await fetch('/api/quotation-templates', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
-
-            const result = await res.json();
-            if (!res.ok || !result.success) {
-                throw new Error(result.error || 'Không thể lưu mẫu báo giá');
-            }
-
-            window.alert('Đã lưu báo giá hiện tại thành mẫu để tái sử dụng.');
-        } catch (error) {
-            console.error('Failed to save quotation as template:', error);
-            window.alert('Không thể lưu mẫu báo giá. Vui lòng thử lại.');
+        const result = await res.json();
+        if (!res.ok || !result.success) {
+            throw new Error(result.error || 'Không thể lưu mẫu báo giá');
         }
     };
 
-    const handleApplyTemplate = async () => {
+    // Mở modal chọn template thay vì window.prompt
+    const handleApplyTemplate = () => {
+        setShowTemplatePickerModal(true);
+    };
+
+    const doApplyTemplate = async (templateId: string) => {
+        setIsApplyingTemplate(true);
         try {
-            setIsApplyingTemplate(true);
-            const res = await fetch('/api/quotation-templates');
-            const result = await res.json();
-
-            if (!res.ok || !result.success || !Array.isArray(result.data) || result.data.length === 0) {
-                window.alert('Chưa có mẫu báo giá nào. Hãy lưu một báo giá thành mẫu trước.');
-                return;
-            }
-
-            const names: string[] = result.data.map((t: any) => `${t.name}`);
-            const choice = window.prompt(
-                `Chọn mẫu báo giá bằng cách nhập số thứ tự:\n${names
-                    .map((n, idx) => `${idx + 1}. ${n}`)
-                    .join('\n')}`,
-            );
-
-            if (!choice) return;
-            const index = parseInt(choice, 10) - 1;
-            if (Number.isNaN(index) || index < 0 || index >= result.data.length) {
-                window.alert('Lựa chọn không hợp lệ.');
-                return;
-            }
-
-            const selected = result.data[index] as { id: string };
-
-            const applyRes = await fetch(`/api/quotation-templates/${selected.id}/apply`, {
+            const applyRes = await fetch(`/api/quotation-templates/${templateId}/apply`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ totalArea: formData.totalArea }),
             });
 
@@ -443,15 +417,7 @@ export default function QuotationEditor({
                 throw new Error(applyResult.error || 'Không thể áp dụng mẫu báo giá');
             }
 
-            setFormData((prev) => ({
-                ...prev,
-                ...applyResult.data,
-            }));
-
-            window.alert('Đã áp dụng mẫu báo giá. Anh/chị có thể chỉnh sửa thêm trước khi lưu.');
-        } catch (error) {
-            console.error('Failed to apply quotation template:', error);
-            window.alert('Không thể áp dụng mẫu báo giá. Vui lòng thử lại.');
+            setFormData((prev) => ({ ...prev, ...applyResult.data }));
         } finally {
             setIsApplyingTemplate(false);
         }
@@ -999,6 +965,21 @@ export default function QuotationEditor({
                 }}
             />
             </div>
+
+            {/* Template Picker Modal */}
+            <TemplatePickerModal
+                isOpen={showTemplatePickerModal}
+                onClose={() => setShowTemplatePickerModal(false)}
+                onApply={doApplyTemplate}
+            />
+
+            {/* Save Template Modal */}
+            <SaveTemplateModal
+                isOpen={showSaveTemplateModal}
+                onClose={() => setShowSaveTemplateModal(false)}
+                onSave={doSaveAsTemplate}
+                defaultName={formData.title}
+            />
         </QuotationDataProvider>
     );
 }

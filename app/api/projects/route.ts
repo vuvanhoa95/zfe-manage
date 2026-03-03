@@ -83,7 +83,11 @@ export async function GET(request: NextRequest) {
                             },
                         },
                         _count: {
-                            select: { quotations: true, cashFlows: true },
+                            select: { quotations: true, cashFlows: true, tasks: true },
+                        },
+                        tasks: {
+                            select: { status: true },
+                            where: { parentId: null }, // Chỉ count top-level tasks
                         },
                     },
                     orderBy: {

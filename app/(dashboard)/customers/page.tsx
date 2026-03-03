@@ -3,6 +3,8 @@
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import CardScanner from '@/components/customer/CardScanner';
+import CompanyAutocomplete from '@/components/customer/CompanyAutocomplete';
+import type { CompanyInfo } from '@/app/api/ai/company-lookup/route';
 import { CreditCard } from 'lucide-react';
 
 type Customer = {
@@ -44,6 +46,24 @@ export default function CustomerListPage() {
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [formState, setFormState] = useState<CustomerFormState>(emptyCustomerForm);
     const [showScanner, setShowScanner] = useState(false);
+    // Phase 06: track fields being auto-filled by AI to show badge
+    const [aiFilled, setAiFilled] = useState<Set<keyof CustomerFormState>>(new Set());
+
+    const handleSelectCompany = (company: CompanyInfo) => {
+        const filled = new Set<keyof CustomerFormState>();
+        const updates: Partial<CustomerFormState> = { name: company.name };
+        if (company.taxCode) { updates.taxCode = company.taxCode; filled.add('taxCode'); }
+        if (company.address) { updates.address = company.address; filled.add('address'); }
+        if (company.phone)   { updates.phone = company.phone;     filled.add('phone'); }
+        if (company.email)   { updates.email = company.email;     filled.add('email'); }
+        if (company.province) { updates.location = company.province; filled.add('location'); }
+        setFormState(prev => ({ ...prev, ...updates }));
+        setAiFilled(filled);
+    };
+
+    const clearAiBadge = (field: keyof CustomerFormState) => {
+        setAiFilled(prev => { const s = new Set(prev); s.delete(field); return s; });
+    };
 
     const handleScanComplete = (data: any) => {
         setFormState({
@@ -260,57 +280,65 @@ export default function CustomerListPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Tên khách hàng *
+                                    <span className="ml-1 text-xs text-indigo-500 font-normal">(AI gợi ý khi đã nhập ≥3 ký tự)</span>
                                 </label>
-                                <input
+                                <CompanyAutocomplete
                                     required
-                                    type="text"
+                                    id="customer-name-input"
                                     value={formState.name}
-                                    onChange={(e) => setFormState({ ...formState, name: e.target.value })}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Ban quản lý dự án ..."
+                                    onChange={(v) => { setFormState({ ...formState, name: v }); setAiFilled(new Set()); }}
+                                    onSelect={handleSelectCompany}
+                                    placeholder="Ban quản lý dự án..."
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mã số thuế</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                                        Mã số thuế
+                                        {aiFilled.has('taxCode') && <span title="Được AI điền tự động" className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded font-bold">✨AI</span>}
+                                    </label>
                                     <input
                                         type="text"
                                         value={formState.taxCode}
-                                        onChange={(e) => setFormState({ ...formState, taxCode: e.target.value })}
+                                        onChange={(e) => { setFormState({ ...formState, taxCode: e.target.value }); clearAiBadge('taxCode'); }}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Điện thoại</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                                        Điện thoại
+                                        {aiFilled.has('phone') && <span title="Được AI điền tự động" className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded font-bold">✨AI</span>}
+                                    </label>
                                     <input
                                         type="text"
                                         value={formState.phone}
-                                        onChange={(e) => setFormState({ ...formState, phone: e.target.value })}
+                                        onChange={(e) => { setFormState({ ...formState, phone: e.target.value }); clearAiBadge('phone'); }}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                                    Địa chỉ
+                                    {aiFilled.has('address') && <span title="Được AI điền tự động" className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded font-bold">✨AI</span>}
+                                </label>
                                 <input
                                     type="text"
                                     value={formState.address}
-                                    onChange={(e) => setFormState({ ...formState, address: e.target.value })}
+                                    onChange={(e) => { setFormState({ ...formState, address: e.target.value }); clearAiBadge('address'); }}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Địa điểm</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                                        Địa điểm
+                                        {aiFilled.has('location') && <span title="Được AI điền tự động" className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded font-bold">✨AI</span>}
+                                    </label>
                                     <input
                                         type="text"
                                         value={formState.location}
-                                        onChange={(e) =>
-                                            setFormState({
-                                                ...formState,
-                                                location: e.target.value,
-                                            })
-                                        }
+                                        onChange={(e) => { setFormState({ ...formState, location: e.target.value }); clearAiBadge('location'); }}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                         placeholder="Hà Nội, TP. Hồ Chí Minh..."
                                     />
@@ -320,21 +348,19 @@ export default function CustomerListPage() {
                                     <input
                                         type="text"
                                         value={formState.contactName}
-                                        onChange={(e) =>
-                                            setFormState({
-                                                ...formState,
-                                                contactName: e.target.value,
-                                            })
-                                        }
+                                        onChange={(e) => setFormState({ ...formState, contactName: e.target.value })}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+                                        Email
+                                        {aiFilled.has('email') && <span title="Được AI điền tự động" className="text-[10px] bg-indigo-100 text-indigo-600 px-1 rounded font-bold">✨AI</span>}
+                                    </label>
                                     <input
                                         type="email"
                                         value={formState.email}
-                                        onChange={(e) => setFormState({ ...formState, email: e.target.value })}
+                                        onChange={(e) => { setFormState({ ...formState, email: e.target.value }); clearAiBadge('email'); }}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>

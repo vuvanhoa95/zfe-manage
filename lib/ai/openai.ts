@@ -24,7 +24,7 @@ export interface AIStreamOptions {
 // Initialize OpenAI client
 let openaiClient: OpenAI | null = null;
 
-function getOpenAIClient(): OpenAI {
+export function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
     const apiKey = process.env.OPENAI_API_KEY;
 

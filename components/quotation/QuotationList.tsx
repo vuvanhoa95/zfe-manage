@@ -40,6 +40,7 @@ export default function QuotationList() {
         error: null,
     });
     const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
     const [groupConfig, setGroupConfig] = useState<GroupConfig | null>(null);
     const [activeTab, setActiveTab] = useState<'group' | 'subtasks' | 'columns'>('group');
 
@@ -135,23 +136,45 @@ export default function QuotationList() {
         try {
             const res = await fetch(`/api/quotations/${id}/duplicate`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
             });
-
             const result = await res.json();
-
             if (!res.ok || !result.success || !result.data?.id) {
                 throw new Error(result.error || 'Không thể nhân bản báo giá');
             }
-
             router.push(`/quotations/${result.data.id}/edit`);
         } catch (error) {
             console.error('Failed to duplicate quotation:', error);
             alert('Không thể nhân bản báo giá. Vui lòng thử lại.');
         } finally {
             setDuplicatingId(null);
+        }
+    };
+
+    const handleDelete = async (id: string, quotationNo: string, status: QuotationStatus) => {
+        if (status !== 'DRAFT') {
+            alert('Chỉ có thể xóa báo giá ở trạng thái Nháp.');
+            return;
+        }
+        const confirmed = window.confirm(
+            `Xóa báo giá ${quotationNo}?\n\nHành động này không thể hoàn tác.`
+        );
+        if (!confirmed) return;
+
+        setDeletingId(id);
+        try {
+            const res = await fetch(`/api/quotations/${id}`, { method: 'DELETE' });
+            const result = await res.json();
+            if (!res.ok || !result.success) {
+                throw new Error(result.error || 'Không thể xóa báo giá');
+            }
+            // Xóa khỏi local state ngay lập tức
+            setItems((prev) => prev.filter((q) => q.id !== id));
+        } catch (error) {
+            console.error('Failed to delete quotation:', error);
+            alert('Không thể xóa báo giá. Vui lòng thử lại.');
+        } finally {
+            setDeletingId(null);
         }
     };
 
@@ -300,7 +323,7 @@ export default function QuotationList() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3 align-middle text-right">
-                                                    <div className="inline-flex gap-2">
+                                                    <div className="inline-flex gap-2 flex-wrap justify-end">
                                                         <a
                                                             href={`/quotations/${q.id}/edit`}
                                                             className="text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-50"
@@ -317,11 +340,22 @@ export default function QuotationList() {
                                                             type="button"
                                                             aria-label="Nhân bản báo giá"
                                                             onClick={() => void handleDuplicate(q.id)}
-                                                            disabled={duplicatingId === q.id}
+                                                            disabled={duplicatingId === q.id || deletingId === q.id}
                                                             className="text-xs px-2.5 py-1.5 rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
                                                         >
                                                             {duplicatingId === q.id ? 'Đang nhân bản...' : 'Nhân bản'}
                                                         </button>
+                                                        {q.status === 'DRAFT' && (
+                                                            <button
+                                                                type="button"
+                                                                aria-label="Xóa báo giá"
+                                                                onClick={() => void handleDelete(q.id, q.quotationNo, q.status)}
+                                                                disabled={deletingId === q.id || duplicatingId === q.id}
+                                                                className="text-xs px-2.5 py-1.5 rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                                            >
+                                                                {deletingId === q.id ? 'Đang xóa...' : 'Xóa'}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
