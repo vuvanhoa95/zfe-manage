@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import CustomFieldsSettings from '@/components/settings/CustomFieldsSettings';
+import AISettings from '@/components/settings/AISettings';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'export' | 'users' | 'customFields'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'export' | 'users' | 'customFields' | 'ai'>('general');
     const [settings, setSettings] = useState({
         // General settings
         defaultVatRate: 8,
@@ -100,6 +101,7 @@ export default function SettingsPage() {
                         { id: 'quotations', label: 'Báo giá', icon: '📄' },
                         { id: 'export', label: 'Xuất file', icon: '📤' },
                         { id: 'customFields', label: 'Trường tuỳ chỉnh', icon: '🧩' },
+                        { id: 'ai', label: 'AI', icon: '🤖' },
                         { id: 'users', label: 'Người dùng', icon: '👥' },
                     ].map((tab) => (
                         <button
@@ -122,7 +124,7 @@ export default function SettingsPage() {
                 <AnimatedTabPanels
                     activeKey={activeTab}
                     variant="ios"
-                    orderedKeys={['general', 'quotations', 'export', 'customFields', 'users'] as const}
+                    orderedKeys={['general', 'quotations', 'export', 'customFields', 'ai', 'users'] as const}
                     render={(tab) =>
                         tab === 'general' ? (
                             <div className="space-y-6">
@@ -304,6 +306,8 @@ export default function SettingsPage() {
                     </div>
                         ) : tab === 'customFields' ? (
                             <CustomFieldsSettings />
+                        ) : tab === 'ai' ? (
+                            <AISettings />
                         ) : (
                             <div className="space-y-6">
                         <h2 className="text-xl font-bold text-gray-900 mb-4">Quản lý Người dùng</h2>
