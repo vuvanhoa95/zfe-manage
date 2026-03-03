@@ -700,6 +700,12 @@ export default function TaskTab({
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
 
+    // State lưu danh sách phases/disciplines/areas được config từ project
+    const [projectPhases, setProjectPhases] = useState<string[]>([]);
+    const [projectDisciplines, setProjectDisciplines] = useState<string[]>([]);
+    const [projectAreas, setProjectAreas] = useState<string[]>([]);
+
+
     const fetchTasks = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -714,6 +720,28 @@ export default function TaskTab({
             setIsLoading(false);
         }
     }, [projectId]);
+
+    // Fetch project config để lấy phases/disciplines/areas
+    const fetchProjectConfig = useCallback(async () => {
+        if (!projectId) return;
+        try {
+            const res = await fetch(`/api/projects/${projectId}`, { cache: 'no-store' });
+            if (!res.ok) return;
+            const result = await res.json();
+            if (result.success && result.data) {
+                const parseList = (val: string | null | undefined): string[] => {
+                    if (!val) return [];
+                    try { return JSON.parse(val) as string[]; } catch { return []; }
+                };
+                setProjectPhases(parseList(result.data.phases));
+                setProjectDisciplines(parseList(result.data.disciplines));
+                setProjectAreas(parseList(result.data.areas));
+            }
+        } catch (e) {
+            console.warn('[TaskTab] Failed to fetch project config:', e);
+        }
+    }, [projectId]);
+
 
     const autoResizeDescription = useCallback(() => {
         const el = descriptionRef.current;
@@ -884,8 +912,10 @@ export default function TaskTab({
         if (!isNew && projectId) {
             void fetchTasks();
             void fetchStaffOptions();
+            void fetchProjectConfig();
         }
-    }, [projectId, isNew, fetchTasks, fetchStaffOptions]);
+    }, [projectId, isNew, fetchTasks, fetchStaffOptions, fetchProjectConfig]);
+
 
     // Load custom fields cho TASK (dùng chung cho tất cả task trong project)
     useEffect(() => {
@@ -2006,34 +2036,88 @@ export default function TaskTab({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Giai đoạn</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Ví dụ: Thiết kế cơ sở"
-                                        className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
-                                        value={formData.phase}
-                                        onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
-                                    />
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Giai đoạn
+                                        {projectPhases.length > 0 && (
+                                            <span className="ml-1 text-[10px] text-indigo-500 font-normal">{projectPhases.length} mục</span>
+                                        )}
+                                    </label>
+                                    {projectPhases.length > 0 ? (
+                                        <select
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm"
+                                            value={formData.phase}
+                                            onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
+                                        >
+                                            <option value="">— Chọn giai đoạn —</option>
+                                            {projectPhases.map(p => (
+                                                <option key={p} value={p}>{p}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            placeholder="Ví dụ: Thiết kế cơ sở"
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
+                                            value={formData.phase}
+                                            onChange={(e) => setFormData({ ...formData, phase: e.target.value })}
+                                        />
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Bộ môn</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Kiến trúc, Kết cấu, MEP..."
-                                        className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
-                                        value={formData.discipline}
-                                        onChange={(e) => setFormData({ ...formData, discipline: e.target.value })}
-                                    />
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Bộ môn
+                                        {projectDisciplines.length > 0 && (
+                                            <span className="ml-1 text-[10px] text-violet-500 font-normal">{projectDisciplines.length} mục</span>
+                                        )}
+                                    </label>
+                                    {projectDisciplines.length > 0 ? (
+                                        <select
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-violet-500 outline-none bg-white text-sm"
+                                            value={formData.discipline}
+                                            onChange={(e) => setFormData({ ...formData, discipline: e.target.value })}
+                                        >
+                                            <option value="">— Chọn bộ môn —</option>
+                                            {projectDisciplines.map(d => (
+                                                <option key={d} value={d}>{d}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            placeholder="Kiến trúc, Kết cấu, MEP..."
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
+                                            value={formData.discipline}
+                                            onChange={(e) => setFormData({ ...formData, discipline: e.target.value })}
+                                        />
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Vị trí / Khu vực</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Tầng, khu vực, block..."
-                                        className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
-                                        value={formData.location}
-                                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                    />
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Vị trí / Khu vực
+                                        {projectAreas.length > 0 && (
+                                            <span className="ml-1 text-[10px] text-teal-500 font-normal">{projectAreas.length} mục</span>
+                                        )}
+                                    </label>
+                                    {projectAreas.length > 0 ? (
+                                        <select
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-teal-500 outline-none bg-white text-sm"
+                                            value={formData.location}
+                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        >
+                                            <option value="">— Chọn khu vực —</option>
+                                            {projectAreas.map(a => (
+                                                <option key={a} value={a}>{a}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            placeholder="Tầng, khu vực, block..."
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
+                                            value={formData.location}
+                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        />
+                                    )}
                                 </div>
                                 <div>
                                     <label
@@ -2065,6 +2149,7 @@ export default function TaskTab({
                                 </div>
                             </div>
                         </div>
+
 
                         {/* Subtask - các công việc con, giống ClickUp */}
                         {editingTask ? (

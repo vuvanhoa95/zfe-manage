@@ -228,6 +228,10 @@ function ChecklistPanel({
     templates, selectedTasks, selectedSubs, expanded,
     onToggleTask, onToggleSub, onToggleExpand, onToggleGroup,
     isDuplicate = () => false,
+    subOverrides,
+    onSubOverride,
+    companyCode = '',
+    isoProjectCode = '',
 }: {
     templates: TaskItem[];
     selectedTasks: Set<string>;
@@ -238,6 +242,10 @@ function ChecklistPanel({
     onToggleExpand: (id: string) => void;
     onToggleGroup: (phase: string) => void;
     isDuplicate?: (title: string) => boolean;
+    subOverrides?: Map<string, SubItem[]>;
+    onSubOverride?: (taskId: string, subs: SubItem[]) => void;
+    companyCode?: string;
+    isoProjectCode?: string;
 }) {
     // Group by phase
     const byPhase = useMemo(() => {
@@ -254,10 +262,70 @@ function ChecklistPanel({
         return m;
     }, [templates]);
 
+    // Per-phase AI mini chat state
+    const [openPhaseChat, setOpenPhaseChat] = useState<string | null>(null);
+    const [phaseChatInputs, setPhaseChatInputs] = useState<Map<string, string>>(new Map());
+    const [phaseChatLoading, setPhaseChatLoading] = useState<string | null>(null);
+
+    const sendPhaseAI = async (phase: string, tasks: TaskItem[]) => {
+        const instruction = phaseChatInputs.get(phase) || '';
+        if (!instruction.trim() || phaseChatLoading) return;
+        setPhaseChatLoading(phase);
+
+        // Build current subtask list for this phase
+        const taskSubsPayload = tasks.map(t => ({
+            taskId: t.id,
+            taskTitle: t.title,
+            discipline: t.discipline,
+            subtasks: (subOverrides?.get(t.id) ?? t.subtasks).map((s, i) => ({
+                id: s.id,
+                title: s.title,
+                estimatedDays: s.estimatedDays,
+                index: `${taskIndexMap.get(t.id)}.${i + 1}`,
+            })),
+        }));
+
+        const systemPromptPhase = `Bạn là BIM Manager. Hãy điều chỉnh danh sách subtasks theo yêu cầu.
+Mã dự án: ${isoProjectCode}, Mã công ty: ${companyCode}
+Dữ liệu hiện tại (JSON):
+${JSON.stringify(taskSubsPayload, null, 2)}
+
+Yêu cầu: "${instruction}"
+Ví dụ yêu cầu: "chia đều mỗi task 3 ngày", "đổi tên theo ISO 19650", "thêm task review LOD 400"
+
+Trả về JSON array:
+[{"taskId":"...","subtasks":[{"id":"...","title":"...","discipline":"...","estimatedDays":N}]}]
+Giữ nguyên id, chỉ sửa title/estimatedDays theo yêu cầu.
+KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
+
+        try {
+            const res = await fetch('/api/ai/task-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: instruction }],
+                    systemPrompt: systemPromptPhase,
+                }),
+            });
+            const data = await res.json();
+            const raw = (data.message || '').trim()
+                .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+            const parsed: { taskId: string; subtasks: SubItem[] }[] = JSON.parse(raw);
+            if (Array.isArray(parsed) && onSubOverride) {
+                parsed.forEach(({ taskId, subtasks }) => {
+                    if (taskId && Array.isArray(subtasks)) onSubOverride(taskId, subtasks);
+                });
+                // Clear input after success
+                setPhaseChatInputs(prev => { const m = new Map(prev); m.delete(phase); return m; });
+                setOpenPhaseChat(null);
+            }
+        } catch { /* fail silently */ }
+        finally { setPhaseChatLoading(null); }
+    };
+
     const DisciplineBadge = ({ d }: { d: string }) => (
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${disciplineColors[d] || disciplineColors.ALL}`}>{d}</span>
     );
-
 
     return (
         <div className="space-y-1.5">
@@ -265,6 +333,10 @@ function ChecklistPanel({
                 const allSel = tasks.every(t => selectedTasks.has(t.id));
                 const someSel = tasks.some(t => selectedTasks.has(t.id));
                 const phaseExp = tasks.some(t => expanded.has(t.id));
+                const hasSomeSelected = tasks.some(t => selectedTasks.has(t.id));
+                const isChatOpen = openPhaseChat === phase;
+                const chatInput = phaseChatInputs.get(phase) || '';
+                const isChatLoading = phaseChatLoading === phase;
 
                 return (
                     <div key={phase} className="border border-gray-200 rounded-xl overflow-hidden">
@@ -281,27 +353,71 @@ function ChecklistPanel({
                             />
                             <span className="font-semibold text-sm text-gray-800 flex-1">{phase}</span>
                             <span className="text-xs text-gray-400">{tasks.length} tasks</span>
+
+                            {/* 🤖 AI mini chat toggle button */}
+                            {hasSomeSelected && (
+                                <button
+                                    type="button"
+                                    onClick={e => { e.stopPropagation(); setOpenPhaseChat(isChatOpen ? null : phase); }}
+                                    title="AI điều chỉnh subtasks trong nhóm này"
+                                    className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors ${isChatOpen ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
+                                >
+                                    {isChatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                                    AI sửa
+                                </button>
+                            )}
+
                             <button type="button" onClick={e => { e.stopPropagation(); tasks.forEach(t => onToggleExpand(t.id)); }}
                                 className="p-0.5 text-gray-400">
                                 {phaseExp ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                             </button>
                         </div>
 
+                        {/* ⚡ Per-phase AI mini chat box */}
+                        {isChatOpen && (
+                            <div className="px-3 py-2 bg-indigo-50/80 border-t border-indigo-100 flex gap-2 items-center">
+                                <Wand2 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                                <input
+                                    type="text"
+                                    value={chatInput}
+                                    onChange={e => setPhaseChatInputs(prev => { const m = new Map(prev); m.set(phase, e.target.value); return m; })}
+                                    onKeyDown={e => e.key === 'Enter' && sendPhaseAI(phase, tasks)}
+                                    placeholder={`VD: "chia đều mỗi subtask 3 ngày", "đặt tên theo ISO 19650 tầng B1-RF"...`}
+                                    disabled={isChatLoading}
+                                    autoFocus
+                                    className="flex-1 px-2.5 py-1.5 text-xs border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white disabled:opacity-60"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => sendPhaseAI(phase, tasks)}
+                                    disabled={!chatInput.trim() || isChatLoading}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-1 flex-shrink-0"
+                                >
+                                    {isChatLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                    Sửa
+                                </button>
+                            </div>
+                        )}
+
                         {phaseExp && (
                             <div className="divide-y divide-gray-100">
                                 {tasks.map(task => {
                                     const isSel = selectedTasks.has(task.id);
                                     const isExp = expanded.has(task.id);
+                                    const taskIdx = taskIndexMap.get(task.id) ?? 0;
+                                    const currentSubs = subOverrides?.get(task.id) ?? task.subtasks;
                                     const subsSel = selectedSubs.get(task.id)?.size || 0;
+                                    const isOverridden = subOverrides?.has(task.id);
+
                                     return (
                                         <div key={task.id} className={isSel ? 'bg-white' : 'bg-gray-50/50'}>
                                             <div className="flex items-center gap-2.5 px-4 py-2.5">
                                                 <input type="checkbox" checked={isSel} onChange={() => onToggleTask(task.id)}
                                                     className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0 cursor-pointer" />
-                                                     <button type="button" onClick={() => onToggleExpand(task.id)} className="flex-1 flex items-center gap-2 text-left">
+                                                <button type="button" onClick={() => onToggleExpand(task.id)} className="flex-1 flex items-center gap-2 text-left">
                                                     {isExp ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
                                                     <span className={`text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded flex-shrink-0 ${isSel ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                                        {taskIndexMap.get(task.id)}
+                                                        {taskIdx}
                                                     </span>
                                                     <span className={`text-sm flex-1 ${isSel ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{task.title}</span>
                                                     {isDuplicate(task.title) && (
@@ -309,23 +425,33 @@ function ChecklistPanel({
                                                             ⚠️ Đã tồn tại
                                                         </span>
                                                     )}
+                                                    {isOverridden && (
+                                                        <span className="text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-semibold whitespace-nowrap flex-shrink-0">
+                                                            ✨ AI đã sửa
+                                                        </span>
+                                                    )}
                                                 </button>
                                                 <div className="flex items-center gap-1.5 flex-shrink-0">
                                                     <DisciplineBadge d={task.discipline} />
                                                     <span className="text-[10px] text-gray-400">~{task.estimatedDays}d</span>
-                                                    {isSel && task.subtasks.length > 0 && (
-                                                        <span className="text-[10px] text-indigo-500 font-semibold">{subsSel}/{task.subtasks.length}</span>
+                                                    {isSel && currentSubs.length > 0 && (
+                                                        <span className="text-[10px] text-indigo-500 font-semibold">{subsSel}/{currentSubs.length}</span>
                                                     )}
                                                 </div>
                                             </div>
-                                            {isExp && task.subtasks.length > 0 && (
+                                            {isExp && currentSubs.length > 0 && (
                                                 <div className="pl-10 pr-4 pb-2.5 space-y-1">
-                                                    {task.subtasks.map(sub => {
+                                                    {currentSubs.map((sub, subIdx) => {
                                                         const isSubSel = selectedSubs.get(task.id)?.has(sub.id) ?? false;
+                                                        // Mã subtask: N.M — ví dụ "2.1", "2.2"
+                                                        const subCode = `${taskIdx}.${subIdx + 1}`;
                                                         return (
                                                             <label key={sub.id} className={`flex items-center gap-2 py-1 px-2 rounded-lg cursor-pointer ${isSubSel ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
                                                                 <input type="checkbox" checked={isSubSel} onChange={() => onToggleSub(task.id, sub.id)}
                                                                     className="w-3.5 h-3.5 rounded accent-indigo-500" />
+                                                                <span className={`text-[10px] font-mono font-bold px-1 py-0.5 rounded flex-shrink-0 ${isSubSel ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}`}>
+                                                                    {subCode}
+                                                                </span>
                                                                 <span className={`text-xs flex-1 ${isSubSel ? 'text-gray-800' : 'text-gray-400'}`}>{sub.title}</span>
                                                                 <DisciplineBadge d={sub.discipline} />
                                                                 <span className="text-[10px] text-gray-400">{sub.estimatedDays}d</span>
@@ -346,7 +472,9 @@ function ChecklistPanel({
     );
 }
 
+
 // ─── Main Component ───────────────────────────────────────────────────────────
+
 
 export default function AITaskGenerator({
     projectId, projectName, projectNo, projectDescription, projectLocation, totalArea,
@@ -389,7 +517,14 @@ export default function AITaskGenerator({
 
     const isDuplicate = (title: string) => existingTitles.has(title.toLowerCase().trim());
 
+    // Sub overrides — lưu subtasks đã được AI sửa theo phase
+    const [subOverrides, setSubOverrides] = useState<Map<string, SubItem[]>>(new Map());
+    const handleSubOverride = (taskId: string, subs: SubItem[]) => {
+        setSubOverrides(prev => { const m = new Map(prev); m.set(taskId, subs); return m; });
+    };
+
     // BIM checklist state
+
     const bimDefaults = useMemo(() => getSmartBimDefaults(projectName, projectDescription), [projectName, projectDescription]);
     const [bimSelected, setBimSelected] = useState<Set<string>>(bimDefaults);
     const [bimSubs, setBimSubs] = useState<Map<string, Set<string>>>(() => {
@@ -851,6 +986,10 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                         onToggleExpand={id => setBimExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
                                         onToggleGroup={toggleBimGroup}
                                         isDuplicate={isDuplicate}
+                                        subOverrides={subOverrides}
+                                        onSubOverride={handleSubOverride}
+                                        companyCode={companyCode}
+                                        isoProjectCode={isoProjectCode}
                                     />
 
                                     {/* AI mô hình chi tiết theo tầng (ISO 19650) */}
@@ -929,6 +1068,10 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                         onToggleExpand={id => setMgmtExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
                                         onToggleGroup={toggleMgmtGroup}
                                         isDuplicate={isDuplicate}
+                                        subOverrides={subOverrides}
+                                        onSubOverride={handleSubOverride}
+                                        companyCode={companyCode}
+                                        isoProjectCode={isoProjectCode}
                                     />
 
                                     {/* AI generated extras */}
