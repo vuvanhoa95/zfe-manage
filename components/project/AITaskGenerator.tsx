@@ -12,6 +12,21 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Wand2, X, ChevronDown, ChevronRight, Check, Loader2, Send, Plus, Trash2 } from 'lucide-react';
 
+// Helper: đọc companyCode từ AI settings
+function getCompanyCode(): string {
+    try {
+        const s = localStorage.getItem('ai_settings');
+        if (s) return JSON.parse(s)?.companyCode || 'ZFE';
+    } catch {}
+    return 'ZFE';
+}
+
+// Helper: clean project number thành ISO code (PRJ-2026-0001 → PRJ20260001)
+function toIsoCode(projectNo?: string): string {
+    if (!projectNo) return 'PRJ0001';
+    return projectNo.replace(/-/g, '');
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface TaskItem {
@@ -36,6 +51,7 @@ interface SubItem {
 interface AITaskGeneratorProps {
     projectId: string;
     projectName?: string;
+    projectNo?: string;          // Mã dự án (VD: PRJ-2026-0001)
     projectDescription?: string;
     projectLocation?: string;
     totalArea?: number;
@@ -314,12 +330,17 @@ function ChecklistPanel({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AITaskGenerator({
-    projectId, projectName, projectDescription, projectLocation, totalArea,
+    projectId, projectName, projectNo, projectDescription, projectLocation, totalArea,
     onTasksImported, onClose,
 }: AITaskGeneratorProps) {
     const [activeTab, setActiveTab] = useState<'bim' | 'mgmt'>('bim');
     const [step, setStep] = useState<'select' | 'importing' | 'done'>('select');
     const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
+
+    // ISO 19650 naming
+    const [companyCode, setCompanyCode] = useState('ZFE');
+    const isoProjectCode = toIsoCode(projectNo);
+    useEffect(() => { setCompanyCode(getCompanyCode()); }, []);
 
     // BIM checklist state
     const bimDefaults = useMemo(() => getSmartBimDefaults(projectName, projectDescription), [projectName, projectDescription]);
@@ -330,6 +351,13 @@ export default function AITaskGenerator({
         return m;
     });
     const [bimExpanded, setBimExpanded] = useState<Set<string>>(new Set(BIM_TEMPLATES.map(t => t.id)));
+
+    // BIM AI chat (tạo tasks chi tiết theo tầng, ISO 19650)
+    const [bimChatInput, setBimChatInput] = useState('');
+    const [bimChatLoading, setBimChatLoading] = useState(false);
+    const [bimAiTasks, setBimAiTasks] = useState<TaskItem[]>([]);
+    const [bimAiSelected, setBimAiSelected] = useState<Set<string>>(new Set());
+    const bimChatRef = useRef<HTMLInputElement>(null);
 
     // Mgmt checklist state
     const mgmtDefaults = new Set(['mgmt-contract', 'mgmt-meeting', 'mgmt-review', 'mgmt-invoice', 'mgmt-handover']);
@@ -347,6 +375,7 @@ export default function AITaskGenerator({
     const [aiExtraTasks, setAiExtraTasks] = useState<TaskItem[]>([]);
     const [aiExtraSelected, setAiExtraSelected] = useState<Set<string>>(new Set());
     const inputRef = useRef<HTMLInputElement>(null);
+
 
     const totalBimSel = bimSelected.size;
     const totalMgmtSel = mgmtSelected.size + aiExtraSelected.size;
@@ -458,6 +487,81 @@ export default function AITaskGenerator({
         },
     };
 
+    // ─── AI Chat cho BIM Tasks (ISO 19650) ──────────────────────────────────
+
+    const BIM_QUICK_PROMPTS = [
+        'Tạo tasks model kết cấu theo tầng: 01BS, 01FL, 02-05FL, RF',
+        'Tạo tasks model kiến trúc theo tầng: 01BS, 01FL, 02MZ, 03-10FL',
+        'Tạo tasks model MEP theo hệ thống: cấp điện, thoát nước, HVAC, PCCC',
+        'Tạo tasks Shopdrawing kết cấu theo tầng',
+        'Tạo tasks Coordination/Clash Detection từng tầng',
+    ];
+
+    const bimSystemPrompt = `Bạn là BIM Manager với kinh nghiệm đặt tên file theo ISO 19650.
+Thông tin dự án:
+- Tên: ${projectName || 'Dự án BIM'}
+- Mã dự án ISO: ${isoProjectCode}
+- Mã công ty: ${companyCode}
+
+Quy tắc đặt tên file BIM (ISO 19650):
+Format: {CompanyCode}_{ProjectCode}_{Discipline}_{Level/Zone}
+Discipline codes: ARCH (kiến trúc), STRU (kết cấu), MECH (cơ), ELEC (điện), PLUM (cấp thoát nước), FIRE (PCCC)
+Level codes: 01BS (tầng hầm 1), 02BS (tầng hầm 2), 01FL (tầng 1), 02FL (tầng 2), 02-05FL (tầng 2 đến 5), RF (mái)
+
+Ví dụ: ${companyCode}_${isoProjectCode}_STRU_01BS, ${companyCode}_${isoProjectCode}_ARCH_02-05FL
+
+Khi user nhắn tên tầng hoặc hệ thống, tạo 1 task cha (tổng hợp) + subtasks với tên file ISO 19650.
+Trả về JSON: [{"title":"Tên task cha","description":"...","priority":"HIGH|MEDIUM|LOW","estimatedDays":N,"subtasks":[{"title":"${companyCode}_${isoProjectCode}_STRU_01BS — Mô hình kết cấu tầng hầm 1","estimatedDays":5}]}]
+KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
+
+    const sendBimChat = async (msg: string) => {
+        if (!msg.trim() || bimChatLoading) return;
+        setBimChatLoading(true);
+        setBimChatInput('');
+
+        try {
+            const res = await fetch('/api/ai/task-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: msg }],
+                    systemPrompt: bimSystemPrompt,
+                }),
+            });
+            const data = await res.json();
+            const raw = (data.message || '').trim()
+                .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+
+            const parsed: any[] = JSON.parse(raw);
+            if (!Array.isArray(parsed)) throw new Error();
+
+            const newTasks: TaskItem[] = parsed.map((t, i) => ({
+                id: `bim-ai-${Date.now()}-${i}`,
+                title: t.title,
+                description: t.description,
+                discipline: 'ALL',
+                priority: t.priority || 'HIGH',
+                estimatedDays: t.estimatedDays || 5,
+                phase: 'AI Tạo thêm',
+                source: 'ai' as const,
+                subtasks: (t.subtasks || []).map((s: any, j: number) => ({
+                    id: `bim-ai-sub-${Date.now()}-${i}-${j}`,
+                    title: s.title,
+                    discipline: 'ALL',
+                    estimatedDays: s.estimatedDays || 2,
+                })),
+            }));
+
+            setBimAiTasks(prev => [...prev, ...newTasks]);
+            setBimAiSelected(prev => { const s = new Set(prev); newTasks.forEach(t => s.add(t.id)); return s; });
+        } catch {
+            // fail silently
+        } finally {
+            setBimChatLoading(false);
+            bimChatRef.current?.focus();
+        }
+    };
+
     // ─── AI Chat to add extra mgmt tasks ────────────────────────────────────
 
     const QUICK_PROMPTS = [
@@ -471,6 +575,7 @@ export default function AITaskGenerator({
     const systemPrompt = `Bạn là quản lý dự án BIM. Dựa trên yêu cầu user, tạo 1-3 task quản lý nội bộ cho dự án "${projectName || 'BIM'}".
 Trả về JSON: [{"title":"...","description":"...","priority":"HIGH|MEDIUM|LOW","estimatedDays":N,"subtasks":[{"title":"...","estimatedDays":N}]}]
 KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
+
 
     const sendChat = async (msg: string) => {
         if (!msg.trim() || chatLoading) return;
@@ -524,10 +629,12 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
 
     const handleImport = async () => {
         const bimTasks = BIM_TEMPLATES.filter(t => bimSelected.has(t.id));
+        const bimAiTasksToCreate = bimAiTasks.filter(t => bimAiSelected.has(t.id));
         const mgmtTasks = MGMT_TEMPLATES.filter(t => mgmtSelected.has(t.id));
         const extraTasks = aiExtraTasks.filter(t => aiExtraSelected.has(t.id));
-        const allTasks = [...bimTasks, ...mgmtTasks, ...extraTasks];
+        const allTasks = [...bimTasks, ...bimAiTasksToCreate, ...mgmtTasks, ...extraTasks];
         if (allTasks.length === 0) return;
+
 
         const totalOps = allTasks.reduce((acc, task) => {
             const subsMap = bimSelected.has(task.id) ? bimSubs : mgmtSelected.has(task.id) ? mgmtSubs : null;
@@ -653,14 +760,81 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                         {/* Tab content */}
                         <div className="flex-1 overflow-y-auto p-3 min-h-0">
                             {activeTab === 'bim' && (
-                                <ChecklistPanel
-                                    templates={BIM_TEMPLATES}
-                                    selectedTasks={bimSelected} selectedSubs={bimSubs} expanded={bimExpanded}
-                                    onToggleTask={bimTogglers.toggleTask} onToggleSub={bimTogglers.toggleSub}
-                                    onToggleExpand={id => setBimExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
-                                    onToggleGroup={toggleBimGroup}
-                                />
+                                <div className="space-y-3">
+                                    {/* Template checklist */}
+                                    <ChecklistPanel
+                                        templates={BIM_TEMPLATES}
+                                        selectedTasks={bimSelected} selectedSubs={bimSubs} expanded={bimExpanded}
+                                        onToggleTask={bimTogglers.toggleTask} onToggleSub={bimTogglers.toggleSub}
+                                        onToggleExpand={id => setBimExpanded(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
+                                        onToggleGroup={toggleBimGroup}
+                                    />
+
+                                    {/* AI mô hình chi tiết theo tầng (ISO 19650) */}
+                                    {bimAiTasks.length > 0 && (
+                                        <div className="border border-indigo-200 rounded-xl overflow-hidden">
+                                            <div className="px-3 py-2 bg-indigo-50 flex items-center gap-2">
+                                                <span className="text-xs font-semibold text-indigo-700 flex-1">🏷️ AI ISO 19650 Tasks ({bimAiTasks.length})</span>
+                                                <span className="text-[10px] text-indigo-500 font-mono">{companyCode}_{isoProjectCode}_...</span>
+                                            </div>
+                                            <div className="divide-y divide-gray-100">
+                                                {bimAiTasks.map(task => (
+                                                    <div key={task.id} className="px-4 py-2.5">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <input type="checkbox" checked={bimAiSelected.has(task.id)}
+                                                                onChange={() => setBimAiSelected(prev => { const s = new Set(prev); s.has(task.id) ? s.delete(task.id) : s.add(task.id); return s; })}
+                                                                className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-sm font-medium text-gray-800">{task.title}</p>
+                                                                {task.subtasks.length > 0 && (
+                                                                    <div className="mt-1 space-y-0.5">
+                                                                        {task.subtasks.map(sub => (
+                                                                            <p key={sub.id} className="text-xs text-indigo-600 font-mono truncate">↳ {sub.title}</p>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <button type="button" onClick={() => setBimAiTasks(prev => prev.filter(t => t.id !== task.id))}
+                                                                className="p-1 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* BIM AI Chat — ISO 19650 naming */}
+                                    <div className="border border-dashed border-indigo-200 rounded-xl p-3 bg-indigo-50/40">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-xs font-semibold text-indigo-700">🤖 Chat với AI — tạo tasks chi tiết theo tầng / bộ môn</p>
+                                            <span className="text-[10px] font-mono text-indigo-400 bg-indigo-100 px-2 py-0.5 rounded-full">{companyCode}_{isoProjectCode}_STRU_01FL</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 mb-2">
+                                            {BIM_QUICK_PROMPTS.map((p, i) => (
+                                                <button key={i} type="button" onClick={() => sendBimChat(p)} disabled={bimChatLoading}
+                                                    className="text-xs px-2.5 py-1 rounded-full border border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-100 disabled:opacity-50 transition-colors">
+                                                    {p}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <input ref={bimChatRef} type="text" value={bimChatInput} onChange={e => setBimChatInput(e.target.value)}
+                                                onKeyDown={e => e.key === 'Enter' && sendBimChat(bimChatInput)}
+                                                placeholder='VD: "Tạo tasks kết cấu tầng: B2, B1, 01FL, 02-15FL, RF"'
+                                                disabled={bimChatLoading}
+                                                className="flex-1 px-3 py-1.5 text-sm border border-indigo-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white disabled:opacity-60" />
+                                            <button type="button" onClick={() => sendBimChat(bimChatInput)}
+                                                disabled={!bimChatInput.trim() || bimChatLoading}
+                                                className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 flex items-center gap-1.5 text-xs font-semibold">
+                                                {bimChatLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Plus className="w-3.5 h-3.5" /> Tạo</>}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             )}
+
 
                             {activeTab === 'mgmt' && (
                                 <div className="space-y-3">

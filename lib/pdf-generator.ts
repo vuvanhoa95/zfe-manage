@@ -8,14 +8,19 @@ let puppeteer: any;
 let chromium: any;
 
 // Check if running on Vercel
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+const isVercel = !!(process.env.VERCEL === '1' || process.env.VERCEL_ENV);
 
 async function getPuppeteer() {
   if (!puppeteer) {
     if (isVercel) {
       puppeteer = await import('puppeteer-core');
       chromium = await import('@sparticuz/chromium');
+      // Disable graphics mode to reduce memory usage on serverless
       chromium.setGraphicsMode(false);
+      // Set chromium path from environment variable if provided (for custom deployments)
+      if (process.env.CHROMIUM_PATH) {
+        chromium.setHeadlessMode = true;
+      }
     } else {
       puppeteer = await import('puppeteer');
     }
@@ -53,20 +58,28 @@ export async function generatePdf(data: QuotationWithRelations, company: any) {
   try {
     const { puppeteer: puppeteerLib, chromium: chromiumLib } = await getPuppeteer();
 
+    const localArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--disable-gpu',
+      '--font-render-hinting=none',
+      '--single-process',
+      '--no-zygote',
+    ];
+
     const launchOptions: any = {
       headless: true,
-      args: isVercel && chromiumLib ? chromiumLib.args : [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--font-render-hinting=none',
-      ],
+      args: isVercel && chromiumLib ? [...chromiumLib.args, '--font-render-hinting=none'] : localArgs,
     };
 
     if (isVercel && chromiumLib) {
-      launchOptions.executablePath = await chromiumLib.executablePath();
+      // Use custom path from env if set, otherwise use sparticuz chromium
+      launchOptions.executablePath = process.env.CHROMIUM_PATH || await chromiumLib.executablePath();
+      console.log('[PDF] Vercel mode, executablePath:', launchOptions.executablePath);
+    } else {
+      console.log('[PDF] Local mode, using bundled Puppeteer');
     }
 
     browser = await puppeteerLib.launch(launchOptions);

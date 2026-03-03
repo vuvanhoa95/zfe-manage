@@ -672,3 +672,24 @@ model CustomFieldValue {
   @@index([entityType, entityId])
   @@map("custom_field_values")
 }
+
+/// ================================
+/// SYSTEM CONFIG (Key-Value Store)
+/// Dùng để lưu cấu hình hệ thống linh hoạt:
+/// - permission_overrides: JSON của role permission matrix tùy chỉnh
+/// - Các cài đặt hệ thống khác
+/// ================================
+model SystemConfig {
+  id        String   @id @default(uuid())
+  /// Khóa duy nhất cho cài đặt, VD: "permission_overrides"
+  key       String   @unique
+  /// Giá trị lưu dạng JSON string
+  value     String   @db.Text
+  /// Mô tả mục đích của cài đặt
+  label     String?
+  updatedAt DateTime @updatedAt
+  updatedBy String?  /// email của admin đã cập nhật
+
+  @@map("system_configs")
+}
+

@@ -1126,6 +1126,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                 <AITaskGenerator
                     projectId={projectId || project.id}
                     projectName={project.name}
+                    projectNo={project.projectNo}
                     projectDescription={project.description || undefined}
                     projectLocation={project.location || undefined}
                     totalArea={project.totalArea || undefined}
