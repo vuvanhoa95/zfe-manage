@@ -34,9 +34,103 @@ type SmartSearchProject = {
     totalProfit: number;
 };
 
+// ── Định nghĩa màu avatar theo hash tên ─────────
+const AVATAR_COLORS = [
+    { bg: 'bg-indigo-600', text: 'text-white' },
+    { bg: 'bg-sky-600', text: 'text-white' },
+    { bg: 'bg-emerald-600', text: 'text-white' },
+    { bg: 'bg-amber-500', text: 'text-white' },
+    { bg: 'bg-rose-600', text: 'text-white' },
+    { bg: 'bg-violet-600', text: 'text-white' },
+    { bg: 'bg-teal-600', text: 'text-white' },
+    { bg: 'bg-pink-600', text: 'text-white' },
+    { bg: 'bg-orange-500', text: 'text-white' },
+    { bg: 'bg-cyan-600', text: 'text-white' },
+];
+
+function getAvatarColor(name: string) {
+    if (!name) return AVATAR_COLORS[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = (hash * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length;
+    }
+    return AVATAR_COLORS[hash] ?? AVATAR_COLORS[0];
+}
+
+type UserProfile = {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    status: string;
+    title?: string | null;
+    department?: string | null;
+    experience?: string | null;
+    bankAccount?: string | null;
+    taxCode?: string | null;
+    createdAt?: string;
+    image?: string | null;
+};
+
 export default function Header() {
     const { data: session, status } = useSession();
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [profileData, setProfileData] = useState<UserProfile | null>(null);
+    const [profileLoading, setProfileLoading] = useState(false);
+    const [profileEditMode, setProfileEditMode] = useState(false);
+    const [profileForm, setProfileForm] = useState<Partial<UserProfile>>({});
+    const [profileSaving, setProfileSaving] = useState(false);
+
+    const fetchProfile = async () => {
+        if (profileData) { setShowProfileModal(true); return; }
+        setProfileLoading(true);
+        try {
+            const res = await fetch('/api/users/me', { cache: 'no-store' });
+            const data = await res.json();
+            if (data.success) {
+                setProfileData(data.data);
+            }
+        } catch {
+            // silent
+        } finally {
+            setProfileLoading(false);
+        }
+        setShowProfileModal(true);
+    };
+
+    const handleProfileSave = async () => {
+        setProfileSaving(true);
+        try {
+            const res = await fetch('/api/users/me', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profileForm),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setProfileData(data.data);
+                setProfileEditMode(false);
+            }
+        } catch {
+            // silent
+        } finally {
+            setProfileSaving(false);
+        }
+    };
+
+    const openEditProfile = () => {
+        if (!profileData) return;
+        setProfileForm({
+            name: profileData.name,
+            title: profileData.title || '',
+            department: profileData.department || '',
+            experience: profileData.experience || '',
+            bankAccount: profileData.bankAccount || '',
+            taxCode: profileData.taxCode || '',
+        });
+        setProfileEditMode(true);
+    };
     const pathname = usePathname();
     const router = useRouter();
     const isDashboard = (pathname || '/') === '/';
@@ -534,7 +628,7 @@ export default function Header() {
                             onClick={() => setShowUserMenu(!showUserMenu)}
                             className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                         >
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zf-accent text-sm font-bold text-zf-text-inverse">
+                            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${getAvatarColor(user.name).bg} ${getAvatarColor(user.name).text}`}>
                                 {user.name.charAt(0)}
                             </div>
                             <div className="text-left hidden lg:block leading-tight">
@@ -545,23 +639,31 @@ export default function Header() {
                         </button>
 
                         {showUserMenu && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-zf-graphite/15 py-1 z-50">
-                                <div className="px-4 py-2 border-b border-zf-graphite/10">
-                                    <p className="text-sm font-medium text-zf-graphite">{user.name}</p>
-                                    <p className="text-xs text-zf-graphite/70">{user.email}</p>
+                            <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50 overflow-hidden">
+                                <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+                                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold ${getAvatarColor(user.name).bg} ${getAvatarColor(user.name).text}`}>
+                                        {user.name.charAt(0)}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                                    </div>
                                 </div>
-                                <button className="w-full px-4 py-2 text-left text-sm text-zf-graphite hover:bg-zf-bg-secondary transition-colors">
-                                    Hồ sơ
+                                <button
+                                    onClick={() => { setShowUserMenu(false); void fetchProfile(); }}
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center gap-2"
+                                >
+                                    <span>👤</span> Hồ sơ
                                 </button>
-                                <button className="w-full px-4 py-2 text-left text-sm text-zf-graphite hover:bg-zf-bg-secondary transition-colors">
-                                    Cài đặt
+                                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2">
+                                    <span>⚙️</span> Cài đặt
                                 </button>
-                                <hr className="my-1" />
+                                <hr className="my-1 border-gray-100" />
                                 <button
                                     onClick={() => signOut({ callbackUrl: '/login' })}
-                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
                                 >
-                                    Đăng xuất
+                                    <span>🚪</span> Đăng xuất
                                 </button>
                             </div>
                         )}
@@ -569,5 +671,144 @@ export default function Header() {
                 </div>
             </div>
         </header>
-    );
+
+        {/* ── Profile Modal ────────────────────────────────────────── */}
+        {showProfileModal && (
+            <div
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[200]"
+                onClick={(e) => { if (e.target === e.currentTarget) { setShowProfileModal(false); setProfileEditMode(false); } }}
+            >
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+                    {/* Header gradient theo màu user */}
+                    <div className={`px-6 py-5 ${getAvatarColor(user.name).bg} relative`}>
+                        <button
+                            onClick={() => { setShowProfileModal(false); setProfileEditMode(false); }}
+                            className="absolute top-3 right-4 text-white/70 hover:text-white text-2xl font-light transition-colors"
+                        >
+                            ×
+                        </button>
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-3xl font-bold text-white shadow-lg">
+                                {user.name.charAt(0)}
+                            </div>
+                            <div>
+                                <p className="text-xl font-bold text-white">{profileData?.name ?? user.name}</p>
+                                <p className="text-sm text-white/80">{profileData?.email ?? user.email}</p>
+                                <span className={`mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                    profileData?.role === 'ADMIN' ? 'bg-red-100 text-red-700'
+                                    : profileData?.role === 'PM' ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-white/20 text-white'
+                                }`}>
+                                    {profileData?.role ?? user.role}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="px-6 py-5">
+                        {profileLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                                <span className="ml-3 text-gray-500 text-sm">Đang tải hồ sơ...</span>
+                            </div>
+                        ) : profileEditMode ? (
+                            <>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Chỉnh sửa thông tin</p>
+                                <div className="space-y-3">
+                                    {([
+                                        { key: 'name', label: 'Họ và tên', placeholder: 'Nhập họ và tên' },
+                                        { key: 'title', label: 'Chức danh', placeholder: 'Kỹ sư, Trưởng phòng...' },
+                                        { key: 'department', label: 'Bộ môn', placeholder: 'Kiến trúc, Kết cấu, MEP...' },
+                                        { key: 'experience', label: 'Kinh nghiệm', placeholder: '5 năm, 10+ năm...' },
+                                        { key: 'bankAccount', label: 'Số tài khoản NH', placeholder: 'Nhập số tài khoản' },
+                                        { key: 'taxCode', label: 'Mã số thuế', placeholder: 'Nhập mã số thuế' },
+                                    ] as Array<{ key: keyof UserProfile; label: string; placeholder: string }>).map(({ key, label, placeholder }) => (
+                                        <div key={key}>
+                                            <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+                                            <input
+                                                type="text"
+                                                value={(profileForm[key] as string) || ''}
+                                                onChange={(e) => setProfileForm(prev => ({ ...prev, [key]: e.target.value }))}
+                                                placeholder={placeholder}
+                                                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 mt-5">
+                                    <button
+                                        onClick={() => setProfileEditMode(false)}
+                                        className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        onClick={handleProfileSave}
+                                        disabled={profileSaving}
+                                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 shadow-sm shadow-blue-500/20"
+                                    >
+                                        {profileSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Thông tin hồ sơ</p>
+                                <div className="space-y-3">
+                                    {([
+                                        { icon: '💼', label: 'Chức danh', value: profileData?.title },
+                                        { icon: '🏢', label: 'Bộ môn', value: profileData?.department },
+                                        { icon: '⏱️', label: 'Kinh nghiệm', value: profileData?.experience },
+                                        { icon: '🏦', label: 'Số tài khoản', value: profileData?.bankAccount },
+                                        { icon: '🧾', label: 'Mã số thuế', value: profileData?.taxCode },
+                                        {
+                                            icon: '📅',
+                                            label: 'Tham gia từ',
+                                            value: profileData?.createdAt
+                                                ? new Date(profileData.createdAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })
+                                                : null,
+                                        },
+                                    ]).map(({ icon, label, value }) => (
+                                        <div key={label} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                                            <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
+                                            <div className="min-w-0">
+                                                <p className="text-xs text-gray-400 font-medium">{label}</p>
+                                                <p className="text-sm text-gray-800 font-medium mt-0.5">
+                                                    {value || <span className="text-gray-300 italic">Chưa cập nhật</span>}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Trạng thái */}
+                                <div className="mt-4 flex items-center justify-between">
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                                        profileData?.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700'
+                                        : profileData?.status === 'PENDING' ? 'bg-amber-50 text-amber-700'
+                                        : 'bg-gray-100 text-gray-500'
+                                    }`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${
+                                            profileData?.status === 'ACTIVE' ? 'bg-emerald-500'
+                                            : profileData?.status === 'PENDING' ? 'bg-amber-500'
+                                            : 'bg-gray-400'
+                                        }`} />
+                                        {profileData?.status === 'ACTIVE' ? 'Đang hoạt động'
+                                            : profileData?.status === 'PENDING' ? 'Chờ duyệt' : 'Đã khóa'}
+                                    </span>
+                                    <button
+                                        onClick={openEditProfile}
+                                        className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors flex items-center gap-1"
+                                    >
+                                        ✏️ Chỉnh sửa
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+    </>);
 }

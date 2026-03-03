@@ -25,6 +25,7 @@ Tích hợp AI vào ZfeManage theo 4 tính năng ưu tiên, xây dựng tuần t
 | 03 | AI Auto-Task Generator | ⬜ Pending | P1 |
 | 04 | AI Deadline Risk Detector | ⬜ Pending | P2 |
 | 05 | AI Cash Flow Forecast | ⬜ Pending | P2 |
+| 06 | AI Customer Quick Lookup | ⬜ Pending | P1 |
 
 ---
 
