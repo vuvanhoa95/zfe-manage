@@ -96,10 +96,11 @@ export async function GET(_request: NextRequest) {
         try {
             tasks = (await prisma.task.findMany({
                 where: {
-                    // Chỉ lấy các dự án đang hoạt động hoặc lập kế hoạch cho báo cáo triển khai
+                    // Lấy tất cả dự án trừ bị hủy (CANCELLED)
+                    // Bao gồm: PLANNING, ACTIVE, COMPLETED và các status khác
                     project: {
                         status: {
-                            in: ['PLANNING', 'ACTIVE'],
+                            not: 'CANCELLED',
                         },
                     },
                 },
@@ -140,7 +141,7 @@ export async function GET(_request: NextRequest) {
                     where: {
                         project: {
                             status: {
-                                in: ['PLANNING', 'ACTIVE'],
+                                not: 'CANCELLED',
                             },
                         },
                     },
