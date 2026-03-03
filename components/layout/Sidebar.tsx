@@ -17,14 +17,14 @@ interface NavItem {
 
 const navItems: NavItem[] = [
     { href: '/',                  label: 'Tổng quan',      icon: 'dashboard',       permission: 'nav:dashboard' },
-    { href: '/projects',          label: 'Dự án',          icon: 'projects',        permission: 'nav:projects' },
-    { href: '/quotations',        label: 'Báo giá',        icon: 'quotations',      permission: 'nav:quotations' },
+    { href: '/projects',          label: 'Dự án',          icon: 'briefcase',       permission: 'nav:projects' },
+    { href: '/quotations',        label: 'Báo giá',        icon: 'fileInvoice',     permission: 'nav:quotations' },
     { href: '/customers',         label: 'Khách hàng',     icon: 'customers',       permission: 'nav:customers' },
-    { href: '/outsourcing-staff', label: 'Nhân sự ngoài',  icon: 'user',            permission: 'nav:outsourcing_staff' },
-    { href: '/reports',           label: 'Báo cáo',        icon: 'quotations',      permission: 'nav:reports' },
-    { href: '/users',             label: 'Quản lý User',   icon: 'user',            permission: 'nav:users' },
+    { href: '/outsourcing-staff', label: 'Nhân sự ngoài',  icon: 'outsourcingStaff',permission: 'nav:outsourcing_staff' },
+    { href: '/reports',           label: 'Báo cáo',        icon: 'reports',         permission: 'nav:reports' },
+    { href: '/users',             label: 'Quản lý User',   icon: 'users',           permission: 'nav:users' },
     { href: '/company-profile',   label: 'Hồ sơ công ty',  icon: 'companyProfile',  permission: 'nav:company_profile' },
-    { href: '/settings',          label: 'Cài đặt',        icon: 'settings',        permission: 'nav:settings' },
+    { href: '/settings',          label: 'Cài đặt',        icon: 'gear',            permission: 'nav:settings' },
 ];
 
 export default function Sidebar() {
@@ -64,7 +64,7 @@ export default function Sidebar() {
                                 className="rounded-lg p-2 text-zf-text-inverse hover:bg-zf-primary-light/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                                 title="Thu gọn"
                             >
-                                ←
+                                <svg width="16" height="16" viewBox="0 0 512 512" fill="currentColor"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 288 480 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-370.7 0 73.4-73.4c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-128 128z"/></svg>
                             </button>
                         )}
                     </div>
@@ -74,7 +74,7 @@ export default function Sidebar() {
                             className="w-full mt-2 rounded-lg p-2 text-zf-text-inverse hover:bg-zf-primary-light/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-zf-primary"
                             title="Mở rộng"
                         >
-                            →
+                            <svg width="16" height="16" viewBox="0 0 512 512" fill="currentColor" className="mx-auto"><path d="M502.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-128 128c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L402.7 288H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H402.7L329.4 150.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l128 128z"/></svg>
                         </button>
                     )}
                 </div>
@@ -114,16 +114,17 @@ export default function Sidebar() {
                 <div className="p-3 border-t border-zf-primary-light/40">
                     {!collapsed && (
                         <div className="text-xs text-zf-text-inverse/85">
-                            {userRole && (
+                                {userRole && (
                                 <div className="mb-2">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                                         userRole === 'ADMIN'
                                             ? 'bg-red-500/30 text-red-100'
                                             : userRole === 'PM'
                                               ? 'bg-amber-500/30 text-amber-100'
                                               : 'bg-blue-500/30 text-blue-100'
                                     }`}>
-                                        {userRole === 'ADMIN' ? '👑 Admin' : userRole === 'PM' ? '📋 Project Manager' : '👤 Nhân viên'}
+                                        <ZfIcon name={userRole === 'ADMIN' ? 'shield' : userRole === 'PM' ? 'briefcase' : 'user'} size={10} />
+                                        {userRole === 'ADMIN' ? 'Admin' : userRole === 'PM' ? 'Project Manager' : 'Nhân viên'}
                                     </span>
                                 </div>
                             )}
@@ -140,7 +141,7 @@ export default function Sidebar() {
                                       ? 'bg-amber-500/40 text-amber-100'
                                       : 'bg-blue-500/40 text-blue-100'
                             }`}>
-                                {userRole === 'ADMIN' ? '👑' : userRole === 'PM' ? '📋' : '👤'}
+                                <ZfIcon name={userRole === 'ADMIN' ? 'shield' : userRole === 'PM' ? 'briefcase' : 'user'} size={14} />
                             </span>
                         </div>
                     )}

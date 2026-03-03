@@ -1,43 +1,35 @@
 'use client';
 
 /**
- * AITaskGenerator v3 — Guided Wizard Flow
+ * AITaskGenerator v4 — Direct Checklist Flow
  *
- * AI tự phân tích thông tin đã có → hỏi đúng những gì còn thiếu
- * → Mỗi câu hỏi kèm chips gợi ý để click chọn → không cần gõ nhiều
- *
- * Step 1: WIZARD  → AI hỏi từng câu, user click chip hoặc gõ tự do
- * Step 2: PREVIEW → AI generate tasks phù hợp, user tick chọn
- * Step 3: IMPORT  → Lưu vào DB với progress bar
+ * Step 1: PROJECT CONTEXT — Chọn nhanh loại CT + phạm vi BIM bằng chips (không bắt buộc)
+ * Step 2: AI CHECKLIST   — Hiện NGAY checklist task theo gợi ý (offline template),
+ *                          user tick chọn / bỏ chọn từng task & subtask
+ * Step 3: IMPORT         — Tạo tasks đã chọn vào DB
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import {
-    Wand2, X, ChevronDown, ChevronRight, Check,
-    Loader2, ArrowRight, MessageSquare, RefreshCw,
-} from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Wand2, X, ChevronDown, ChevronRight, Check, Loader2, RefreshCw } from 'lucide-react';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-interface WizardAnswer {
-    question: string;
-    answer: string;
+interface TaskTemplate {
+    id: string;
+    phase: string;           // Giai đoạn
+    title: string;
+    discipline: string;      // ARC | STR | MEP | CIV | ALL
+    priority: string;        // HIGH | MEDIUM | LOW
+    estimatedDays: number;
+    subtasks: SubTaskTemplate[];
+    tags: string[];          // Dùng để filter theo loại CT / phạm vi BIM
 }
 
-interface GeneratedSubTask {
+interface SubTaskTemplate {
+    id: string;
     title: string;
-    discipline?: string;
-    estimatedDays?: number;
-}
-
-interface GeneratedTask {
-    title: string;
-    description?: string;
-    phase?: string;
-    discipline?: string;
-    priority?: string;
-    estimatedDays?: number;
-    subtasks?: GeneratedSubTask[];
+    discipline: string;
+    estimatedDays: number;
 }
 
 interface AITaskGeneratorProps {
@@ -50,231 +42,260 @@ interface AITaskGeneratorProps {
     onClose: () => void;
 }
 
-// ─── Smart Questions ──────────────────────────────────────────────────────────
-// Mỗi câu hỏi có chips gợi ý để user click chọn
+// ─── BIM Task Template Library ────────────────────────────────────────────────
 
-interface SmartQuestion {
-    key: string;
-    question: string;
-    chips: string[];         // Gợi ý click nhanh
-    freeInput?: boolean;     // Cho phép tự gõ thêm
-    placeholder?: string;
-    skipIf?: (info: ProjectInfo) => boolean; // Bỏ qua nếu đã có thông tin
-}
+const TASK_TEMPLATES: TaskTemplate[] = [
+    {
+        id: 'survey', phase: 'Khảo sát', title: 'Khảo sát hiện trạng & Thu thập tài liệu',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 5,
+        tags: ['all'],
+        subtasks: [
+            { id: 's1', title: 'Khảo sát thực địa, chụp ảnh hiện trạng', discipline: 'ALL', estimatedDays: 2 },
+            { id: 's2', title: 'Thu thập hồ sơ pháp lý, bản vẽ quy hoạch', discipline: 'ALL', estimatedDays: 1 },
+            { id: 's3', title: 'Lập BIM Execution Plan (BEP)', discipline: 'ALL', estimatedDays: 2 },
+        ],
+    },
+    {
+        id: 'arc-sd', phase: 'Thiết kế Kiến trúc', title: 'BIM Kiến trúc — Thiết kế cơ sở (SD)',
+        discipline: 'ARC', priority: 'HIGH', estimatedDays: 14,
+        tags: ['ARC', 'housing', 'office', 'resort', 'hospital', 'all'],
+        subtasks: [
+            { id: 's4', title: 'Mô hình tổng mặt bằng & phân khu chức năng', discipline: 'ARC', estimatedDays: 3 },
+            { id: 's5', title: 'Mô hình mặt bằng tầng điển hình', discipline: 'ARC', estimatedDays: 5 },
+            { id: 's6', title: 'Mô hình mặt đứng, mặt cắt', discipline: 'ARC', estimatedDays: 4 },
+            { id: 's7', title: 'LOD 200 — Kiểm tra tỉ lệ & không gian', discipline: 'ARC', estimatedDays: 2 },
+        ],
+    },
+    {
+        id: 'arc-dd', phase: 'Thiết kế Kiến trúc', title: 'BIM Kiến trúc — Thiết kế kỹ thuật (DD)',
+        discipline: 'ARC', priority: 'HIGH', estimatedDays: 20,
+        tags: ['ARC', 'housing', 'office', 'resort', 'all'],
+        subtasks: [
+            { id: 's8', title: 'Chi tiết kiến trúc LOD 300', discipline: 'ARC', estimatedDays: 8 },
+            { id: 's9', title: 'Hoàn thiện bề mặt, vật liệu, màu sắc', discipline: 'ARC', estimatedDays: 5 },
+            { id: 's10', title: 'Lập Bảng thống kê vật tư từ BIM', discipline: 'ARC', estimatedDays: 4 },
+            { id: 's11', title: 'Kiểm tra sự phù hợp với quy chuẩn PCCC', discipline: 'ARC', estimatedDays: 3 },
+        ],
+    },
+    {
+        id: 'str', phase: 'Thiết kế Kết cấu', title: 'BIM Kết cấu — Mô hình hóa & Phân tích',
+        discipline: 'STR', priority: 'HIGH', estimatedDays: 18,
+        tags: ['STR', 'housing', 'office', 'industry', 'all'],
+        subtasks: [
+            { id: 's12', title: 'Mô hình kết cấu móng, cọc, đài', discipline: 'STR', estimatedDays: 5 },
+            { id: 's13', title: 'Mô hình cột, dầm, sàn bê tông', discipline: 'STR', estimatedDays: 6 },
+            { id: 's14', title: 'Mô hình khung thép (nếu có)', discipline: 'STR', estimatedDays: 4 },
+            { id: 's15', title: 'Liên kết Revit ↔ ETABS / SAP2000', discipline: 'STR', estimatedDays: 3 },
+        ],
+    },
+    {
+        id: 'mep', phase: 'Thiết kế MEP', title: 'BIM Cơ Điện — Hệ thống MEP',
+        discipline: 'MEP', priority: 'MEDIUM', estimatedDays: 20,
+        tags: ['MEP', 'office', 'resort', 'hospital', 'all'],
+        subtasks: [
+            { id: 's16', title: 'Hệ thống điện (cấp điện, chiếu sáng, phòng chống sét)', discipline: 'MEP', estimatedDays: 5 },
+            { id: 's17', title: 'Hệ thống cấp thoát nước sinh hoạt', discipline: 'MEP', estimatedDays: 5 },
+            { id: 's18', title: 'Hệ thống HVAC (điều hòa, thông gió)', discipline: 'MEP', estimatedDays: 5 },
+            { id: 's19', title: 'Hệ thống PCCC (sprinkler, họng nước chữa cháy)', discipline: 'MEP', estimatedDays: 5 },
+        ],
+    },
+    {
+        id: 'civ', phase: 'Hạ tầng & Cảnh quan', title: 'BIM Hạ tầng — San nền, Đường, Cảnh quan',
+        discipline: 'CIV', priority: 'MEDIUM', estimatedDays: 12,
+        tags: ['CIV', 'industry', 'resort', 'all'],
+        subtasks: [
+            { id: 's20', title: 'Mô hình địa hình số (DTM / TIN)', discipline: 'CIV', estimatedDays: 3 },
+            { id: 's21', title: 'Thiết kế san nền, thoát nước mặt', discipline: 'CIV', estimatedDays: 4 },
+            { id: 's22', title: 'Mô hình đường nội bộ, bãi đỗ xe', discipline: 'CIV', estimatedDays: 3 },
+            { id: 's23', title: 'Mô hình hạ tầng kỹ thuật ngầm', discipline: 'CIV', estimatedDays: 2 },
+        ],
+    },
+    {
+        id: 'clash', phase: 'Phối hợp BIM', title: 'Clash Detection — Phát hiện & Giải quyết xung đột',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 10,
+        tags: ['clash', 'office', 'resort', 'hospital', 'all'],
+        subtasks: [
+            { id: 's24', title: 'Tích hợp các model ARC + STR + MEP vào Navisworks', discipline: 'ALL', estimatedDays: 2 },
+            { id: 's25', title: 'Chạy Clash Test & lọc xung đột', discipline: 'ALL', estimatedDays: 3 },
+            { id: 's26', title: 'Họp phối hợp & phân phối biên bản xử lý', discipline: 'ALL', estimatedDays: 2 },
+            { id: 's27', title: 'Cập nhật model sau phối hợp', discipline: 'ALL', estimatedDays: 3 },
+        ],
+    },
+    {
+        id: 'shop', phase: 'Shopdrawing', title: 'Triển khai Shopdrawing từ BIM',
+        discipline: 'ALL', priority: 'HIGH', estimatedDays: 20,
+        tags: ['shop', 'housing', 'office', 'resort', 'hospital', 'all'],
+        subtasks: [
+            { id: 's28', title: 'SD Kiến trúc: mặt bằng, mặt cắt chi tiết', discipline: 'ARC', estimatedDays: 7 },
+            { id: 's29', title: 'SD Kết cấu: cốt thép, chi tiết liên kết', discipline: 'STR', estimatedDays: 7 },
+            { id: 's30', title: 'SD MEP: tuyến ống, sơ đồ nguyên lý', discipline: 'MEP', estimatedDays: 6 },
+        ],
+    },
+    {
+        id: 'asbuilt', phase: 'As-built', title: 'BIM As-built — Cập nhật thực tế thi công',
+        discipline: 'ALL', priority: 'MEDIUM', estimatedDays: 15,
+        tags: ['asbuilt', 'housing', 'office', 'industry', 'all'],
+        subtasks: [
+            { id: 's31', title: 'Thu thập hoàn công từ công trường', discipline: 'ALL', estimatedDays: 3 },
+            { id: 's32', title: 'Cập nhật model ARC hoàn công', discipline: 'ARC', estimatedDays: 4 },
+            { id: 's33', title: 'Cập nhật model STR hoàn công', discipline: 'STR', estimatedDays: 4 },
+            { id: 's34', title: 'Xuất hồ sơ BIM As-built bàn giao', discipline: 'ALL', estimatedDays: 4 },
+        ],
+    },
+];
 
-interface ProjectInfo {
-    name?: string;
-    description?: string;
-    location?: string;
-    totalArea?: number;
-}
+// ─── Constants ─────────────────────────────────────────────────────────────
 
-function buildQuestions(info: ProjectInfo): SmartQuestion[] {
-    return [
-        {
-            key: 'buildingType',
-            question: '🏗️ Loại công trình này là gì?',
-            chips: [
-                'Nhà ở, biệt thự, nhà phố',
-                'Căn hộ chung cư, cao tầng',
-                'Resort, khách sạn',
-                'Văn phòng, tòa nhà thương mại',
-                'Trung tâm thương mại',
-                'Nhà máy, kho xưởng công nghiệp',
-                'Công trình hạ tầng, cầu đường',
-                'Bệnh viện, trường học',
-            ],
-            freeInput: true,
-            placeholder: 'Hoặc nhập loại công trình khác...',
-        },
-        {
-            key: 'bimScope',
-            question: '📐 Phạm vi BIM cần thực hiện?',
-            chips: [
-                'BIM 3D - Đủ cả ARC + STR + MEP',
-                'Chỉ BIM kiến trúc (ARC)',
-                'Chỉ BIM kết cấu (STR)',
-                'ARC + STR (không MEP)',
-                'ARC + STR + MEP + CIV (đầy đủ)',
-                'BIM phối hợp + phát hiện xung đột',
-            ],
-        },
-        {
-            key: 'deliverables',
-            question: '📦 Sản phẩm bàn giao cuối cùng?',
-            chips: [
-                'Model BIM LOD 200 (thiết kế cơ sở)',
-                'Model BIM LOD 300 (thiết kế chi tiết)',
-                'Model + Shopdrawing đầy đủ',
-                'Model + Shopdrawing + As-built',
-                'Chỉ bản vẽ 2D từ BIM',
-                'Báo cáo phối hợp (Clash Detection)',
-            ],
-        },
-        {
-            key: 'timeline',
-            question: '⏱️ Timeline thực hiện dự kiến?',
-            chips: [
-                '1-2 tháng (dự án nhỏ)',
-                '3-6 tháng',
-                '6-12 tháng',
-                'Trên 12 tháng (dự án lớn)',
-                'Chưa xác định',
-            ],
-        },
-        {
-            key: 'special',
-            question: '⭐ Yêu cầu đặc biệt nào không?',
-            chips: [
-                'Không có yêu cầu đặc biệt',
-                'Cần BIM Execution Plan (BEP)',
-                'Phối hợp với nhiều đơn vị thiết kế',
-                'Export IFC để tích hợp phần mềm khác',
-                'Cần họp phối hợp định kỳ hàng tuần',
-                'Dự án có vốn đầu tư nước ngoài (tiêu chuẩn quốc tế)',
-            ],
-            freeInput: true,
-            placeholder: 'Hoặc bổ sung yêu cầu khác...',
-        },
-    ];
-}
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const disciplineColors: Record<string, string> = {
-    ARC: 'bg-orange-100 text-orange-700',
-    STR: 'bg-blue-100 text-blue-700',
-    MEP: 'bg-green-100 text-green-700',
-    CIV: 'bg-purple-100 text-purple-700',
-    ALL: 'bg-gray-100 text-gray-600',
+const disciplineColors: Record<string, { bg: string; text: string; border: string }> = {
+    ARC: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
+    STR: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+    MEP: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
+    CIV: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' },
+    ALL: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' },
 };
 
-const priorityColors: Record<string, string> = {
-    HIGH: 'text-red-600',
-    MEDIUM: 'text-amber-600',
-    LOW: 'text-green-600',
-};
+// Smart defaults based on keywords in project name/description
+function getSmartDefaults(name = '', desc = ''): Set<string> {
+    const text = (name + ' ' + desc).toLowerCase();
+    const selected = new Set<string>();
+
+    // Luôn chọn một số tasks cơ bản
+    selected.add('survey');
+    selected.add('arc-sd');
+    selected.add('arc-dd');
+    selected.add('str');
+    selected.add('shop');
+
+    if (text.includes('mep') || text.includes('cơ điện') || text.includes('điện') || text.includes('hvac')
+        || text.includes('văn phòng') || text.includes('resort') || text.includes('khách sạn') || text.includes('bệnh viện')) {
+        selected.add('mep');
+        selected.add('clash');
+    }
+    if (text.includes('hạ tầng') || text.includes('cảnh quan') || text.includes('nhà máy') || text.includes('khu công nghiệp') || text.includes('resort')) {
+        selected.add('civ');
+    }
+    if (text.includes('hoàn công') || text.includes('as-built') || text.includes('bàn giao')) {
+        selected.add('asbuilt');
+    }
+
+    return selected;
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AITaskGenerator({
-    projectId,
-    projectName,
-    projectDescription,
-    projectLocation,
-    totalArea,
-    onTasksImported,
-    onClose,
+    projectId, projectName, projectDescription, projectLocation, totalArea,
+    onTasksImported, onClose,
 }: AITaskGeneratorProps) {
-    const projectInfo: ProjectInfo = { name: projectName, description: projectDescription, location: projectLocation, totalArea };
-    const questions = buildQuestions(projectInfo);
+    // Task selection state: task id → Set of subtask ids (empty set = chọn task nhưng không có subtask nào được tick)
+    const smartDefaults = useMemo(() => getSmartDefaults(projectName, projectDescription), [projectName, projectDescription]);
 
-    const [step, setStep] = useState<'wizard' | 'generating' | 'preview' | 'importing' | 'done'>('wizard');
-    const [currentQ, setCurrentQ] = useState(0);
-    const [answers, setAnswers] = useState<WizardAnswer[]>([]);
-    const [freeInput, setFreeInput] = useState('');
-    const [selectedChip, setSelectedChip] = useState<string | null>(null);
-
-    // preview/import
-    const [tasks, setTasks] = useState<GeneratedTask[]>([]);
-    const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
-    const [expanded, setExpanded] = useState<Set<number>>(new Set());
-    const [error, setError] = useState<string | null>(null);
+    const [selectedTasks, setSelectedTasks] = useState<Set<string>>(smartDefaults);
+    const [selectedSubs, setSelectedSubs] = useState<Map<string, Set<string>>>(() => {
+        const map = new Map<string, Set<string>>();
+        TASK_TEMPLATES.forEach(t => {
+            if (smartDefaults.has(t.id)) {
+                map.set(t.id, new Set(t.subtasks.map(s => s.id)));
+            }
+        });
+        return map;
+    });
+    const [expanded, setExpanded] = useState<Set<string>>(new Set(TASK_TEMPLATES.map(t => t.id)));
+    const [step, setStep] = useState<'checklist' | 'importing' | 'done'>('checklist');
     const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
 
-    const inputRef = useRef<HTMLInputElement>(null);
-    const summaryRef = useRef<HTMLDivElement>(null);
+    // Group tasks by phase
+    const tasksByPhase = useMemo(() => {
+        const groups = new Map<string, TaskTemplate[]>();
+        TASK_TEMPLATES.forEach(t => {
+            if (!groups.has(t.phase)) groups.set(t.phase, []);
+            groups.get(t.phase)!.push(t);
+        });
+        return groups;
+    }, []);
 
-    useEffect(() => {
-        setSelectedChip(null);
-        setFreeInput('');
-        inputRef.current?.focus();
-    }, [currentQ]);
+    const selectedCount = selectedTasks.size;
+    const totalSubsSelected = Array.from(selectedSubs.values()).reduce((acc, s) => acc + s.size, 0);
 
-    const curQuestion = questions[currentQ];
-    const isLastQ = currentQ === questions.length - 1;
+    // ─── Toggle helpers ──────────────────────────────────────────────────────
 
-    // ─── Answer a question ───────────────────────────────────────────────────
+    const toggleTask = (taskId: string) => {
+        const task = TASK_TEMPLATES.find(t => t.id === taskId)!;
+        setSelectedTasks(prev => {
+            const s = new Set(prev);
+            if (s.has(taskId)) {
+                s.delete(taskId);
+                setSelectedSubs(sm => { const m = new Map(sm); m.delete(taskId); return m; });
+            } else {
+                s.add(taskId);
+                // Auto-select all subtasks
+                setSelectedSubs(sm => { const m = new Map(sm); m.set(taskId, new Set(task.subtasks.map(sub => sub.id))); return m; });
+            }
+            return s;
+        });
+    };
 
-    const submitAnswer = (answer: string) => {
-        if (!answer.trim()) return;
-        const newAnswers = [...answers, { question: curQuestion.question, answer: answer.trim() }];
-        setAnswers(newAnswers);
+    const toggleSub = (taskId: string, subId: string) => {
+        setSelectedSubs(prev => {
+            const m = new Map(prev);
+            const subs = new Set(m.get(taskId) || []);
+            subs.has(subId) ? subs.delete(subId) : subs.add(subId);
+            m.set(taskId, subs);
+            // If all subs deselected → deselect parent task too
+            if (subs.size === 0) {
+                setSelectedTasks(st => { const s = new Set(st); s.delete(taskId); return s; });
+            } else {
+                setSelectedTasks(st => { const s = new Set(st); s.add(taskId); return s; });
+            }
+            return m;
+        });
+    };
 
-        if (isLastQ) {
-            generateTasks(newAnswers);
+    const togglePhase = (phase: string) => {
+        const tasks = tasksByPhase.get(phase) || [];
+        const allSelected = tasks.every(t => selectedTasks.has(t.id));
+        if (allSelected) {
+            // Deselect all in phase
+            setSelectedTasks(prev => { const s = new Set(prev); tasks.forEach(t => s.delete(t.id)); return s; });
+            setSelectedSubs(prev => { const m = new Map(prev); tasks.forEach(t => m.delete(t.id)); return m; });
         } else {
-            setCurrentQ(prev => prev + 1);
-        }
-    };
-
-    const handleChipClick = (chip: string) => {
-        setSelectedChip(chip);
-        // Nếu không có free input → submit luôn
-        if (!curQuestion.freeInput) {
-            submitAnswer(chip);
-        }
-    };
-
-    const handleSubmitWithOptionalFreeInput = () => {
-        const base = selectedChip || '';
-        const extra = freeInput.trim();
-        const final = extra ? (base ? `${base}; ${extra}` : extra) : base;
-        if (final) submitAnswer(final);
-    };
-
-    // ─── Generate tasks từ answers ───────────────────────────────────────────
-
-    const generateTasks = async (finalAnswers: WizardAnswer[]) => {
-        setStep('generating');
-        setError(null);
-
-        const context = finalAnswers
-            .map(a => `${a.question}\n→ ${a.answer}`)
-            .join('\n\n');
-
-        try {
-            const res = await fetch('/api/ai/generate-tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectName,
-                    description: projectDescription,
-                    location: projectLocation,
-                    totalArea,
-                    chatContext: context,
-                }),
+            // Select all
+            setSelectedTasks(prev => { const s = new Set(prev); tasks.forEach(t => s.add(t.id)); return s; });
+            setSelectedSubs(prev => {
+                const m = new Map(prev);
+                tasks.forEach(t => m.set(t.id, new Set(t.subtasks.map(s => s.id))));
+                return m;
             });
-            const data = await res.json();
-            if (!res.ok || !data.success) throw new Error(data.error || 'Lỗi tạo tasks');
-
-            const newTasks: GeneratedTask[] = data.tasks || [];
-            setTasks(newTasks);
-            setSelectedTasks(new Set(newTasks.map((_, i) => i)));
-            setExpanded(new Set(newTasks.map((_, i) => i)));
-            setStep('preview');
-        } catch (err: any) {
-            setError(err.message || 'Không thể tạo tasks');
-            setStep('wizard');
         }
     };
 
-    const handleRestart = () => {
-        setAnswers([]);
-        setCurrentQ(0);
-        setFreeInput('');
-        setSelectedChip(null);
-        setError(null);
-        setStep('wizard');
+    const toggleExpand = (id: string) => setExpanded(prev => {
+        const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
+    });
+
+    const selectAll = () => {
+        setSelectedTasks(new Set(TASK_TEMPLATES.map(t => t.id)));
+        const m = new Map<string, Set<string>>();
+        TASK_TEMPLATES.forEach(t => m.set(t.id, new Set(t.subtasks.map(s => s.id))));
+        setSelectedSubs(m);
+    };
+
+    const deselectAll = () => {
+        setSelectedTasks(new Set());
+        setSelectedSubs(new Map());
     };
 
     // ─── Import ──────────────────────────────────────────────────────────────
 
     const handleImport = async () => {
-        const toImport = tasks.filter((_, i) => selectedTasks.has(i));
+        const toImport = TASK_TEMPLATES.filter(t => selectedTasks.has(t.id));
         if (toImport.length === 0) return;
 
-        const totalOps = toImport.reduce((acc, t) => acc + 1 + (t.subtasks?.length || 0), 0);
+        const totalOps = toImport.reduce((acc, t) => {
+            const subs = selectedSubs.get(t.id);
+            return acc + 1 + (subs?.size || 0);
+        }, 0);
+
         setImportProgress({ done: 0, total: totalOps });
         setStep('importing');
 
@@ -287,10 +308,9 @@ export default function AITaskGenerator({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: task.title,
-                    description: task.description || null,
-                    phase: task.phase || null,
-                    discipline: task.discipline || null,
-                    priority: task.priority || 'MEDIUM',
+                    description: `[${task.phase}] ${task.discipline} · ~${task.estimatedDays} ngày`,
+                    discipline: task.discipline,
+                    priority: task.priority,
                     status: 'TODO',
                     progress: 0,
                 }),
@@ -302,14 +322,17 @@ export default function AITaskGenerator({
             const parentData = await parentRes.json();
             const parentId = parentData?.data?.id;
 
-            if (parentId && task.subtasks?.length) {
-                for (const sub of task.subtasks) {
+            if (parentId) {
+                const selectedSubIds = selectedSubs.get(task.id) || new Set();
+                const subsToCreate = task.subtasks.filter(s => selectedSubIds.has(s.id));
+
+                for (const sub of subsToCreate) {
                     await fetch(baseUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             title: sub.title,
-                            discipline: sub.discipline || null,
+                            discipline: sub.discipline,
                             parentId,
                             priority: 'MEDIUM',
                             status: 'TODO',
@@ -323,15 +346,15 @@ export default function AITaskGenerator({
         }
 
         setStep('done');
-        setTimeout(() => { onTasksImported(); onClose(); }, 1500);
+        setTimeout(() => { onTasksImported(); onClose(); }, 1200);
     };
 
-    const toggleTask = (idx: number) => setSelectedTasks(prev => {
-        const s = new Set(prev); s.has(idx) ? s.delete(idx) : s.add(idx); return s;
-    });
-    const toggleExpand = (idx: number) => setExpanded(prev => {
-        const s = new Set(prev); s.has(idx) ? s.delete(idx) : s.add(idx); return s;
-    });
+    const DisciplineBadge = ({ d }: { d: string }) => {
+        const c = disciplineColors[d] || disciplineColors.ALL;
+        return (
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${c.bg} ${c.text} ${c.border}`}>{d}</span>
+        );
+    };
 
     // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -340,278 +363,174 @@ export default function AITaskGenerator({
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex-shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
                             <Wand2 className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-base font-bold text-gray-900">✨ AI Tạo Tasks BIM</h2>
-                            {/* Progress dots */}
-                            <div className="flex items-center gap-1 mt-1">
-                                {step === 'wizard' && questions.map((_, i) => (
-                                    <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${
-                                        i < currentQ ? 'bg-indigo-600 w-4' :
-                                        i === currentQ ? 'bg-indigo-400 w-3' :
-                                        'bg-gray-200 w-2'
-                                    }`} />
-                                ))}
-                                {step !== 'wizard' && (
-                                    <span className="text-xs text-indigo-600 font-semibold">
-                                        {step === 'generating' ? 'Đang tạo tasks...' :
-                                         step === 'preview' ? 'Xem & chọn tasks' :
-                                         step === 'importing' ? 'Đang lưu...' : 'Hoàn tất!'}
-                                    </span>
-                                )}
-                            </div>
+                            <h2 className="text-base font-bold text-gray-900">✨ AI Gợi ý Tasks BIM</h2>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {step === 'checklist' && <>Tick chọn tasks phù hợp để tạo · <span className="text-indigo-600 font-semibold">{selectedCount} giai đoạn, {totalSubsSelected} subtasks</span></>}
+                                {step === 'importing' && 'Đang tạo tasks...'}
+                                {step === 'done' && '✓ Hoàn tất!'}
+                            </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/60 transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                {/* ══════════ WIZARD ══════════ */}
-                {step === 'wizard' && (
+                {/* ══════════ CHECKLIST ══════════ */}
+                {step === 'checklist' && (
                     <>
-                        {/* Project info bar */}
-                        <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-600/8 to-blue-600/5 border-b border-indigo-100 flex-shrink-0">
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
-                                <span>📋 <strong className="text-gray-800">{projectName || 'Dự án chưa đặt tên'}</strong></span>
-                                {projectLocation && <span>📍 {projectLocation}</span>}
-                                {totalArea && <span>📐 {totalArea.toLocaleString('vi-VN')} m²</span>}
-                                {projectDescription && (
-                                    <span className="truncate max-w-xs opacity-70">💬 {projectDescription}</span>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Answers so far (mini timeline) */}
-                        {answers.length > 0 && (
-                            <div ref={summaryRef} className="px-4 pt-3 flex-shrink-0">
-                                <div className="space-y-1.5">
-                                    {answers.map((a, i) => (
-                                        <div key={i} className="flex items-start gap-2 text-xs">
-                                            <span className="text-indigo-400 flex-shrink-0 mt-0.5">✓</span>
-                                            <span className="text-gray-500 flex-shrink-0">{a.question.replace(/^[^\s]+ /, '')}</span>
-                                            <span className="font-semibold text-gray-700 ml-auto text-right">{a.answer}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="border-t border-dashed border-gray-200 mt-3" />
-                            </div>
-                        )}
-
-                        {/* Current question */}
-                        <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
-                            <div className="mb-4">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
-                                        Câu {currentQ + 1}/{questions.length}
-                                    </span>
-                                </div>
-                                <p className="text-base font-semibold text-gray-900 leading-snug">
-                                    {curQuestion.question}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-1">Click chọn hoặc tự nhập bên dưới</p>
-                            </div>
-
-                            {/* Chips */}
-                            <div className="flex flex-wrap gap-2">
-                                {curQuestion.chips.map((chip, i) => (
-                                    <button
-                                        key={i}
-                                        type="button"
-                                        onClick={() => handleChipClick(chip)}
-                                        className={`px-3 py-2 text-sm rounded-xl border transition-all duration-150 text-left ${
-                                            selectedChip === chip
-                                                ? 'border-indigo-500 bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-                                                : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50'
-                                        }`}
-                                    >
-                                        {chip}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Free input (optional) */}
-                            {curQuestion.freeInput && (
-                                <div className="mt-3">
-                                    <input
-                                        ref={inputRef}
-                                        type="text"
-                                        value={freeInput}
-                                        onChange={e => setFreeInput(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && handleSubmitWithOptionalFreeInput()}
-                                        placeholder={curQuestion.placeholder || 'Nhập thêm nếu cần...'}
-                                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50"
-                                    />
-                                </div>
-                            )}
-
-                            {/* Error */}
-                            {error && (
-                                <div className="mt-3 flex items-center gap-2 bg-red-50 text-red-700 text-xs px-3 py-2 rounded-xl">
-                                    ⚠️ {error}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50 flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                                {currentQ > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setCurrentQ(prev => prev - 1); setAnswers(prev => prev.slice(0, -1)); }}
-                                        className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                        ← Quay lại
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                {/* Skip câu hỏi */}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        const newAnswers = [...answers, { question: curQuestion.question, answer: 'Không yêu cầu cụ thể' }];
-                                        setAnswers(newAnswers);
-                                        if (isLastQ) generateTasks(newAnswers);
-                                        else setCurrentQ(prev => prev + 1);
-                                    }}
-                                    className="text-sm text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                                >
-                                    Bỏ qua
-                                </button>
-
-                                {/* Nút tiếp / tạo tasks */}
-                                {curQuestion.freeInput ? (
-                                    <button
-                                        type="button"
-                                        onClick={handleSubmitWithOptionalFreeInput}
-                                        disabled={!selectedChip && !freeInput.trim()}
-                                        className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors flex items-center gap-2"
-                                    >
-                                        {isLastQ ? (
-                                            <><Wand2 className="w-4 h-4" /> Tạo Tasks ngay</>
-                                        ) : (
-                                            <>Tiếp theo <ArrowRight className="w-4 h-4" /></>
-                                        )}
-                                    </button>
-                                ) : (
-                                    // Non-freeInput: chip click đã submit luôn, nút này chỉ submit nếu đã chọn chip
-                                    selectedChip && curQuestion.freeInput === undefined && (
-                                        <div className="text-xs text-indigo-500 italic">Tự động chuyển câu tiếp...</div>
-                                    )
-                                )}
-
-                                {/* Nút Tạo luôn không cần trả lời hết */}
-                                {!isLastQ && (
-                                    <button
-                                        type="button"
-                                        onClick={() => generateTasks(answers)}
-                                        className="text-sm text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-200 hover:bg-indigo-50 transition-colors flex items-center gap-1.5"
-                                    >
-                                        <Wand2 className="w-3.5 h-3.5" /> Tạo luôn
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </>
-                )}
-
-                {/* ══════════ GENERATING ══════════ */}
-                {step === 'generating' && (
-                    <div className="flex-1 flex flex-col items-center justify-center py-16">
-                        <div className="relative mb-6">
-                            <Loader2 className="w-14 h-14 text-indigo-600 animate-spin" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Wand2 className="w-5 h-5 text-indigo-400" />
-                            </div>
-                        </div>
-                        <p className="text-base font-semibold text-gray-700">AI đang tạo danh sách tasks...</p>
-                        <p className="text-sm text-gray-400 mt-2">Dựa trên {answers.length} thông tin bạn đã cung cấp</p>
-                        {/* Summary chips */}
-                        <div className="flex flex-wrap gap-1.5 mt-4 max-w-sm justify-center">
-                            {answers.map((a, i) => (
-                                <span key={i} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full">{a.answer}</span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* ══════════ PREVIEW ══════════ */}
-                {step === 'preview' && (
-                    <>
-                        <div className="flex-1 overflow-y-auto p-4 min-h-0">
-                            {/* Summary */}
-                            <div className="mb-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
-                                <p className="text-xs font-semibold text-indigo-700 mb-1.5">📋 Tạo dựa trên:</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {answers.map((a, i) => (
-                                        <span key={i} className="text-xs bg-white border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded-full">{a.answer}</span>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between mb-3">
-                                <p className="text-sm text-gray-600">
-                                    <strong>{tasks.length}</strong> giai đoạn · <strong>{tasks.reduce((a, t) => a + (t.subtasks?.length || 0), 0)}</strong> subtasks
+                        {/* Project + Quick filters */}
+                        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-500">
+                                    📋 <strong className="text-gray-700">{projectName || 'Dự án'}</strong>
+                                    {projectLocation && <> · 📍 {projectLocation}</>}
+                                    {totalArea && <> · 📐 {totalArea.toLocaleString('vi-VN')} m²</>}
                                 </p>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setSelectedTasks(new Set(tasks.map((_, i) => i)))} className="text-xs text-indigo-600 hover:underline">Tất cả</button>
+                                    <button onClick={selectAll} className="text-xs text-indigo-600 hover:underline font-medium">Chọn tất cả</button>
                                     <span className="text-gray-300">|</span>
-                                    <button onClick={() => setSelectedTasks(new Set())} className="text-xs text-gray-500 hover:underline">Bỏ chọn</button>
+                                    <button onClick={deselectAll} className="text-xs text-gray-400 hover:underline">Bỏ chọn</button>
                                 </div>
                             </div>
+                            {/* Discipline legend */}
+                            <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                                {Object.entries(disciplineColors).slice(0, 4).map(([d, c]) => (
+                                    <span key={d} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${c.bg} ${c.text}`}>
+                                        {d === 'ARC' ? '🏛 ARC Kiến trúc' : d === 'STR' ? '🏗 STR Kết cấu' : d === 'MEP' ? '⚡ MEP Cơ điện' : '🌿 CIV Hạ tầng'}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
 
-                            <div className="space-y-2">
-                                {tasks.map((task, idx) => (
-                                    <div key={idx} className={`border rounded-xl overflow-hidden transition-all ${selectedTasks.has(idx) ? 'border-indigo-200 bg-indigo-50/30' : 'border-gray-200 opacity-60'}`}>
-                                        <div className="flex items-center gap-3 p-3">
-                                            <input type="checkbox" checked={selectedTasks.has(idx)} onChange={() => toggleTask(idx)}
-                                                className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0 cursor-pointer" />
-                                            <button onClick={() => toggleExpand(idx)} className="flex-1 flex items-center gap-2 text-left">
-                                                {expanded.has(idx) ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-                                                <span className="font-semibold text-sm text-gray-900 flex-1">{task.title}</span>
-                                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                    {task.discipline && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${disciplineColors[task.discipline] || 'bg-gray-100 text-gray-600'}`}>{task.discipline}</span>}
-                                                    {task.estimatedDays && <span className="text-[10px] text-gray-400">{task.estimatedDays}d</span>}
-                                                    {task.priority && <span className={`text-[10px] font-semibold ${priorityColors[task.priority] || ''}`}>{task.priority}</span>}
-                                                </div>
+                        {/* Task list grouped by phase */}
+                        <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+                            {Array.from(tasksByPhase.entries()).map(([phase, tasks]) => {
+                                const allPhaseSelected = tasks.every(t => selectedTasks.has(t.id));
+                                const somePhaseSelected = tasks.some(t => selectedTasks.has(t.id));
+                                const phaseExpanded = tasks.some(t => expanded.has(t.id));
+
+                                return (
+                                    <div key={phase} className="border border-gray-200 rounded-xl overflow-hidden">
+                                        {/* Phase header */}
+                                        <div
+                                            className={`flex items-center gap-2 px-3 py-2 cursor-pointer select-none transition-colors ${allPhaseSelected ? 'bg-indigo-50' : somePhaseSelected ? 'bg-indigo-50/40' : 'bg-gray-50'}`}
+                                            onClick={() => togglePhase(phase)}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={allPhaseSelected}
+                                                ref={el => { if (el) el.indeterminate = somePhaseSelected && !allPhaseSelected; }}
+                                                onChange={() => togglePhase(phase)}
+                                                onClick={e => e.stopPropagation()}
+                                                className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0"
+                                            />
+                                            <span className="font-semibold text-sm text-gray-800 flex-1">{phase}</span>
+                                            <span className="text-xs text-gray-400">{tasks.length} tasks</span>
+                                            <button
+                                                type="button"
+                                                onClick={e => { e.stopPropagation(); tasks.forEach(t => toggleExpand(t.id)); }}
+                                                className="p-0.5 text-gray-400 hover:text-gray-600"
+                                            >
+                                                {phaseExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                             </button>
                                         </div>
-                                        {expanded.has(idx) && task.subtasks && task.subtasks.length > 0 && (
-                                            <div className="px-4 pb-3 space-y-1.5 border-t border-gray-100 pt-2">
-                                                {task.subtasks.map((sub, si) => (
-                                                    <div key={si} className="flex items-center gap-2 py-1 pl-6">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
-                                                        <span className="text-xs text-gray-700 flex-1">{sub.title}</span>
-                                                        {sub.discipline && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${disciplineColors[sub.discipline] || 'bg-gray-100 text-gray-600'}`}>{sub.discipline}</span>}
-                                                        {sub.estimatedDays && <span className="text-[10px] text-gray-400">{sub.estimatedDays}d</span>}
-                                                    </div>
-                                                ))}
+
+                                        {/* Tasks in phase */}
+                                        {phaseExpanded && (
+                                            <div className="divide-y divide-gray-100">
+                                                {tasks.map(task => {
+                                                    const isTaskSelected = selectedTasks.has(task.id);
+                                                    const isExpanded = expanded.has(task.id);
+                                                    const subsSelected = selectedSubs.get(task.id)?.size || 0;
+
+                                                    return (
+                                                        <div key={task.id} className={`transition-colors ${isTaskSelected ? 'bg-white' : 'bg-gray-50/50'}`}>
+                                                            {/* Task row */}
+                                                            <div className="flex items-center gap-2.5 px-4 py-2.5">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isTaskSelected}
+                                                                    onChange={() => toggleTask(task.id)}
+                                                                    className="w-4 h-4 rounded accent-indigo-600 flex-shrink-0 cursor-pointer"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleExpand(task.id)}
+                                                                    className="flex-1 flex items-center gap-2 text-left"
+                                                                >
+                                                                    {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
+                                                                    <span className={`text-sm flex-1 ${isTaskSelected ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+                                                                        {task.title}
+                                                                    </span>
+                                                                </button>
+                                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                    <DisciplineBadge d={task.discipline} />
+                                                                    <span className="text-[10px] text-gray-400">~{task.estimatedDays}d</span>
+                                                                    {isTaskSelected && task.subtasks.length > 0 && (
+                                                                        <span className="text-[10px] text-indigo-500 font-semibold">{subsSelected}/{task.subtasks.length} sub</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Subtasks */}
+                                                            {isExpanded && task.subtasks.length > 0 && (
+                                                                <div className="pl-10 pr-4 pb-2.5 space-y-1">
+                                                                    {task.subtasks.map(sub => {
+                                                                        const isSubSelected = selectedSubs.get(task.id)?.has(sub.id) ?? false;
+                                                                        return (
+                                                                            <label
+                                                                                key={sub.id}
+                                                                                className={`flex items-center gap-2 py-1 px-2 rounded-lg cursor-pointer transition-colors ${isSubSelected ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
+                                                                            >
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={isSubSelected}
+                                                                                    onChange={() => toggleSub(task.id, sub.id)}
+                                                                                    className="w-3.5 h-3.5 rounded accent-indigo-500 flex-shrink-0"
+                                                                                />
+                                                                                <span className={`text-xs flex-1 ${isSubSelected ? 'text-gray-800' : 'text-gray-400'}`}>
+                                                                                    {sub.title}
+                                                                                </span>
+                                                                                <DisciplineBadge d={sub.discipline} />
+                                                                                <span className="text-[10px] text-gray-400">{sub.estimatedDays}d</span>
+                                                                            </label>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>
-                                ))}
-                            </div>
+                                );
+                            })}
                         </div>
 
-                        <div className="p-4 border-t border-gray-100 flex items-center justify-between gap-3 bg-gray-50 flex-shrink-0">
-                            <button onClick={handleRestart} className="text-sm text-gray-500 hover:text-indigo-600 flex items-center gap-1.5 transition-colors">
-                                <RefreshCw className="w-3.5 h-3.5" /> Làm lại từ đầu
-                            </button>
+                        {/* Footer */}
+                        <div className="px-4 py-3 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3 flex-shrink-0">
+                            <div className="text-sm text-gray-600">
+                                Đã chọn <strong className="text-indigo-700">{selectedCount} giai đoạn</strong> · <strong className="text-indigo-700">{totalSubsSelected} subtasks</strong>
+                            </div>
                             <div className="flex gap-2">
-                                <button onClick={() => generateTasks(answers)} className="text-sm text-gray-500 hover:text-indigo-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:bg-white flex items-center gap-1.5">
-                                    <Wand2 className="w-3.5 h-3.5" /> Tạo lại
+                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 font-medium">
+                                    Hủy
                                 </button>
-                                <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors font-medium">Hủy</button>
-                                <button onClick={handleImport} disabled={selectedTasks.size === 0}
-                                    className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-2">
-                                    <Check className="w-4 h-4" /> Import {selectedTasks.size} giai đoạn
+                                <button
+                                    onClick={handleImport}
+                                    disabled={selectedCount === 0}
+                                    className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all"
+                                >
+                                    <Check className="w-4 h-4" />
+                                    Tạo {selectedCount} giai đoạn + {totalSubsSelected} subtasks
                                 </button>
                             </div>
                         </div>
@@ -622,12 +541,12 @@ export default function AITaskGenerator({
                 {step === 'importing' && (
                     <div className="flex-1 flex flex-col items-center justify-center py-16">
                         <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
-                        <p className="font-semibold text-gray-700 mb-2">Đang lưu vào hệ thống...</p>
-                        <div className="w-48 bg-gray-200 rounded-full h-2 mb-2">
-                            <div className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${importProgress.total > 0 ? (importProgress.done / importProgress.total) * 100 : 0}%` }} />
+                        <p className="font-semibold text-gray-700 mb-3">Đang tạo {importProgress.total} tasks...</p>
+                        <div className="w-56 bg-gray-200 rounded-full h-2.5 mb-2">
+                            <div className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                                style={{ width: `${importProgress.total > 0 ? Math.round((importProgress.done / importProgress.total) * 100) : 0}%` }} />
                         </div>
-                        <p className="text-sm text-gray-400">{importProgress.done}/{importProgress.total} tasks</p>
+                        <p className="text-sm text-gray-400">{importProgress.done} / {importProgress.total}</p>
                     </div>
                 )}
 
@@ -637,8 +556,8 @@ export default function AITaskGenerator({
                         <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
                             <Check className="w-8 h-8 text-emerald-600" />
                         </div>
-                        <p className="text-lg font-semibold text-gray-800">Import hoàn tất!</p>
-                        <p className="text-sm text-gray-500 mt-1">Đang chuyển sang danh sách tasks...</p>
+                        <p className="text-lg font-semibold text-gray-800">Tạo tasks hoàn tất!</p>
+                        <p className="text-sm text-gray-500 mt-1">Đang chuyển sang danh sách công việc...</p>
                     </div>
                 )}
             </div>
