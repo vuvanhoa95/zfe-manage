@@ -27,6 +27,7 @@ type UserFormState = {
     experience: string;
     bankAccount: string;
     taxCode: string;
+    sendEmail: boolean;
 };
 
 const INITIAL_FORM: UserFormState = {
@@ -39,6 +40,7 @@ const INITIAL_FORM: UserFormState = {
     experience: '',
     bankAccount: '',
     taxCode: '',
+    sendEmail: true,
 };
 
 export default function UsersPage() {
@@ -180,6 +182,8 @@ export default function UsersPage() {
             return;
         }
 
+        const isNew = !editingUser;
+
         setIsSubmitting(true);
         try {
             const res = await fetch('/api/admin/update-user', {
@@ -197,6 +201,7 @@ export default function UsersPage() {
                     experience: form.experience.trim() || null,
                     bankAccount: form.bankAccount.trim() || null,
                     taxCode: form.taxCode.trim() || null,
+                    sendEmail: isNew ? form.sendEmail : false,
                 }),
             });
 
@@ -204,6 +209,14 @@ export default function UsersPage() {
             if (result.success) {
                 closeModal();
                 await fetchUsers();
+                // Thông báo rõ ràng sau khi tạo user mới
+                if (isNew) {
+                    if (result.emailSent) {
+                        alert(`✅ Đã tạo user thành công!\n📧 Email thông báo đã gửi đến ${form.email.trim()}`);
+                    } else {
+                        alert(`✅ Đã tạo user thành công!\n(Không gửi email thông báo)`);
+                    }
+                }
             } else {
                 alert(result.error || 'Không thể lưu user');
             }
@@ -585,6 +598,39 @@ export default function UsersPage() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Checkbox gửi email - chỉ hiện khi tạo user mới */}
+                            {!editingUser && (
+                                <div className="pt-2">
+                                    <label className="flex items-center gap-3 cursor-pointer select-none group">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                id="sendEmail"
+                                                checked={form.sendEmail}
+                                                onChange={(e) => setForm(prev => ({ ...prev, sendEmail: e.target.checked }))}
+                                                className="sr-only peer"
+                                            />
+                                            <div className={`w-10 h-6 rounded-full transition-colors duration-200 ${
+                                                form.sendEmail ? 'bg-blue-500' : 'bg-gray-300'
+                                            }`} />
+                                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+                                                form.sendEmail ? 'translate-x-4' : 'translate-x-0'
+                                            }`} />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-800">
+                                                {form.sendEmail ? '📧 Gửi email thông báo cho user' : '🔕 Không gửi email thông báo'}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {form.sendEmail
+                                                    ? 'User sẽ nhận email chào mừng với hướng dẫn đăng nhập'
+                                                    : 'User sẽ được tạo nhưng không nhận email thông báo'}
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
 
                             <div className="pt-4 flex gap-3 border-t">
                                 <button

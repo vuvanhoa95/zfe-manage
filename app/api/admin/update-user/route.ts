@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { email, password, name, role, title, department, experience, bankAccount, taxCode } = body;
+        const { email, password, name, role, title, department, experience, bankAccount, taxCode, sendEmail } = body;
 
         if (!email || !password) {
             return NextResponse.json(
@@ -180,8 +180,9 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Send invitation email for NEW users
-        if (!existingUser) {
+        // Send invitation email for NEW users - chỉ khi admin chọn gửi
+        let emailSent = false;
+        if (!existingUser && sendEmail === true) {
             try {
                 await sendUserInvitationEmail({
                     to: user.email,
@@ -189,6 +190,7 @@ export async function POST(request: NextRequest) {
                     adminName: session.user?.name || 'Admin',
                     role: user.role,
                 });
+                emailSent = true;
             } catch (emailError) {
                 console.error('[API] Failed to send invitation email:', emailError);
                 // Don't fail the whole request if email fails
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             message: existingUser ? 'Đã cập nhật user thành công' : 'Đã tạo user mới thành công',
+            emailSent,
             data: {
                 id: user.id,
                 email: user.email,
