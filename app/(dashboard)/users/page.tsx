@@ -164,6 +164,7 @@ export default function UsersPage() {
             experience: user.experience || '',
             bankAccount: user.bankAccount || '',
             taxCode: user.taxCode || '',
+            sendEmail: false,
         });
         setShowModal(true);
     };
