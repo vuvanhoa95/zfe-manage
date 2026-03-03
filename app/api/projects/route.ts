@@ -442,6 +442,7 @@ export async function POST(request: NextRequest) {
             notes,
             createdById,
             imageUrl,
+            projectYear,
         } = body;
 
         // Verify customer exists if provided
@@ -476,12 +477,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Generate project number
-        const currentYear = new Date().getFullYear();
+        // Generate project number - dùng năm được chỉ định hoặc năm hiện tại
+        const targetYear = (projectYear && !isNaN(projectYear)) ? projectYear : new Date().getFullYear();
         let lastProject;
         try {
             lastProject = await prisma.project.findFirst({
-                where: { projectNo: { startsWith: `PRJ-${currentYear}-` } },
+                where: { projectNo: { startsWith: `PRJ-${targetYear}-` } },
                 orderBy: { projectNo: 'desc' },
             });
         } catch (error: any) {
@@ -495,10 +496,10 @@ export async function POST(request: NextRequest) {
 
         let projectNo: string;
         if (!lastProject) {
-            projectNo = `PRJ-${currentYear}-0001`;
+            projectNo = `PRJ-${targetYear}-0001`;
         } else {
             const lastSeq = parseInt(lastProject.projectNo.split('-')[2]);
-            projectNo = `PRJ-${currentYear}-${(lastSeq + 1).toString().padStart(4, '0')}`;
+            projectNo = `PRJ-${targetYear}-${(lastSeq + 1).toString().padStart(4, '0')}`;
         }
 
         let project;
@@ -624,7 +625,7 @@ export async function POST(request: NextRequest) {
                     for (let i = 1; i <= maxRetries; i++) {
                         try {
                             const newSeq = parseInt(projectNo.split('-')[2]) + i;
-                            const newProjectNo = `PRJ-${currentYear}-${newSeq.toString().padStart(4, '0')}`;
+                            const newProjectNo = `PRJ-${targetYear}-${newSeq.toString().padStart(4, '0')}`;
                             
                             project = await prisma.project.create({
                                 data: {

@@ -72,6 +72,7 @@ export const projectBaseSchema = z.object({
 
 export const projectCreateSchema = projectBaseSchema.extend({
     createdById: z.string().uuid().optional(),
+    projectYear: z.number().int().min(2000).max(2100).optional().nullable(),
 });
 
 export const projectUpdateSchema = projectBaseSchema.partial().extend({

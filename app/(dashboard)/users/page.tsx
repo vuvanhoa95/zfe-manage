@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 
 type AppUser = {
@@ -320,14 +321,26 @@ export default function UsersPage() {
 
     return (
         <div className="px-4 py-4 md:px-6 md:py-5 space-y-4">
-            <div className="flex items-center justify-end">
-                <button
-                    type="button"
-                    onClick={openCreateModal}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2"
-                >
-                    <span>👤+</span> Thêm User
-                </button>
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <h1 className="text-xl font-bold text-gray-900">Quản lý User</h1>
+                    <p className="text-sm text-gray-500 mt-0.5">{users.length} tài khoản trong hệ thống</p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Link
+                        href="/users/permissions"
+                        className="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors font-medium flex items-center gap-2 text-sm"
+                    >
+                        <span>🛡️</span> Phân quyền
+                    </Link>
+                    <button
+                        type="button"
+                        onClick={openCreateModal}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 text-sm"
+                    >
+                        <span>👤+</span> Thêm User
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">

@@ -1,6 +1,12 @@
 /**
  * Permission system for Dashboard/Report access control
+ *
+ * @deprecated Dùng @/lib/rbac thay thế cho code mới.
+ * File này giữ lại để backward compatibility.
  */
+
+// Re-export từ rbac.ts (nguồn sự thật mới)
+export { can, canInProject, isAdmin, isAdminOrPM, getRoleLabel, getRoleBadgeStyle } from '@/lib/rbac';
 
 export type UserRole = 'ADMIN' | 'USER' | 'PM' | 'LEAD' | 'MEMBER' | 'VIEWER';
 export type ProjectMemberRole = 'MANAGER' | 'MEMBER' | 'VIEWER';

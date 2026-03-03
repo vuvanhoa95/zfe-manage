@@ -72,6 +72,7 @@ type Project = {
     status: ProjectStatus;
     notes?: string;
     imageUrl?: string;
+    projectYear?: number;
 };
 
 type ProjectCustomerOption = {
@@ -129,6 +130,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
         status: 'PLANNING',
         notes: '',
         imageUrl: '',
+        projectYear: new Date().getFullYear(),
     });
     const [customers, setCustomers] = useState<ProjectCustomerOption[]>([]);
     const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
@@ -798,6 +800,27 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                                     />
                                                 </div>
                                             </div>
+
+                                            {/* Năm dự án - chỉ hiện khi tạo mới */}
+                                            {isNew && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Năm dự án
+                                                    </label>
+                                                    <select
+                                                        value={project.projectYear ?? new Date().getFullYear()}
+                                                        onChange={(e) => setProject({ ...project, projectYear: parseInt(e.target.value) })}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    >
+                                                        {Array.from({ length: new Date().getFullYear() - 2019 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                                                            <option key={year} value={year}>Năm {year}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="mt-1 text-xs text-gray-500">Dùng để đặt mã dự án theo năm (VD: PRJ-{project.projectYear ?? new Date().getFullYear()}-0001)</p>
+                                                </div>
+                                            </div>
+                                            )}
 
                                             <div>
                                                 <div className="flex items-center justify-between mb-2">
