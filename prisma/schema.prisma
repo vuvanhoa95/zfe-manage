@@ -156,6 +156,8 @@ model Project {
   disciplines      String?
   /// Danh sách khu vực/vị trí (JSON array), VD: ["Tầng hầm 1","Tầng 1","Mái","Block A"]
   areas            String?
+  /// Danh sách tầng/level BIM (JSON array), VD: ["01BS","01FL","02-05FL","RF"]
+  levels           String?
   createdById      String
   finalQuotationId String?         @unique
   createdAt        DateTime        @default(now())

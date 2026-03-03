@@ -74,7 +74,10 @@ export const projectBaseSchema = z.object({
     disciplines: emptyStringToNull(z.string().trim().optional().nullable()),
     /// Danh sách khu vực (JSON array string)
     areas: emptyStringToNull(z.string().trim().optional().nullable()),
+    /// Danh sách tầng/level BIM (JSON array string)
+    levels: emptyStringToNull(z.string().trim().optional().nullable()),
 });
+
 
 
 export const projectCreateSchema = projectBaseSchema.extend({

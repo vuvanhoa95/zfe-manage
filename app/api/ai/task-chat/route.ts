@@ -38,8 +38,13 @@ export async function POST(req: NextRequest) {
 
         const response = await generateCompletion(
             openaiMessages as any,
-            { temperature: 0.7, maxTokens: 500, model: 'gpt-4o-mini' }
+            { temperature: 0.3, maxTokens: 2000, model: 'gpt-4o-mini' }
         );
+
+        // Validate response is non-empty
+        if (!response || response.trim().length === 0) {
+            return NextResponse.json({ error: 'AI không trả về kết quả. Vui lòng thử lại.' }, { status: 500 });
+        }
 
         return NextResponse.json({ success: true, message: response });
     } catch (error: any) {

@@ -76,7 +76,9 @@ type Project = {
     phases?: string | null;      // JSON array string
     disciplines?: string | null; // JSON array string
     areas?: string | null;       // JSON array string
+    levels?: string | null;      // JSON array string (BIM levels/floors)
 };
+
 
 type ProjectCustomerOption = {
     id: string;
@@ -146,7 +148,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
     const [activeWorkSubTab, setActiveWorkSubTab] = useState<WorkSubTabKey>('dashboard');
 
-    // ── Setup danh sách tag-like (Phases / Disciplines / Areas) ──────────────
+    // ── Setup danh sách tag-like (Phases / Disciplines / Areas / Levels) ──────
     const parseJsonList = (val: string | null | undefined): string[] => {
         if (!val) return [];
         try { return JSON.parse(val) as string[]; } catch { return []; }
@@ -155,9 +157,12 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
     const [phaseInput, setPhaseInput] = useState('');
     const [disciplineInput, setDisciplineInput] = useState('');
     const [areaInput, setAreaInput] = useState('');
+    const [levelInput, setLevelInput] = useState('');
+    const [levelGenInput, setLevelGenInput] = useState(''); // VD: "B2,B1,1-15,RF" → auto generate floor codes
+    const [showLevelGen, setShowLevelGen] = useState(false);
 
     // Helper để thêm item vào list (lưu vào project state)
-    const addToList = (field: 'phases' | 'disciplines' | 'areas', value: string) => {
+    const addToList = (field: 'phases' | 'disciplines' | 'areas' | 'levels', value: string) => {
         const trimmed = value.trim();
         if (!trimmed) return;
         const current = parseJsonList(project[field]);
@@ -166,11 +171,62 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
         setProject(prev => ({ ...prev, [field]: updated }));
     };
 
-    const removeFromList = (field: 'phases' | 'disciplines' | 'areas', value: string) => {
+    const removeFromList = (field: 'phases' | 'disciplines' | 'areas' | 'levels', value: string) => {
         const current = parseJsonList(project[field]);
         const updated = JSON.stringify(current.filter(item => item !== value));
         setProject(prev => ({ ...prev, [field]: updated }));
     };
+
+    // 🏢 Auto-generate floor codes từ chuỗi rút gọn
+    // VD: "B2,B1,1-5,6-15,RF" → ["B2","B1","01FL","02FL","03FL","04FL","05FL","06-15FL","RF"]
+    const generateLevelCodes = (input: string) => {
+        const codes: string[] = [];
+        const parts = input.split(/[,\s]+/).map(p => p.trim()).filter(Boolean);
+        for (const part of parts) {
+            const upper = part.toUpperCase();
+            if (/^B/i.test(upper)) {
+                // Basement: B1, B2 → translate to "01BS", "02BS"
+                const num = upper.replace(/^B/i, '');
+                codes.push(`${num.padStart(2,'0')}BS`);
+            } else if (upper === 'RF' || upper === 'ROOF') {
+                codes.push('RF');
+            } else if (upper === 'M' || upper === 'MZ' || upper === 'MEZZANINE') {
+                codes.push('MZ');
+            } else if (upper.includes('-')) {
+                // Range: "1-5" or "02-15" → compact "02-05FL" hoặc tách từng tầng nếu ≤5
+                const [from, to] = upper.split('-').map(n => parseInt(n, 10));
+                if (!isNaN(from) && !isNaN(to) && to > from) {
+                    const count = to - from + 1;
+                    if (count <= 5) {
+                        // Tách từng tầng nếu range nhỏ
+                        for (let i = from; i <= to; i++) {
+                            codes.push(`${String(i).padStart(2,'0')}FL`);
+                        }
+                    } else {
+                        // Range lớn → gộp
+                        codes.push(`${String(from).padStart(2,'0')}-${String(to).padStart(2,'0')}FL`);
+                    }
+                }
+            } else {
+                // Single floor: "1" → "01FL", "12" → "12FL"
+                const num = parseInt(upper, 10);
+                if (!isNaN(num)) {
+                    codes.push(`${String(num).padStart(2,'0')}FL`);
+                } else {
+                    // Giữ nguyên nếu không parse được (VD: "PH", "GF")
+                    codes.push(upper);
+                }
+            }
+        }
+        // Thêm vào list, tránh duplicate
+        const current = parseJsonList(project.levels);
+        const merged = [...current, ...codes.filter(c => !current.includes(c))];
+        setProject(prev => ({ ...prev, levels: JSON.stringify(merged) }));
+        setLevelGenInput('');
+        setShowLevelGen(false);
+    };
+
+
 
 
     // Callback để tự động lưu project khi tạo task (nếu project chưa được lưu)
@@ -913,7 +969,14 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    {/* ─── LAYOUT 2 CỘT: TRÁI = INFO, PHẢI = SETUP TAGS ─── */}
+                                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+                                    {/* ─── CỘT TRÁI: Thông tin dự án ─────────────────────────── */}
+                                    <div className="space-y-5">
+
+                                     {/* Khách hàng + Địa điểm */}
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                                 Khách hàng
@@ -944,76 +1007,76 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Ngày bắt đầu
-                                        </label>
-                                        <div className="relative">
-                                            <DatePicker
-                                                selected={project.startDate ? new Date(project.startDate) : null}
-                                                onChange={(date: Date | null) =>
-                                                    setProject({
-                                                        ...project,
-                                                        startDate: date ? date.toISOString().split('T')[0] : '',
-                                                    })
-                                                }
-                                                dateFormat="dd/MM/yyyy"
-                                                placeholderText="dd/mm/yyyy"
-                                                showMonthDropdown
-                                                showYearDropdown
-                                                dropdownMode="select"
-                                                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
-                                                onChangeRaw={(event) => {
-                                                    if (!event) return;
-                                                    const target = event.target as HTMLInputElement | null;
-                                                    if (!target) return;
-                                                    const formatted = formatDateInputWithSlashes(target.value);
-                                                    // Gắn lại vào input để user thấy sẵn dấu gạch
-                                                    target.value = formatted;
-                                                    const iso = parseDdMmYyyyToIso(formatted);
-                                                    setProject((prev) => ({
-                                                        ...prev,
-                                                        startDate: iso ?? '',
-                                                    }));
-                                                }}
-                                            />
+                                    {/* Ngày bắt đầu, Ngày kết thúc, Diện tích */}
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Ngày bắt đầu
+                                            </label>
+                                            <div className="relative">
+                                                <DatePicker
+                                                    selected={project.startDate ? new Date(project.startDate) : null}
+                                                    onChange={(date: Date | null) =>
+                                                        setProject({
+                                                            ...project,
+                                                            startDate: date ? date.toISOString().split('T')[0] : '',
+                                                        })
+                                                    }
+                                                    dateFormat="dd/MM/yyyy"
+                                                    placeholderText="dd/mm/yyyy"
+                                                    showMonthDropdown
+                                                    showYearDropdown
+                                                    dropdownMode="select"
+                                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
+                                                    onChangeRaw={(event) => {
+                                                        if (!event) return;
+                                                        const target = event.target as HTMLInputElement | null;
+                                                        if (!target) return;
+                                                        const formatted = formatDateInputWithSlashes(target.value);
+                                                        target.value = formatted;
+                                                        const iso = parseDdMmYyyyToIso(formatted);
+                                                        setProject((prev) => ({
+                                                            ...prev,
+                                                            startDate: iso ?? '',
+                                                        }));
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Ngày kết thúc
-                                        </label>
-                                        <div className="relative">
-                                            <DatePicker
-                                                selected={project.endDate ? new Date(project.endDate) : null}
-                                                onChange={(date: Date | null) =>
-                                                    setProject({
-                                                        ...project,
-                                                        endDate: date ? date.toISOString().split('T')[0] : '',
-                                                    })
-                                                }
-                                                dateFormat="dd/MM/yyyy"
-                                                placeholderText="dd/mm/yyyy"
-                                                showMonthDropdown
-                                                showYearDropdown
-                                                dropdownMode="select"
-                                                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
-                                                onChangeRaw={(event) => {
-                                                    if (!event) return;
-                                                    const target = event.target as HTMLInputElement | null;
-                                                    if (!target) return;
-                                                    const formatted = formatDateInputWithSlashes(target.value);
-                                                    target.value = formatted;
-                                                    const iso = parseDdMmYyyyToIso(formatted);
-                                                    setProject((prev) => ({
-                                                        ...prev,
-                                                        endDate: iso ?? '',
-                                                    }));
-                                                }}
-                                            />
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Ngày kết thúc
+                                            </label>
+                                            <div className="relative">
+                                                <DatePicker
+                                                    selected={project.endDate ? new Date(project.endDate) : null}
+                                                    onChange={(date: Date | null) =>
+                                                        setProject({
+                                                            ...project,
+                                                            endDate: date ? date.toISOString().split('T')[0] : '',
+                                                        })
+                                                    }
+                                                    dateFormat="dd/MM/yyyy"
+                                                    placeholderText="dd/mm/yyyy"
+                                                    showMonthDropdown
+                                                    showYearDropdown
+                                                    dropdownMode="select"
+                                                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white transition-all"
+                                                    onChangeRaw={(event) => {
+                                                        if (!event) return;
+                                                        const target = event.target as HTMLInputElement | null;
+                                                        if (!target) return;
+                                                        const formatted = formatDateInputWithSlashes(target.value);
+                                                        target.value = formatted;
+                                                        const iso = parseDdMmYyyyToIso(formatted);
+                                                        setProject((prev) => ({
+                                                            ...prev,
+                                                            endDate: iso ?? '',
+                                                        }));
+                                                    }}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">Diện tích (m²)</label>
                                             <input
@@ -1026,7 +1089,8 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    {/* Trạng thái + Ngân sách */}
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
                                             <div className="flex items-center gap-3">
@@ -1064,6 +1128,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                         </div>
                                     </div>
 
+                                    {/* Ghi chú */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
                                         <textarea
@@ -1074,159 +1139,191 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                         />
                                     </div>
 
-                                    {/* ─── Setup Danh sách Công việc ───────────────────────────────── */}
-                                    <div className="border border-blue-100 bg-gradient-to-br from-blue-50/60 to-indigo-50/60 rounded-2xl p-5 space-y-5">
-                                        <div className="flex items-center gap-2">
+                                    </div>{/* end CỘT TRÁI */}
+
+                                    {/* ─── CỘT PHẢI: Setup Tags ───────────────────────────────── */}
+                                    <div className="border border-blue-100 bg-gradient-to-br from-blue-50/60 to-indigo-50/40 rounded-2xl p-4 space-y-4">
+                                        <div className="flex items-center gap-2 mb-1">
                                             <span className="text-base">⚙️</span>
-                                            <h3 className="text-sm font-bold text-gray-800">Setup Danh sách Công việc</h3>
-                                            <span className="text-xs text-gray-500 font-normal">— Dùng khi tạo Task để chọn nhanh thay vì nhập tay</span>
+                                            <h3 className="text-sm font-bold text-gray-800">Setup Danh sách cho Task</h3>
+                                            <span className="text-xs text-gray-400 font-normal">— Dropdown khi tạo task</span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                                            {/* Giai đoạn */}
-                                            <div className="space-y-2">
-                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 uppercase tracking-wider">
-                                                    <span>🏗️</span> Giai đoạn
+                                        {/* GRID 2x2 cho 4 tag list */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                                            {/* ─ Giai đoạn ─ */}
+                                            <div className="space-y-1.5 bg-white rounded-xl p-3 border border-indigo-100">
+                                                <label className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                                                    🏗️ Giai đoạn
+                                                    <span className="ml-auto text-[10px] text-indigo-400 font-normal normal-case">{parseJsonList(project.phases).length} mục</span>
                                                 </label>
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-1.5">
                                                     <input
                                                         type="text"
                                                         value={phaseInput}
                                                         onChange={e => setPhaseInput(e.target.value)}
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                addToList('phases', phaseInput);
-                                                                setPhaseInput('');
-                                                            }
-                                                        }}
-                                                        placeholder="VD: Thiết kế cơ sở..."
-                                                        className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList('phases', phaseInput); setPhaseInput(''); } }}
+                                                        placeholder="VD: Shopdrawing..."
+                                                        className="flex-1 min-w-0 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent bg-white"
                                                     />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { addToList('phases', phaseInput); setPhaseInput(''); }}
-                                                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition-colors"
-                                                    >+</button>
+                                                    <button type="button" onClick={() => { addToList('phases', phaseInput); setPhaseInput(''); }} className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs font-bold">+</button>
                                                 </div>
-                                                <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                                                {/* Quick presets */}
+                                                <div className="flex flex-wrap gap-1">
+                                                    {['Khảo sát', 'Thiết kế cơ sở', 'Thiết kế KT', 'Shopdrawing', 'As-built'].filter(s => !parseJsonList(project.phases).includes(s)).map(s => (
+                                                        <button key={s} type="button" onClick={() => addToList('phases', s)} className="px-1.5 py-0.5 text-[10px] border border-indigo-200 text-indigo-600 rounded-full hover:bg-indigo-50">{s}</button>
+                                                    ))}
+                                                </div>
+                                                <div className="flex flex-wrap gap-1 min-h-[28px]">
                                                     {parseJsonList(project.phases).map((item) => (
-                                                        <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                                                        <span key={item} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-[11px] font-medium">
                                                             {item}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeFromList('phases', item)}
-                                                                className="ml-0.5 text-indigo-500 hover:text-red-600 transition-colors font-bold leading-none"
-                                                            >×</button>
+                                                            <button type="button" onClick={() => removeFromList('phases', item)} className="ml-0.5 text-indigo-400 hover:text-red-500 font-bold leading-none">×</button>
                                                         </span>
                                                     ))}
-                                                    {parseJsonList(project.phases).length === 0 && (
-                                                        <p className="text-xs text-gray-400 italic">Chưa có giai đoạn nào</p>
-                                                    )}
+                                                    {parseJsonList(project.phases).length === 0 && <p className="text-[11px] text-gray-400 italic">Chưa có</p>}
                                                 </div>
                                             </div>
 
-                                            {/* Bộ môn */}
-                                            <div className="space-y-2">
-                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-violet-700 uppercase tracking-wider">
-                                                    <span>📐</span> Bộ môn
+                                            {/* ─ Bộ môn ─ */}
+                                            <div className="space-y-1.5 bg-white rounded-xl p-3 border border-violet-100">
+                                                <label className="flex items-center gap-1.5 text-xs font-bold text-violet-700 uppercase tracking-wider">
+                                                    📐 Bộ môn
+                                                    <span className="ml-auto text-[10px] text-violet-400 font-normal normal-case">{parseJsonList(project.disciplines).length} mục</span>
                                                 </label>
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-1.5">
                                                     <input
                                                         type="text"
                                                         value={disciplineInput}
                                                         onChange={e => setDisciplineInput(e.target.value)}
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                addToList('disciplines', disciplineInput);
-                                                                setDisciplineInput('');
-                                                            }
-                                                        }}
-                                                        placeholder="VD: Kiến trúc, MEP..."
-                                                        className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-violet-400 focus:border-transparent bg-white"
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList('disciplines', disciplineInput); setDisciplineInput(''); } }}
+                                                        placeholder="VD: Kiến trúc..."
+                                                        className="flex-1 min-w-0 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-400 focus:border-transparent bg-white"
                                                     />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { addToList('disciplines', disciplineInput); setDisciplineInput(''); }}
-                                                        className="px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-sm font-semibold transition-colors"
-                                                    >+</button>
+                                                    <button type="button" onClick={() => { addToList('disciplines', disciplineInput); setDisciplineInput(''); }} className="px-2.5 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 text-xs font-bold">+</button>
                                                 </div>
-                                                <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {['Kiến trúc', 'Kết cấu', 'MEP', 'Điện', 'Nước', 'PCCC', 'Nội thất'].filter(s => !parseJsonList(project.disciplines).includes(s)).map(s => (
+                                                        <button key={s} type="button" onClick={() => addToList('disciplines', s)} className="px-1.5 py-0.5 text-[10px] border border-violet-200 text-violet-600 rounded-full hover:bg-violet-50">{s}</button>
+                                                    ))}
+                                                </div>
+                                                <div className="flex flex-wrap gap-1 min-h-[28px]">
                                                     {parseJsonList(project.disciplines).map((item) => (
-                                                        <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 bg-violet-100 text-violet-800 rounded-full text-xs font-medium">
+                                                        <span key={item} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-violet-100 text-violet-800 rounded-full text-[11px] font-medium">
                                                             {item}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeFromList('disciplines', item)}
-                                                                className="ml-0.5 text-violet-500 hover:text-red-600 transition-colors font-bold leading-none"
-                                                            >×</button>
+                                                            <button type="button" onClick={() => removeFromList('disciplines', item)} className="ml-0.5 text-violet-400 hover:text-red-500 font-bold leading-none">×</button>
                                                         </span>
                                                     ))}
-                                                    {parseJsonList(project.disciplines).length === 0 && (
-                                                        <p className="text-xs text-gray-400 italic">Chưa có bộ môn nào</p>
-                                                    )}
-                                                </div>
-                                                {/* Gợi ý mặc định */}
-                                                <div className="flex flex-wrap gap-1">
-                                                    {['Kiến trúc', 'Kết cấu', 'MEP', 'Điện', 'Nước', 'PCCC'].filter(s => !parseJsonList(project.disciplines).includes(s)).map(s => (
-                                                        <button
-                                                            key={s}
-                                                            type="button"
-                                                            onClick={() => addToList('disciplines', s)}
-                                                            className="px-2 py-0.5 text-[10px] border border-violet-200 text-violet-600 rounded-full hover:bg-violet-50 transition-colors"
-                                                        >{s}</button>
-                                                    ))}
+                                                    {parseJsonList(project.disciplines).length === 0 && <p className="text-[11px] text-gray-400 italic">Chưa có</p>}
                                                 </div>
                                             </div>
 
-                                            {/* Khu vực / Vị trí */}
-                                            <div className="space-y-2">
-                                                <label className="flex items-center gap-1.5 text-xs font-semibold text-teal-700 uppercase tracking-wider">
-                                                    <span>📍</span> Khu vực / Vị trí
+                                            {/* ─ Khu vực / Vị trí ─ */}
+                                            <div className="space-y-1.5 bg-white rounded-xl p-3 border border-teal-100">
+                                                <label className="flex items-center gap-1.5 text-xs font-bold text-teal-700 uppercase tracking-wider">
+                                                    📍 Khu vực
+                                                    <span className="ml-auto text-[10px] text-teal-400 font-normal normal-case">{parseJsonList(project.areas).length} mục</span>
                                                 </label>
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-1.5">
                                                     <input
                                                         type="text"
                                                         value={areaInput}
                                                         onChange={e => setAreaInput(e.target.value)}
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                addToList('areas', areaInput);
-                                                                setAreaInput('');
-                                                            }
-                                                        }}
-                                                        placeholder="VD: Tầng hầm, Block A..."
-                                                        className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent bg-white"
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList('areas', areaInput); setAreaInput(''); } }}
+                                                        placeholder="VD: Block A, Tầng hầm..."
+                                                        className="flex-1 min-w-0 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent bg-white"
                                                     />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { addToList('areas', areaInput); setAreaInput(''); }}
-                                                        className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-semibold transition-colors"
-                                                    >+</button>
+                                                    <button type="button" onClick={() => { addToList('areas', areaInput); setAreaInput(''); }} className="px-2.5 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-xs font-bold">+</button>
                                                 </div>
-                                                <div className="flex flex-wrap gap-1.5 min-h-[36px]">
+                                                <div className="flex flex-wrap gap-1 min-h-[28px]">
                                                     {parseJsonList(project.areas).map((item) => (
-                                                        <span key={item} className="inline-flex items-center gap-1 px-2.5 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-medium">
+                                                        <span key={item} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-teal-100 text-teal-800 rounded-full text-[11px] font-medium">
                                                             {item}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeFromList('areas', item)}
-                                                                className="ml-0.5 text-teal-500 hover:text-red-600 transition-colors font-bold leading-none"
-                                                            >×</button>
+                                                            <button type="button" onClick={() => removeFromList('areas', item)} className="ml-0.5 text-teal-400 hover:text-red-500 font-bold leading-none">×</button>
                                                         </span>
                                                     ))}
-                                                    {parseJsonList(project.areas).length === 0 && (
-                                                        <p className="text-xs text-gray-400 italic">Chưa có khu vực nào</p>
-                                                    )}
+                                                    {parseJsonList(project.areas).length === 0 && <p className="text-[11px] text-gray-400 italic">Chưa có</p>}
                                                 </div>
                                             </div>
-                                        </div>
-                                        <p className="text-xs text-gray-500">
-                                            💡 Nhập tên và nhấn <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Enter</kbd> hoặc bấm <strong>+</strong> để thêm. Danh sách này sẽ xuất hiện dạng dropdown khi tạo/sửa Task trong dự án.
+
+                                            {/* ─ Tầng / Level BIM ─ */}
+                                            <div className="space-y-1.5 bg-white rounded-xl p-3 border border-orange-100">
+                                                <label className="flex items-center gap-1.5 text-xs font-bold text-orange-700 uppercase tracking-wider">
+                                                    🏢 Tầng / Level BIM
+                                                    <span className="ml-auto text-[10px] text-orange-400 font-normal normal-case">{parseJsonList(project.levels).length} levels</span>
+                                                </label>
+                                                <div className="flex gap-1.5">
+                                                    <input
+                                                        type="text"
+                                                        value={levelInput}
+                                                        onChange={e => setLevelInput(e.target.value)}
+                                                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addToList('levels', levelInput); setLevelInput(''); } }}
+                                                        placeholder="VD: 01FL, 02-05FL, RF..."
+                                                        className="flex-1 min-w-0 px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent bg-white font-mono"
+                                                    />
+                                                    <button type="button" onClick={() => { addToList('levels', levelInput); setLevelInput(''); }} className="px-2.5 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-xs font-bold">+</button>
+                                                </div>
+
+                                                {/* 🪄 Level Generator */}
+                                                <div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowLevelGen(v => !v)}
+                                                        className="flex items-center gap-1 text-[11px] text-orange-600 hover:text-orange-800 font-semibold transition-colors"
+                                                    >
+                                                        <span>🪄</span>
+                                                        {showLevelGen ? 'Ẩn' : 'Auto tạo nhanh từ sơ đồ tầng'}
+                                                    </button>
+                                                    {showLevelGen && (
+                                                        <div className="mt-1.5 p-2.5 bg-orange-50 rounded-lg border border-orange-200 space-y-1.5">
+                                                            <p className="text-[10px] text-orange-700 font-medium">
+                                                                Nhập theo cú pháp: <code className="bg-orange-100 px-1 rounded font-mono">B2,B1,1-5,6-15,RF</code>
+                                                            </p>
+                                                            <p className="text-[10px] text-orange-500">
+                                                                → <code className="font-mono">02BS, 01BS, 01FL, 02FL...05FL, 06-15FL, RF</code>
+                                                                <br />Range ≤5 tầng: tách từng tầng. Range &gt;5 tầng: gộp lại.
+                                                            </p>
+                                                            <div className="flex gap-1.5">
+                                                                <input
+                                                                    type="text"
+                                                                    value={levelGenInput}
+                                                                    onChange={e => setLevelGenInput(e.target.value)}
+                                                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); generateLevelCodes(levelGenInput); } }}
+                                                                    placeholder="VD: B2,B1,GF,1-5,6-20,RF"
+                                                                    className="flex-1 px-2 py-1 text-xs border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-400 bg-white font-mono"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => generateLevelCodes(levelGenInput)}
+                                                                    className="px-3 py-1 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600"
+                                                                >
+                                                                    Tạo
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex flex-wrap gap-1 min-h-[28px]">
+                                                    {parseJsonList(project.levels).map((item) => (
+                                                        <span key={item} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-[11px] font-mono font-semibold">
+                                                            {item}
+                                                            <button type="button" onClick={() => removeFromList('levels', item)} className="ml-0.5 text-orange-400 hover:text-red-500 font-bold leading-none">×</button>
+                                                        </span>
+                                                    ))}
+                                                    {parseJsonList(project.levels).length === 0 && <p className="text-[11px] text-gray-400 italic">Chưa có — nhập tay hoặc dùng 🪄 Auto tạo</p>}
+                                                </div>
+                                            </div>
+
+                                        </div>{/* end grid 2x2 */}
+
+                                        <p className="text-[11px] text-gray-500">
+                                            💡 Nhấn <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px] font-mono">Enter</kbd> hoặc <strong>+</strong> để thêm. Sẽ hiện dạng dropdown khi tạo/sửa Task.
                                         </p>
-                                    </div>
+                                    </div>{/* end CỘT PHẢI */}
+
+                                    </div>{/* end grid 2 cột */}
 
                                     {!isNew && (
                                         <div className="mt-6">

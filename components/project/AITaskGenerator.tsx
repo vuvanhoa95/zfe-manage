@@ -266,6 +266,7 @@ function ChecklistPanel({
     const [openPhaseChat, setOpenPhaseChat] = useState<string | null>(null);
     const [phaseChatInputs, setPhaseChatInputs] = useState<Map<string, string>>(new Map());
     const [phaseChatLoading, setPhaseChatLoading] = useState<string | null>(null);
+    const [phaseChatErrors, setPhaseChatErrors] = useState<Map<string, string>>(new Map());
 
     const sendPhaseAI = async (phase: string, tasks: TaskItem[]) => {
         const instruction = phaseChatInputs.get(phase) || '';
@@ -308,18 +309,34 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                 }),
             });
             const data = await res.json();
+
+            if (!res.ok || data.error) {
+                setPhaseChatErrors(prev => { const m = new Map(prev); m.set(phase, data.error || `Lỗi ${res.status}`); return m; });
+                return;
+            }
+
             const raw = (data.message || '').trim()
                 .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-            const parsed: { taskId: string; subtasks: SubItem[] }[] = JSON.parse(raw);
+            let parsed: { taskId: string; subtasks: SubItem[] }[];
+            try {
+                parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) throw new Error('not array');
+            } catch {
+                setPhaseChatErrors(prev => { const m = new Map(prev); m.set(phase, 'AI trả về dữ liệu không hợp lệ. Hãy gọn request hơn.'); return m; });
+                return;
+            }
             if (Array.isArray(parsed) && onSubOverride) {
                 parsed.forEach(({ taskId, subtasks }) => {
                     if (taskId && Array.isArray(subtasks)) onSubOverride(taskId, subtasks);
                 });
-                // Clear input after success
+                // Clear input and error after success
                 setPhaseChatInputs(prev => { const m = new Map(prev); m.delete(phase); return m; });
+                setPhaseChatErrors(prev => { const m = new Map(prev); m.delete(phase); return m; });
                 setOpenPhaseChat(null);
             }
-        } catch { /* fail silently */ }
+        } catch {
+            setPhaseChatErrors(prev => { const m = new Map(prev); m.set(phase, 'Lỗi kết nối. Vui lòng thử lại.'); return m; });
+        }
         finally { setPhaseChatLoading(null); }
     };
 
@@ -337,6 +354,7 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                 const isChatOpen = openPhaseChat === phase;
                 const chatInput = phaseChatInputs.get(phase) || '';
                 const isChatLoading = phaseChatLoading === phase;
+                const phaseError = phaseChatErrors.get(phase);
 
                 return (
                     <div key={phase} className="border border-gray-200 rounded-xl overflow-hidden">
@@ -397,6 +415,12 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                     Sửa
                                 </button>
                             </div>
+                            {phaseError && (
+                                <div className="px-3 py-1.5 bg-red-50 border-t border-red-100 flex items-center gap-1.5">
+                                    <span className="text-[11px] text-red-600 flex-1">⚠️ {phaseError}</span>
+                                    <button type="button" onClick={() => setPhaseChatErrors(prev => { const m = new Map(prev); m.delete(phase); return m; })} className="text-red-400 hover:text-red-600 text-sm font-bold">×</button>
+                                </div>
+                            )}
                         )}
 
                         {phaseExp && (
@@ -537,6 +561,7 @@ export default function AITaskGenerator({
     // BIM AI chat (tạo tasks chi tiết theo tầng, ISO 19650)
     const [bimChatInput, setBimChatInput] = useState('');
     const [bimChatLoading, setBimChatLoading] = useState(false);
+    const [bimChatError, setBimChatError] = useState<string | null>(null);
     const [bimAiTasks, setBimAiTasks] = useState<TaskItem[]>([]);
     const [bimAiSelected, setBimAiSelected] = useState<Set<string>>(new Set());
     const bimChatRef = useRef<HTMLInputElement>(null);
@@ -714,6 +739,7 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
         if (!msg.trim() || bimChatLoading) return;
         setBimChatLoading(true);
         setBimChatInput('');
+        setBimChatError(null);
 
         try {
             const res = await fetch('/api/ai/task-chat', {
@@ -725,11 +751,23 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                 }),
             });
             const data = await res.json();
+
+            if (!res.ok || data.error) {
+                setBimChatError(data.error || `Lỗi ${res.status}`);
+                return;
+            }
+
             const raw = (data.message || '').trim()
                 .replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
 
-            const parsed: any[] = JSON.parse(raw);
-            if (!Array.isArray(parsed)) throw new Error();
+            let parsed: any[];
+            try {
+                parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) throw new Error('not array');
+            } catch {
+                setBimChatError('AI trả về dữ liệu không hợp lệ. Hãy thử lại với request ngắn hơn.');
+                return;
+            }
 
             const newTasks: TaskItem[] = parsed.map((t, i) => ({
                 id: `bim-ai-${Date.now()}-${i}`,
@@ -750,8 +788,8 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
 
             setBimAiTasks(prev => [...prev, ...newTasks]);
             setBimAiSelected(prev => { const s = new Set(prev); newTasks.forEach(t => s.add(t.id)); return s; });
-        } catch {
-            // fail silently
+        } catch (err: any) {
+            setBimChatError('Lỗi kết nối. Kiểm tra mạng và thử lại.');
         } finally {
             setBimChatLoading(false);
             bimChatRef.current?.focus();
@@ -1053,6 +1091,12 @@ KHÔNG markdown, KHÔNG giải thích, chỉ JSON.`;
                                                 {bimChatLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Plus className="w-3.5 h-3.5" /> Tạo</>}
                                             </button>
                                         </div>
+                                        {bimChatError && (
+                                            <div className="mt-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-1.5">
+                                                <span className="text-xs text-red-600 flex-1">⚠️ {bimChatError}</span>
+                                                <button type="button" onClick={() => setBimChatError(null)} className="text-red-400 hover:text-red-600 text-sm font-bold">×</button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

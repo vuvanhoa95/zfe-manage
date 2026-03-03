@@ -200,7 +200,8 @@ export async function PUT(
         }
 
         const body: ProjectUpdateInput = parsed.data;
-        const { name, code, description, customerId, location, startDate, endDate, totalArea, status, notes, imageUrl, phases, disciplines, areas } = body;
+        const { name, code, description, customerId, location, startDate, endDate, totalArea, status, notes, imageUrl, phases, disciplines, areas, levels } = body;
+
 
 
         // Verify project exists before updating
@@ -257,6 +258,8 @@ export async function PUT(
                         phases: phases === undefined ? undefined : phases || null,
                         disciplines: disciplines === undefined ? undefined : disciplines || null,
                         areas: areas === undefined ? undefined : areas || null,
+                        levels: levels === undefined ? undefined : levels || null,
+
                     },
                     include: {
                         customer: true,
@@ -317,6 +320,8 @@ export async function PUT(
                                 phases: phases === undefined ? undefined : phases || null,
                                 disciplines: disciplines === undefined ? undefined : disciplines || null,
                                 areas: areas === undefined ? undefined : areas || null,
+                                levels: levels === undefined ? undefined : levels || null,
+
                             },
                             include: {
                                 customer: true,

@@ -700,10 +700,13 @@ export default function TaskTab({
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isCreatingSubtask, setIsCreatingSubtask] = useState(false);
 
-    // State lưu danh sách phases/disciplines/areas được config từ project
+    // State lưu danh sách phases/disciplines/areas/levels được config từ project
     const [projectPhases, setProjectPhases] = useState<string[]>([]);
     const [projectDisciplines, setProjectDisciplines] = useState<string[]>([]);
     const [projectAreas, setProjectAreas] = useState<string[]>([]);
+    const [projectLevels, setProjectLevels] = useState<string[]>([]);
+
+
 
 
     const fetchTasks = useCallback(async () => {
@@ -736,6 +739,8 @@ export default function TaskTab({
                 setProjectPhases(parseList(result.data.phases));
                 setProjectDisciplines(parseList(result.data.disciplines));
                 setProjectAreas(parseList(result.data.areas));
+                setProjectLevels(parseList(result.data.levels));
+
             }
         } catch (e) {
             console.warn('[TaskTab] Failed to fetch project config:', e);
@@ -2032,9 +2037,11 @@ export default function TaskTab({
                         {/* Thông tin bổ sung – luôn hiển thị cùng khối trạng thái */}
                         <div className="mt-2 rounded-2xl border border-gray-100 bg-white px-3 py-2">
                             <div className="text-xs font-semibold text-gray-600 mb-2">
-                                Thông tin bổ sung (giai đoạn, bộ môn, vị trí, công việc cha)
+                                Thông tin bổ sung (giai đoạn, bộ môn, tầng/level, khu vực, công việc cha)
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                                         Giai đoạn
@@ -2091,6 +2098,8 @@ export default function TaskTab({
                                         />
                                     )}
                                 </div>
+                                {/* Vị trí / Khu vực — chỉ hiển thị khi không có levels config */}
+                                {projectLevels.length === 0 && (
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                                         Vị trí / Khu vực
@@ -2119,7 +2128,39 @@ export default function TaskTab({
                                         />
                                     )}
                                 </div>
+                                )}
+
+                                {/* Level / Tầng */}
                                 <div>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                        Tầng / Level
+                                        {projectLevels.length > 0 && (
+                                            <span className="ml-1 text-[10px] text-orange-500 font-normal">{projectLevels.length} levels</span>
+                                        )}
+                                    </label>
+                                    {projectLevels.length > 0 ? (
+                                        <select
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-orange-400 outline-none bg-white text-sm font-mono"
+                                            value={formData.location}
+                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        >
+                                            <option value="">— Chọn level —</option>
+                                            {projectLevels.map(l => (
+                                                <option key={l} value={l}>{l}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input
+                                            type="text"
+                                            placeholder="VD: 01FL, 02-05FL, RF..."
+                                            className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm font-mono"
+                                            value={formData.location}
+                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        />
+                                    )}
+                                </div>
+                                <div>
+
                                     <label
                                         className="block text-xs font-semibold text-gray-600 mb-1"
                                         htmlFor="task-parent-select"
