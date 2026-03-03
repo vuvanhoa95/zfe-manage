@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,38 +17,23 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 2 * 1024 * 1024; // 2MB (Base64 tăng ~33% kích thước)
         if (file.size > maxSize) {
             return NextResponse.json(
-                { success: false, error: 'Kích thước file không được vượt quá 5MB' },
+                { success: false, error: 'Kích thước file không được vượt quá 2MB' },
                 { status: 400 }
             );
         }
 
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 10);
-        const ext = file.name.split('.').pop() || 'png';
-        const filename = `company-logo/${timestamp}-${randomStr}.${ext}`;
+        // Chuyển file thành Base64 Data URL - lưu trực tiếp vào database
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const dataUrl = `data:${file.type};base64,${base64}`;
 
-        // Upload lên Vercel Blob (persistent cloud storage)
-        const blob = await put(filename, file, {
-            access: 'public',
-            contentType: file.type,
-        });
-
-        return NextResponse.json({ success: true, data: { url: blob.url } }, { status: 201 });
+        return NextResponse.json({ success: true, data: { url: dataUrl } }, { status: 201 });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Failed to upload file';
         console.error('Failed to upload company logo:', error);
-
-        // Fallback nếu Vercel Blob chưa được cấu hình (BLOB_READ_WRITE_TOKEN chưa set)
-        if (message.includes('BLOB_READ_WRITE_TOKEN') || message.includes('token')) {
-            return NextResponse.json(
-                { success: false, error: 'Chưa cấu hình Vercel Blob Storage. Vui lòng thêm BLOB_READ_WRITE_TOKEN vào biến môi trường.' },
-                { status: 500 }
-            );
-        }
-
         return NextResponse.json({ success: false, error: message }, { status: 500 });
     }
 }

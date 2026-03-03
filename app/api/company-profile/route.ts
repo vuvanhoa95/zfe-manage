@@ -17,7 +17,7 @@ const companyProfileSchema = z.object({
             message: 'Website phải bắt đầu bằng http:// hoặc https://',
         }),
     phone: z.string().trim().min(1, 'Vui lòng nhập số điện thoại').max(50),
-    logoUrl: z.string().trim().max(500).optional().nullable(),
+    logoUrl: z.string().trim().max(4_000_000).optional().nullable(), // Base64 Data URL có thể lên đến ~2.7MB
     projectSlogan: z.string().trim().max(300).optional().nullable(),
     signerName: z.string().trim().min(1, 'Vui lòng nhập người đại diện').max(200),
     signerTitle: z.string().trim().min(1, 'Vui lòng nhập chức vụ').max(200),

@@ -185,7 +185,7 @@ export default function CompanyProfilePage() {
                                     </div>
                                     <div className="text-sm text-gray-600">
                                         <p className="font-semibold text-gray-800">Chọn file ảnh (PNG/JPG/WebP…)</p>
-                                        <p className="text-xs">Tối đa 5MB</p>
+                                        <p className="text-xs">Tối đa 2MB</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
