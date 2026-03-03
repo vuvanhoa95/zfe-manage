@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
-import { UserStatus } from '@prisma/client';
+const UserStatus = { ACTIVE: 'ACTIVE', PENDING: 'PENDING', SUSPENDED: 'SUSPENDED' } as const;
 
 /**
  * GET /api/users
@@ -149,13 +149,13 @@ export async function PATCH(request: NextRequest) {
         }
 
         const validStatuses = Object.values(UserStatus);
-        if (!validStatuses.includes(status as UserStatus)) {
+        if (!validStatuses.includes(status as typeof UserStatus[keyof typeof UserStatus])) {
             return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
         }
 
         const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data: { status: status as UserStatus },
+            data: { status: status as 'ACTIVE' | 'PENDING' | 'SUSPENDED' },
         });
 
         return NextResponse.json({
@@ -175,6 +175,10 @@ export async function PATCH(request: NextRequest) {
 /**
  * DELETE /api/users
  * Xóa user (chỉ ADMIN, không tự xóa chính mình, không xóa super admin)
+ *
+ * Safe-delete: chạy trong transaction để xử lý tất cả FK constraints
+ *   - Nullable FKs (assignedToId, userId...) → set NULL
+ *   - Non-nullable FKs (createdById) → chuyển sang admin đang thực hiện xóa
  */
 export async function DELETE(request: NextRequest) {
     try {
@@ -197,22 +201,84 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Không thể xóa tài khoản đang đăng nhập' }, { status: 400 });
         }
 
+        const adminId = (session.user as any).id as string;
+
         // Kiểm tra user tồn tại
         const targetUser = await prisma.user.findUnique({ where: { id: userId } });
         if (!targetUser) {
             return NextResponse.json({ success: false, error: 'Không tìm thấy user' }, { status: 404 });
         }
 
-        // Không cho xóa super admin
-        const SUPER_ADMIN_EMAIL = '7604vuhoa@gmail.com';
-        if (targetUser.email === SUPER_ADMIN_EMAIL) {
-            return NextResponse.json({ success: false, error: 'Không thể xóa tài khoản Super Admin' }, { status: 403 });
+        // Không cho xóa super admin (cả 2 tài khoản mặc định không thể xóa)
+        const SUPER_ADMIN_EMAILS = [
+            '7604vuhoa@gmail.com',  // Google Admin
+            'hoavv@zfenix.com',     // Microsoft Admin
+        ];
+        if (SUPER_ADMIN_EMAILS.includes(targetUser.email?.toLowerCase() ?? '')) {
+            return NextResponse.json({ success: false, error: 'Không thể xóa tài khoản Super Admin mặc định' }, { status: 403 });
         }
 
-        // Xóa accounts, sessions liên quan trước (cascade có thể đã xử lý nhưng an toàn hơn)
-        await prisma.account.deleteMany({ where: { userId } });
-        await prisma.session.deleteMany({ where: { userId } });
-        await prisma.user.delete({ where: { id: userId } });
+        await prisma.$transaction(async (tx) => {
+            // 1. Xóa records có Cascade (Account, Session)
+            await tx.account.deleteMany({ where: { userId } });
+            await tx.session.deleteMany({ where: { userId } });
+
+            // 2. Nullable FKs → set NULL
+            await tx.task.updateMany({ where: { assignedToId: userId }, data: { assignedToId: null } });
+            await tx.customFieldValue.updateMany({ where: { userId }, data: { userId: null } });
+
+            // 3. TaskComment → reassign sang admin (giữ lại nội dung comment)
+            await tx.taskComment.updateMany({ where: { userId }, data: { userId: adminId } });
+
+            // 4. TaskAttachment → reassign sang admin (giữ lại file đính kèm)
+            await tx.taskAttachment.updateMany({ where: { uploadedById: userId }, data: { uploadedById: adminId } });
+
+            // 5. ProjectMember → reassign cẩn thận để tránh duplicate (unique: [projectId, userId])
+            //    Lấy danh sách project mà user là member
+            const userMemberships = await tx.projectMember.findMany({
+                where: { userId },
+                select: { id: true, projectId: true },
+            });
+            if (userMemberships.length > 0) {
+                // Lấy project mà admin đã là member rồi
+                const projectIds = userMemberships.map((m) => m.projectId);
+                const adminExistingMemberships = await tx.projectMember.findMany({
+                    where: { userId: adminId, projectId: { in: projectIds } },
+                    select: { projectId: true },
+                });
+                const adminMemberProjectIds = new Set(adminExistingMemberships.map((m) => m.projectId));
+
+                // Project admin chưa là member → reassign
+                const toReassign = userMemberships
+                    .filter((m) => !adminMemberProjectIds.has(m.projectId))
+                    .map((m) => m.id);
+
+                // Project admin đã là member rồi → xóa bản ghi cũ (tránh duplicate)
+                const toDelete = userMemberships
+                    .filter((m) => adminMemberProjectIds.has(m.projectId))
+                    .map((m) => m.id);
+
+                if (toReassign.length > 0) {
+                    await tx.projectMember.updateMany({
+                        where: { id: { in: toReassign } },
+                        data: { userId: adminId },
+                    });
+                }
+                if (toDelete.length > 0) {
+                    await tx.projectMember.deleteMany({ where: { id: { in: toDelete } } });
+                }
+            }
+
+            // 6. Non-nullable FKs (createdById) → chuyển sang admin để giữ dữ liệu nghiệp vụ
+            await tx.project.updateMany({ where: { createdById: userId }, data: { createdById: adminId } });
+            await tx.cashFlow.updateMany({ where: { createdById: userId }, data: { createdById: adminId } });
+            await tx.quotation.updateMany({ where: { createdById: userId }, data: { createdById: adminId } });
+            await tx.quotationRevision.updateMany({ where: { createdById: userId }, data: { createdById: adminId } });
+            await tx.quotationTemplate.updateMany({ where: { createdById: userId }, data: { createdById: adminId } });
+
+            // 7. Xóa user sau khi tất cả FK đã được xử lý an toàn
+            await tx.user.delete({ where: { id: userId } });
+        });
 
         return NextResponse.json({
             success: true,
@@ -226,3 +292,4 @@ export async function DELETE(request: NextRequest) {
         );
     }
 }
+

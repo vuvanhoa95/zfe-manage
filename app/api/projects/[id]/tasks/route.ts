@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { taskCreateSchema, TASK_PRIORITIES, TASK_STATUSES, type TaskCreateInput } from '@/lib/validation/task';
@@ -161,8 +160,8 @@ export async function GET(
             // Nếu bảng/column tasks chưa tồn tại (ví dụ mới deploy, chưa migrate),
             // tự tạo schema tối thiểu rồi thử lại một lần.
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 console.warn('Task schema missing on GET, attempting to create tasks table on-the-fly...');
                 await ensureTaskSchema();
@@ -435,8 +434,8 @@ export async function POST(
             } else
             // Nếu bảng/column chưa tồn tại, tự động tạo schema tối thiểu rồi thử lại một lần
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 console.warn('Task schema missing, attempting to create tasks table on-the-fly...');
                 await ensureTaskSchema();
@@ -490,23 +489,19 @@ export async function POST(
         let message = 'Không thể tạo công việc mới';
         let code: string | undefined;
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            code = error.code;
+        if (typeof (error as any)?.code === 'string') {
+            const code = (error as any).code;
 
             // Lỗi khóa ngoại: projectId không tồn tại
-            if (error.code === 'P2003') {
+            if (code === 'P2003') {
                 message = 'Không thể tạo công việc vì dự án không tồn tại hoặc đã bị xóa.';
-            } else if (error.code === 'P2021' || error.code === 'P2022') {
+            } else if (code === 'P2021' || code === 'P2022') {
                 // Lỗi bảng/column chưa tồn tại (chưa migrate DB)
                 message =
                     'Cơ sở dữ liệu chưa được cập nhật cho module công việc (tasks). Vui lòng chạy migrate database.';
             } else {
-                // Các lỗi Prisma khác: expose thông điệp để dễ debug
-                message = error.message;
+                message = (error as any).message || message;
             }
-        } else if (error instanceof Error && error.message) {
-            // Surface message thật để dễ debug trên môi trường production
-            message = error.message;
         } else if (typeof error === 'object' && error !== null) {
             message = JSON.stringify(error);
         } else if (typeof error === 'string') {

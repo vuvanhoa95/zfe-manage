@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        const where: Prisma.ProjectWhereInput = {};
+        const where: any = {};
 
         if (status) {
             where.status = status;
@@ -98,7 +97,7 @@ export async function GET(request: NextRequest) {
         } catch (innerError: any) {
             const message: string = innerError?.message ?? '';
             const isMissingTable =
-                (innerError instanceof Prisma.PrismaClientKnownRequestError &&
+                (typeof innerError?.code === 'string' &&
                     (innerError.code === 'P2021' || innerError.code === 'P2022')) ||
                 /does not exist in the current database/i.test(message) ||
                 /no such table/i.test(message);
@@ -195,8 +194,8 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            const knownError = error as Prisma.PrismaClientKnownRequestError;
+        if (typeof (error as any)?.code === 'string' && (error as any).code.startsWith('P')) {
+            const knownError = error as any;
             return NextResponse.json(
                 {
                     success: false,
@@ -289,7 +288,7 @@ async function getUserIdFromSessionOrFallback(explicitUserId?: string | null): P
         } catch (error: any) {
             const message: string = error?.message ?? '';
             const isMissingTable =
-                (error instanceof Prisma.PrismaClientKnownRequestError &&
+                (typeof error?.code === 'string' &&
                     (error.code === 'P2021' || error.code === 'P2022')) ||
                 /does not exist in the current database/i.test(message) ||
                 /no such table/i.test(message);
@@ -327,7 +326,7 @@ async function ensureDefaultUser(): Promise<string | null> {
         } catch (error: any) {
             const message: string = error?.message ?? '';
             const isMissingTable =
-                (error instanceof Prisma.PrismaClientKnownRequestError &&
+                (typeof error?.code === 'string' &&
                     (error.code === 'P2021' || error.code === 'P2022')) ||
                 /does not exist in the current database/i.test(message) ||
                 /no such table/i.test(message);

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { ensureCoreSchema } from '@/lib/db-schema';
 
 const seedSchema = z.object({

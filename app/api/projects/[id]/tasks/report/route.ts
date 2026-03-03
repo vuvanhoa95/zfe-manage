@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { TASK_PRIORITIES, TASK_STATUSES, type TaskPriority, type TaskStatus } from '@/lib/validation/task';
 import { getCurrentUser, getProjectMemberRole } from '@/lib/project-permissions';
@@ -154,8 +153,8 @@ export async function GET(
             // Nếu bảng/column tasks chưa tồn tại (chưa migrate DB),
             // cố gắng tạo schema tối thiểu và thử lại.
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 console.warn('Task schema missing on REPORT, attempting to create tasks table on-the-fly...');
                 await ensureTaskSchema();

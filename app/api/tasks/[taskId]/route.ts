@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { taskUpdateSchema, type TaskUpdateInput } from '@/lib/validation/task';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';

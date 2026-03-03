@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ensureCustomFieldsSchema } from '@/lib/custom-fields/ensureCustomFieldsSchema';
 import {
@@ -41,8 +40,8 @@ export async function GET(request: NextRequest) {
             });
         } catch (innerError) {
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 console.warn('Custom fields schema missing on values GET, attempting to create on-the-fly...');
                 await ensureCustomFieldsSchema();

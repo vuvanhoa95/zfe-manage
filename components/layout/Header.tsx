@@ -1,13 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatVND } from '@/lib/number-to-words-vn';
 import ZfIcon from '@/components/ui/ZfIcon';
 import type { ZfIconName } from '@/components/ui/ZfIcon';
+
+type AlertType = 'deadline' | 'overdue' | 'low-cash' | 'pending-quotation' | 'pending-user' | 'task-due';
+type AlertSeverity = 'high' | 'medium' | 'low';
+
+type Alert = {
+    id: string;
+    type: AlertType;
+    title: string;
+    message: string;
+    link?: string;
+    severity: AlertSeverity;
+    date?: string;
+};
 
 type SmartSearchProject = {
     id: string;
@@ -25,6 +38,7 @@ export default function Header() {
     const { data: session, status } = useSession();
     const [showUserMenu, setShowUserMenu] = useState(false);
     const pathname = usePathname();
+    const router = useRouter();
     const isDashboard = (pathname || '/') === '/';
 
     const [searchQuery, setSearchQuery] = useState<string>('');
@@ -32,6 +46,68 @@ export default function Header() {
     const [searchResults, setSearchResults] = useState<SmartSearchProject[]>([]);
     const [searching, setSearching] = useState<boolean>(false);
     const [searchError, setSearchError] = useState<string | null>(null);
+
+    // ── Notifications ──────────────────────────────────────────────────────────
+    const [alerts, setAlerts] = useState<Alert[]>([]);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [loadingAlerts, setLoadingAlerts] = useState(false);
+    const notifRef = useRef<HTMLDivElement>(null);
+
+    const fetchAlerts = useCallback(async () => {
+        if (!session?.user) return;
+        try {
+            setLoadingAlerts(true);
+            const res = await fetch('/api/dashboard/alerts', { cache: 'no-store' });
+            if (res.ok) {
+                const data = await res.json();
+                setAlerts(data.alerts || []);
+            }
+        } catch {
+            // silent
+        } finally {
+            setLoadingAlerts(false);
+        }
+    }, [session?.user]);
+
+    useEffect(() => {
+        fetchAlerts();
+        const interval = setInterval(fetchAlerts, 60_000); // refresh mỗi 60 giây
+        return () => clearInterval(interval);
+    }, [fetchAlerts]);
+
+    // Đóng dropdown khi click ngoài
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+                setShowNotifications(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const highCount = alerts.filter((a) => a.severity === 'high').length;
+    const totalCount = alerts.length;
+
+    const getAlertIcon = (type: AlertType): string => {
+        switch (type) {
+            case 'pending-user': return '👤';
+            case 'task-due': return '✅';
+            case 'deadline': return '📅';
+            case 'overdue': return '⚠️';
+            case 'low-cash': return '💰';
+            case 'pending-quotation': return '📋';
+            default: return '🔔';
+        }
+    };
+
+    const getSeverityStyle = (severity: AlertSeverity) => {
+        switch (severity) {
+            case 'high': return { border: '#ef4444', bg: '#fef2f2', text: '#b91c1c', badge: '#ef4444' };
+            case 'medium': return { border: '#f59e0b', bg: '#fffbeb', text: '#92400e', badge: '#f59e0b' };
+            default: return { border: '#3b82f6', bg: '#eff6ff', text: '#1e40af', badge: '#3b82f6' };
+        }
+    };
 
     const user: any = session?.user || {
         name: 'Guest User',
@@ -345,11 +421,112 @@ export default function Header() {
                 )}
 
                 <div className="flex items-center justify-end gap-1.5">
-                    {/* Notifications */}
-                    <button className="p-1.5 hover:bg-gray-100 rounded-lg relative transition-colors" aria-label="Thông báo" type="button">
-                        <ZfIcon name="notification" size={18} className="text-zf-graphite" aria-hidden="true" />
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-                    </button>
+                    {/* ── Notifications Bell ──────────────────────────────────────── */}
+                    <div className="relative" ref={notifRef}>
+                        <button
+                            id="notification-bell-btn"
+                            type="button"
+                            onClick={() => setShowNotifications((v) => !v)}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg relative transition-colors"
+                            aria-label="Thông báo"
+                        >
+                            <ZfIcon name="notification" size={18} className="text-zf-graphite" aria-hidden="true" />
+                            {totalCount > 0 && (
+                                <span
+                                    className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center text-[10px] font-bold text-white rounded-full"
+                                    style={{ background: highCount > 0 ? '#ef4444' : '#f59e0b' }}
+                                >
+                                    {totalCount > 9 ? '9+' : totalCount}
+                                </span>
+                            )}
+                        </button>
+
+                        {showNotifications && (
+                            <div
+                                className="absolute right-0 mt-2 z-50 flex flex-col"
+                                style={{ width: '340px' }}
+                            >
+                                {/* Header */}
+                                <div className="rounded-t-2xl bg-white border border-gray-200 shadow-xl">
+                                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                                        <span className="text-sm font-bold text-gray-800">🔔 Thông báo</span>
+                                        {totalCount > 0 && (
+                                            <span className="text-xs text-gray-400">{totalCount} thông báo</span>
+                                        )}
+                                    </div>
+
+                                    {/* Alert list */}
+                                    <div className="max-h-80 overflow-y-auto">
+                                        {loadingAlerts && alerts.length === 0 ? (
+                                            <div className="px-4 py-8 text-center text-sm text-gray-400">Đang tải...</div>
+                                        ) : alerts.length === 0 ? (
+                                            <div className="px-4 py-8 text-center">
+                                                <p className="text-2xl mb-2">✅</p>
+                                                <p className="text-sm text-gray-400">Không có thông báo nào</p>
+                                            </div>
+                                        ) : (
+                                            <ul className="divide-y divide-gray-50">
+                                                {alerts.map((alert) => {
+                                                    const style = getSeverityStyle(alert.severity);
+                                                    return (
+                                                        <li key={alert.id}>
+                                                            <button
+                                                                type="button"
+                                                                className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3"
+                                                                onClick={() => {
+                                                                    setShowNotifications(false);
+                                                                    if (alert.link) router.push(alert.link);
+                                                                }}
+                                                            >
+                                                                {/* Colored indicator */}
+                                                                <div
+                                                                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-base mt-0.5"
+                                                                    style={{ background: style.bg, border: `1px solid ${style.border}` }}
+                                                                >
+                                                                    {getAlertIcon(alert.type)}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs font-semibold truncate" style={{ color: style.text }}>
+                                                                        {alert.title}
+                                                                    </p>
+                                                                    <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed line-clamp-2">
+                                                                        {alert.message}
+                                                                    </p>
+                                                                </div>
+                                                                {/* Severity dot */}
+                                                                <div
+                                                                    className="flex-shrink-0 w-2 h-2 rounded-full mt-2"
+                                                                    style={{ background: style.badge }}
+                                                                />
+                                                            </button>
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                        )}
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="px-4 py-2 border-t border-gray-100 flex justify-between items-center">
+                                        <button
+                                            type="button"
+                                            className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                                            onClick={() => { fetchAlerts(); }}
+                                        >
+                                            ↻ Làm mới
+                                        </button>
+                                        <Link
+                                            href="/users"
+                                            className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                                            onClick={() => setShowNotifications(false)}
+                                        >
+                                            Quản lý tài khoản →
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {/* User Menu */}
                     <div className="relative">

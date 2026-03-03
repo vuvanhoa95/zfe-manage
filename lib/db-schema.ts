@@ -1,5 +1,4 @@
 import { prisma } from './prisma';
-import { Prisma } from '@prisma/client';
 
 // Global singleton: ensures schema check runs at most ONCE per server lifecycle.
 // This was the #1 performance bottleneck — ~25 SQL statements running on every request.
@@ -258,8 +257,8 @@ export function isMissingTableError(error: unknown): boolean {
     if (!error) return false;
     const message: string = error instanceof Error ? error.message : String(error);
     return (
-        (error instanceof Prisma.PrismaClientKnownRequestError &&
-            (error.code === 'P2021' || error.code === 'P2022')) ||
+        (typeof (error as any)?.code === 'string' &&
+            ((error as any).code === 'P2021' || (error as any).code === 'P2022')) ||
         /does not exist in the current database/i.test(message) ||
         /relation .+ does not exist/i.test(message) ||
         /no such table/i.test(message)

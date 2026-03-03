@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { cache, cacheKeys } from '@/lib/cache';
 import { ensureCoreSchema } from '@/lib/db-schema';
@@ -325,7 +324,7 @@ export async function GET(request: NextRequest) {
             name: error?.name,
         });
 
-        const isPrismaKnownError = error instanceof Prisma.PrismaClientKnownRequestError;
+        const isPrismaKnownError = typeof error?.code === 'string' && error.code.startsWith('P');
         const message: string = error?.message ?? '';
 
         const isMissingTable =

@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';
-import { UserStatus } from '@prisma/client';
+const UserStatus = { ACTIVE: 'ACTIVE', PENDING: 'PENDING', SUSPENDED: 'SUSPENDED' } as const;
 import { sendUserInvitationEmail } from '@/lib/email/send';
 
 /**

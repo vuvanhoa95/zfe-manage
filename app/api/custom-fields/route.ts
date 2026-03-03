@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ensureCustomFieldsSchema } from '@/lib/custom-fields/ensureCustomFieldsSchema';
 import {
@@ -14,7 +13,7 @@ export async function GET(request: NextRequest) {
         const entityType = searchParams.get('entityType');
         const includeInactive = searchParams.get('includeInactive') === 'true';
 
-        const where: Prisma.CustomFieldWhereInput = {};
+        const where: any = {};
 
         if (entityType) {
             if (!CUSTOM_FIELD_ENTITY_TYPES.includes(entityType as (typeof CUSTOM_FIELD_ENTITY_TYPES)[number])) {
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
                     { status: 400 },
                 );
             }
-            where.entityType = entityType as Prisma.CustomFieldWhereInput['entityType'];
+            where.entityType = entityType;
         }
 
         if (!includeInactive) {
@@ -47,8 +46,8 @@ export async function GET(request: NextRequest) {
         } catch (innerError) {
             // Nếu DB chưa migrate schema custom fields, tự tạo rồi thử lại 1 lần
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 console.warn('Custom fields schema missing on GET, attempting to create on-the-fly...');
                 await ensureCustomFieldsSchema();
@@ -131,8 +130,8 @@ export async function POST(request: NextRequest) {
             });
         } catch (innerError) {
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 console.warn('Custom fields schema missing on POST, attempting to create on-the-fly...');
                 await ensureCustomFieldsSchema();
@@ -174,17 +173,15 @@ export async function POST(request: NextRequest) {
     } catch (error: unknown) {
         console.error('Failed to create custom field:', error);
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Mã trường đã tồn tại. Vui lòng chọn mã khác.',
-                        details: process.env.NODE_ENV === 'development' ? { message: error.message } : undefined,
-                    },
-                    { status: 400 },
-                );
-            }
+        if (typeof (error as any)?.code === 'string' && (error as any).code === 'P2002') {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Mã trường đã tồn tại. Vui lòng chọn mã khác.',
+                    details: process.env.NODE_ENV === 'development' ? { message: (error as Error).message } : undefined,
+                },
+                { status: 400 },
+            );
         }
 
         const message = error instanceof Error ? error.message : 'Internal Server Error';

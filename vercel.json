@@ -3,6 +3,15 @@
   "functions": {
     "app/api/quotations/[id]/export-pdf/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/cron/backup-db/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/backup-db",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }

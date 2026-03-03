@@ -5,7 +5,7 @@
  * ⚠️ CHỈ DÙNG TRONG SERVER-SIDE CODE
  */
 
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import { getDatabaseErrorMessage } from './db-error-messages';
 
 export interface DatabaseHealthStatus {

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { customerCreateSchema, type CustomerCreateInput } from '@/lib/validation/customer';
 import { ensureCoreSchema, isMissingTableError } from '@/lib/db-schema';

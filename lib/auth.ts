@@ -5,7 +5,9 @@ import AzureADProvider from 'next-auth/providers/azure-ad';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { UserStatus } from '@prisma/client';
+// Local const thay thế @prisma/client enum — tránh lỗi Turbopack resolution
+const UserStatus = { ACTIVE: 'ACTIVE', PENDING: 'PENDING', SUSPENDED: 'SUSPENDED' } as const;
+type UserStatusType = typeof UserStatus[keyof typeof UserStatus];
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -164,70 +166,133 @@ export const authOptions: NextAuthOptions = {
     ],
     callbacks: {
         async signIn({ user, account, profile }) {
-            // Super Admin: Always ADMIN + ACTIVE
-            const SUPER_ADMIN_EMAILS = ['7604vuhoa@gmail.com'];
+            // Super Admin: Always ADMIN + ACTIVE — không thể xóa, luôn active
+            const SUPER_ADMIN_EMAILS = [
+                '7604vuhoa@gmail.com',   // Google Admin
+                'hoavv@zfenix.com',      // Microsoft Admin
+            ];
 
             // Only handle OAuth providers (Google, Microsoft)
             if (account?.provider !== 'credentials') {
                 const userEmail = user?.email?.toLowerCase();
                 if (!userEmail) return false;
 
-                // Find user by email (more reliable than id during OAuth first-time creation)
-                let dbUser = await prisma.user.findUnique({
-                    where: { email: userEmail },
-                    select: { id: true, status: true, role: true, email: true }
-                });
+                // Email thực từ Google/Microsoft profile
+                // Đây là email người dùng THỰC SỰ đăng nhập bằng
+                const realEmail = (profile?.email ?? userEmail).toLowerCase();
+                const realName = (profile as any)?.name ?? (profile as any)?.displayName ?? user.name;
 
-                // If PrismaAdapter just created the user, it might be PENDING by default.
-                // We need to handle super admins immediately.
-                if (dbUser && SUPER_ADMIN_EMAILS.includes(dbUser.email || '')) {
-                    // Auto-promote super admin to ADMIN + ACTIVE
-                    if (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE) {
-                        await prisma.user.update({
-                            where: { id: dbUser.id },
-                            data: { role: 'ADMIN', status: UserStatus.ACTIVE }
-                        });
+                // Find user by email (PrismaAdapter đã tạo/link user trước khi callback này chạy)
+                // Dùng user.id vì PrismaAdapter đã set sẵn
+                let dbUser = user.id
+                    ? await prisma.user.findUnique({
+                        where: { id: user.id },
+                        select: { id: true, status: true, role: true, email: true, name: true }
+                    })
+                    : await prisma.user.findUnique({
+                        where: { email: realEmail },
+                        select: { id: true, status: true, role: true, email: true, name: true }
+                    });
+
+                if (!dbUser) {
+                    // Fallback: tìm theo email từ user object
+                    dbUser = await prisma.user.findUnique({
+                        where: { email: userEmail },
+                        select: { id: true, status: true, role: true, email: true, name: true }
+                    });
+                }
+
+                if (!dbUser) {
+                    // User không tìm thấy → new user → PENDING
+                    if (SUPER_ADMIN_EMAILS.includes(realEmail)) return true;
+                    return '/login?error=ACCOUNT_PENDING';
+                }
+
+                // ✅ ĐỒNG BỘ: Luôn cập nhật email + name trong DB theo Google/Microsoft profile
+                // Đây là fix cốt lõi: đảm bảo DB user record khớp với tài khoản Google thực tế
+                const needsUpdate =
+                    dbUser.email !== realEmail ||
+                    (realName && dbUser.name !== realName) ||
+                    (SUPER_ADMIN_EMAILS.includes(realEmail) && (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE));
+
+                if (needsUpdate) {
+                    const updateData: Record<string, any> = {}; // Changed to any to allow UserStatus
+                    if (dbUser.email !== realEmail) updateData.email = realEmail;
+                    if (realName && dbUser.name !== realName) updateData.name = realName;
+                    if (SUPER_ADMIN_EMAILS.includes(realEmail)) {
+                        updateData.role = 'ADMIN';
+                        updateData.status = UserStatus.ACTIVE;
                     }
-                    return true; // Always allow super admin
+                    await prisma.user.update({
+                        where: { id: dbUser.id },
+                        data: updateData,
+                    });
+                    // Cập nhật local ref
+                    Object.assign(dbUser, updateData);
                 }
 
-                // For other OAuth users: check status
-                if (dbUser) {
-                    if (dbUser.status !== UserStatus.ACTIVE) {
-                        if (dbUser.status === UserStatus.PENDING) {
-                            return '/login?error=ACCOUNT_PENDING';
-                        }
-                        return '/login?error=ACCOUNT_SUSPENDED';
+                // Kiểm tra status (sau khi update)
+                if (dbUser.status !== UserStatus.ACTIVE) {
+                    if (dbUser.status === UserStatus.PENDING) {
+                        return '/login?error=ACCOUNT_PENDING';
                     }
-                    return true;
+                    return '/login?error=ACCOUNT_SUSPENDED';
                 }
 
-                // User not found in DB yet (shouldn't happen with PrismaAdapter, but just in case)
-                // Check if this is a super admin email - create/allow
-                if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                    return true;
-                }
-
-                // New user via OAuth - they'll be PENDING, redirect to pending page
-                return '/login?error=ACCOUNT_PENDING';
+                return true;
             }
 
             return true;
         },
 
-        async jwt({ token, user, trigger, session }) {
+        async jwt({ token, user, account, profile }) {
             if (user) {
+                // First sign-in: lưu id, role, status
                 token.id = user.id;
                 token.role = (user as any).role;
                 token.status = (user as any).status;
             }
+
+            // Luôn lấy email/name từ nguồn ĐÚNG:
+            // - OAuth: profile chứa thông tin thực từ Google/Microsoft
+            // - Credentials: user.email là email đăng nhập
+            if (profile?.email) {
+                // OAuth login: dùng email + name từ Google/Microsoft profile
+                token.email = profile.email;
+                token.name = (profile as any).name ?? (profile as any).displayName ?? token.name;
+            } else if (account?.provider === 'credentials' && user?.email) {
+                // Credentials login: dùng email đăng nhập
+                token.email = user.email;
+                token.name = user.name ?? token.name;
+            }
+
+            // Refresh role/status từ DB mỗi lần sign-in (tránh stale token)
+            if (user && token.id) {
+                try {
+                    const dbUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: { role: true, status: true }
+                    });
+                    if (dbUser) {
+                        token.role = dbUser.role;
+                        token.status = dbUser.status;
+                    }
+                } catch {
+                    // Ignore DB errors - dùng giá trị đã có trong token
+                }
+            }
+
             return token;
         },
+
         async session({ session, token }) {
             if (session.user) {
                 (session.user as any).id = token.id;
                 (session.user as any).role = token.role;
                 (session.user as any).status = token.status;
+                // Luôn dùng email/name từ token (đã được set đúng từ profile OAuth hoặc credentials)
+                if (token.email) session.user.email = token.email as string;
+                if (token.name) session.user.name = token.name as string;
             }
             return session;
         },

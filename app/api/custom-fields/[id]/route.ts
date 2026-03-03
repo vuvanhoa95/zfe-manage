@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { customFieldUpdateSchema, type CustomFieldUpdateInput } from '@/lib/validation/custom-field';
 
@@ -83,7 +82,7 @@ export async function PUT(
             );
         }
 
-        const updateData: Prisma.CustomFieldUpdateInput = {
+        const updateData: any = {
             name: data.name?.trim(),
             key: data.key?.trim(),
             description: data.description !== undefined ? data.description?.trim() || null : undefined,
@@ -95,7 +94,7 @@ export async function PUT(
             isActive: data.isActive,
         };
 
-        let optionsUpdate: Prisma.CustomFieldOptionUpdateManyWithoutCustomFieldNestedInput | undefined;
+        let optionsUpdate: any;
 
         if (data.options) {
             const existingOptionsById = new Map(existing.options.map((opt) => [opt.id, opt]));
@@ -152,17 +151,15 @@ export async function PUT(
     } catch (error: unknown) {
         console.error('Failed to update custom field:', error);
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2002') {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Mã trường đã tồn tại. Vui lòng chọn mã khác.',
-                        details: process.env.NODE_ENV === 'development' ? { message: error.message } : undefined,
-                    },
-                    { status: 400 },
-                );
-            }
+        if (typeof (error as any)?.code === 'string' && (error as any).code === 'P2002') {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Mã trường đã tồn tại. Vui lòng chọn mã khác.',
+                    details: process.env.NODE_ENV === 'development' ? { message: (error as any).message } : undefined,
+                },
+                { status: 400 },
+            );
         }
 
         const message = error instanceof Error ? error.message : 'Internal Server Error';
@@ -194,16 +191,14 @@ export async function DELETE(
     } catch (error: unknown) {
         console.error('Failed to delete custom field:', error);
 
-        if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            if (error.code === 'P2025') {
-                return NextResponse.json(
-                    {
-                        success: false,
-                        error: 'Trường tuỳ chỉnh không tồn tại hoặc đã bị xoá.',
-                    },
-                    { status: 404 },
-                );
-            }
+        if (typeof (error as any)?.code === 'string' && (error as any).code === 'P2025') {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: 'Trường tuỳ chỉnh không tồn tại hoặc đã bị xoá.',
+                },
+                { status: 404 },
+            );
         }
 
         const message = error instanceof Error ? error.message : 'Internal Server Error';

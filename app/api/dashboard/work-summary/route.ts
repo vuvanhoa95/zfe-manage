@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ensureCoreSchema } from '@/lib/db-schema';
 import { cache } from '@/lib/cache';
@@ -132,8 +131,8 @@ export async function GET(_request: NextRequest) {
         } catch (innerError) {
             // Nếu bảng/column tasks chưa tồn tại (ví dụ deploy mới), tự tạo schema tối thiểu rồi thử lại
             if (
-                innerError instanceof Prisma.PrismaClientKnownRequestError &&
-                (innerError.code === 'P2021' || innerError.code === 'P2022')
+                typeof (innerError as any)?.code === 'string' &&
+                ((innerError as any).code === 'P2021' || (innerError as any).code === 'P2022')
             ) {
                 await ensureTaskSchema();
 
