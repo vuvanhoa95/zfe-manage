@@ -235,8 +235,15 @@ export async function POST(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('Error creating quotation:', error);
+        const errorMessage = error?.message || 'Không thể tạo báo giá';
         return NextResponse.json(
-            { success: false, error: 'Failed' },
+            {
+                success: false,
+                error: errorMessage,
+                details: process.env.NODE_ENV === 'development'
+                    ? { message: error?.message, code: error?.code, meta: error?.meta }
+                    : undefined,
+            },
             { status: 500 }
         );
     }
