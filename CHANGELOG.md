@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-03-04] - Remove Outsourcing Staff & Major Cleanup
+
+### 🔄 Changed
+- **Nhân sự trong Báo giá:** Chuyển từ bảng `OutsourcingStaff` sang lấy từ `User` (ACTIVE). Map `user.department` → `discipline`.
+- **QuotationDataContext:** `fetchOutsourceStaff()` giờ gọi `/api/users?status=ACTIVE`.
+- **Batch API:** `initial-data/route.ts` query `prisma.user` thay vì `prisma.outsourcingStaff`.
+- **API Users:** Thêm filter `?status=` query param.
+- **PricingTable:** Label "Bộ môn" → "Phòng ban".
+
+### 🗑️ Removed
+- Menu **"Nhân sự ngoài"** khỏi Sidebar.
+- **Dead code:** `app/(dashboard)/outsourcing-staff/`, `app/api/outsourcing-staff/`, `OutsourceCostDetail.tsx`.
+- **File rác Git merge:** 13 file `-CIC-PC` và `-DESKTOP-*` (~18,000 dòng).
+- **Console.log debug:** 6 chỗ trong `CatalogTab.tsx` và `TaskTab.tsx`.
+
+### 📈 Metrics
+- **Dòng code xóa:** ~18,840
+- **File xóa:** ~19 files + 2 folders
+- **Backup branch:** `backup/before-refactor-20260304`
+
+---
+
 ## [2026-03-03] - Multi-select Tasks & ListView UX Improvements
 
 ### ✨ Added

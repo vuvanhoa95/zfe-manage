@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const search = searchParams.get('search');
         const role = searchParams.get('role');
+        const status = searchParams.get('status');
         // Tăng limit mặc định lên 1000 để hiển thị nhiều users hơn
         // Nếu cần nhiều hơn, có thể thêm pagination sau
         const limit = parseInt(searchParams.get('limit') || '1000', 10);
@@ -45,6 +46,10 @@ export async function GET(request: NextRequest) {
 
         if (role) {
             where.role = role;
+        }
+
+        if (status) {
+            where.status = status;
         }
 
         // Lấy đầy đủ thông tin hồ sơ người dùng theo schema hiện tại

@@ -20,7 +20,6 @@ const navItems: NavItem[] = [
     { href: '/projects',          label: 'Dự án',          icon: 'briefcase',       permission: 'nav:projects' },
     { href: '/quotations',        label: 'Báo giá',        icon: 'fileInvoice',     permission: 'nav:quotations' },
     { href: '/customers',         label: 'Khách hàng',     icon: 'customers',       permission: 'nav:customers' },
-    { href: '/outsourcing-staff', label: 'Nhân sự ngoài',  icon: 'outsourcingStaff',permission: 'nav:outsourcing_staff' },
     { href: '/reports',           label: 'Báo cáo',        icon: 'reports',         permission: 'nav:reports' },
     { href: '/users',             label: 'Quản lý User',   icon: 'users',           permission: 'nav:users' },
     { href: '/company-profile',   label: 'Hồ sơ công ty',  icon: 'companyProfile',  permission: 'nav:company_profile' },

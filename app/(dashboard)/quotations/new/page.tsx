@@ -8,24 +8,30 @@ export default function NewQuotationPage() {
     const router = useRouter();
 
     const handleSave = async (data: QuotationFormData) => {
-        try {
-            const response = await fetch('/api/quotations', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
+        const response = await fetch('/api/quotations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (result.success) {
-                // Redirect to edit page of the newly created quotation
-                router.push(`/quotations/${result.data.id}/edit`);
-            } else {
-                alert(result.error || 'Failed to create quotation');
+        if (result.success) {
+            // Redirect to edit page of the newly created quotation
+            router.push(`/quotations/${result.data.id}/edit`);
+        } else {
+            // Build detailed error message
+            let errorMsg = result.error || 'Không thể tạo báo giá';
+            if (result.details?.fieldErrors) {
+                const fieldErrors = Object.entries(result.details.fieldErrors)
+                    .filter(([, msgs]) => Array.isArray(msgs) && (msgs as string[]).length > 0)
+                    .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+                    .join('; ');
+                if (fieldErrors) {
+                    errorMsg += ' — ' + fieldErrors;
+                }
             }
-        } catch (error) {
-            console.error('Save error:', error);
-            alert('An error occurred while saving the quotation.');
+            throw new Error(errorMsg);
         }
     };
 

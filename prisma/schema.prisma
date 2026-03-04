@@ -189,6 +189,7 @@ model CashFlow {
   paymentMilestoneNo      Int?
   paymentMilestonePercent Float?
   paymentMilestoneTitle   String?
+  /// (Legacy) ID nhân sự ngoài - không còn FK constraint
   outsourcingStaffId      String?
   counterpartyName        String?
   notes                   String?
@@ -201,7 +202,6 @@ model CashFlow {
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
   createdBy               User              @relation(fields: [createdById], references: [id])
-  outsourcingStaff        OutsourcingStaff? @relation(fields: [outsourcingStaffId], references: [id])
   project                 Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quotation               Quotation?        @relation(fields: [quotationId], references: [id])
 
@@ -209,7 +209,6 @@ model CashFlow {
   @@index([date])
   @@index([type])
   @@index([quotationId])
-  @@index([outsourcingStaffId])
   @@map("cash_flows")
 }
 
@@ -471,39 +470,7 @@ model Unit {
   @@map("units")
 }
 
-model OutsourcingStaff {
-  id              String     @id @default(uuid())
-  name            String
-  code            String?
-  position        String?
-  department      String?
-  discipline      String?
-  avatarUrl       String?
-  email           String?
-  phone           String?
-  address         String?
-  companyName     String?
-  companyTaxCode  String?
-  personalTaxCode String?
-  bankAccount     String?
-  bankName        String?
-  skills          String?
-  experience      String?
-  certifications  String?
-  hourlyRate      Float?
-  dailyRate       Float?
-  monthlyRate     Float?
-  rateType        String?
-  isActive        Boolean    @default(true)
-  notes           String?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  cashFlows       CashFlow[]
 
-  @@index([isActive])
-  @@index([code])
-  @@map("outsourcing_staff")
-}
 
 model Task {
   id           String    @id @default(uuid())

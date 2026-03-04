@@ -133,7 +133,7 @@ export function QuotationDataProvider({ children }: { children: React.ReactNode 
         setIsLoadingProjects(true);
         setError(null);
         try {
-            const res = await fetch('/api/projects');
+            const res = await fetch('/api/projects?pageSize=200');
             const result = await res.json();
             if (result.success) {
                 setProjects(result.data);
@@ -153,17 +153,25 @@ export function QuotationDataProvider({ children }: { children: React.ReactNode 
         setIsLoadingOutsourceStaff(true);
         setError(null);
         try {
-            const res = await fetch('/api/outsourcing-staff?isActive=true');
+            // Lấy danh sách user ACTIVE thay vì OutsourcingStaff
+            const res = await fetch('/api/users?status=ACTIVE');
             const result = await res.json();
             if (result.success) {
-                setOutsourceStaff(result.data);
+                // Map user fields sang OutsourcingStaff interface
+                const mapped: OutsourcingStaff[] = (result.data || []).map((u: any) => ({
+                    id: u.id,
+                    name: u.name || u.email,
+                    discipline: u.department || undefined,
+                    isActive: true,
+                }));
+                setOutsourceStaff(mapped);
             } else {
-                setError(result.error || 'Failed to fetch outsource staff');
+                setError(result.error || 'Failed to fetch users for outsource staff');
             }
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to fetch outsource staff';
+            const message = err instanceof Error ? err.message : 'Failed to fetch users for outsource staff';
             setError(message);
-            console.error('Failed to fetch outsource staff:', err);
+            console.error('Failed to fetch users for outsource staff:', err);
         } finally {
             setIsLoadingOutsourceStaff(false);
         }

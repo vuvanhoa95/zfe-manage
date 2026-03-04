@@ -103,7 +103,6 @@ export default function CatalogTab() {
             const result = await res.json();
             if (result.success && Array.isArray(result.data)) {
                 const fetchedItems = result.data || [];
-                console.log(`✅ Loaded ${fetchedItems.length} items for ${activeCategory}`);
                 catalogCache.set(activeCategory, { data: fetchedItems, timestamp: now });
                 setItems(fetchedItems);
                 setHasLoadedCategory(prev => new Set(prev).add(activeCategory));

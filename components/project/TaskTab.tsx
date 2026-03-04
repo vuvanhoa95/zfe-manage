@@ -1169,14 +1169,7 @@ export default function TaskTab({
                 assignedToId: normalizedAssignedToId,
             };
 
-            // Debug logging (chỉ trong development)
-            if (process.env.NODE_ENV === 'development') {
-                console.log('[TaskTab] Submitting task:', {
-                    editingTask: editingTask?.id,
-                    assignedToId: normalizedAssignedToId,
-                    payloadAssignedToId: payload.assignedToId,
-                });
-            }
+
 
             const res = await fetch(url, {
                 method,
@@ -1928,15 +1921,7 @@ export default function TaskTab({
                                                                 // Nếu chọn "Chưa phân công" (id = ''), set assignedToId thành empty string để normalize thành null khi submit
                                                                 const assignedToId = option.id === '' ? '' : option.id;
                                                                 
-                                                                // Debug logging (chỉ trong development)
-                                                                if (process.env.NODE_ENV === 'development') {
-                                                                    console.log('[TaskTab] Selected assignee:', {
-                                                                        optionId: option.id,
-                                                                        optionName: option.name,
-                                                                        assignedToId,
-                                                                        isUuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(option.id),
-                                                                    });
-                                                                }
+
                                                                 
                                                                 setFormData({ ...formData, assignedToId });
                                                                 setAssigneeSearchQuery(option.name);
@@ -3162,7 +3147,7 @@ export default function TaskTab({
                                                                                 {/* Multi-select Checkbox column */}
                                                                                 <td className="w-10 px-3 py-3 align-middle">
                                                                                     {(() => {
-                                                                                        if (isSelected) console.log(`[Grouped] Checkbox ${task.id} IS SELECTED!`);
+
                                                                                         return (
                                                                                             <button
                                                                                                 type="button"
@@ -3507,7 +3492,7 @@ export default function TaskTab({
                                                         {/* Multi-select Checkbox column */}
                                                         <td className="w-10 px-3 py-3 align-middle">
                                                             {(() => {
-                                                                if (isSelected) console.log(`[NonGrouped] Checkbox ${task.id} IS SELECTED!`);
+
                                                                 return (
                                                                     <button
                                                                         type="button"
@@ -3961,13 +3946,7 @@ export default function TaskTab({
                                                                 const value = e.target.value || null;
                                                                 const taskId = task.id;
                                                                 
-                                                                console.log('[TaskTab List View] Assigning task:', {
-                                                                    taskId,
-                                                                    taskTitle: task.title,
-                                                                    assignedToId: value,
-                                                                    selectedValue: e.target.value,
-                                                                    staffOptionsCount: staffOptions.length,
-                                                                });
+
                                                                 
                                                                 // Gọi handleInlineUpdate ngay lập tức
                                                                 void handleInlineUpdate(taskId, {

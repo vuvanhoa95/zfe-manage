@@ -25,6 +25,7 @@ type Project = {
 type ProjectSelectorProps = {
     value: string;
     onChange: (projectId: string) => void;
+    onSelectProject?: (project: Project) => void;
     disabled?: boolean;
     isLoading?: boolean;
 };
@@ -48,7 +49,7 @@ const statusConfig: Record<string, { label: string; badgeClass: string }> = {
     },
 };
 
-export default function ProjectSelector({ value, onChange, disabled = false, isLoading = false }: ProjectSelectorProps) {
+export default function ProjectSelector({ value, onChange, onSelectProject, disabled = false, isLoading = false }: ProjectSelectorProps) {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoadingProjects, setIsLoadingProjects] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +76,7 @@ export default function ProjectSelector({ value, onChange, disabled = false, isL
     const fetchProjects = async () => {
         setIsLoadingProjects(true);
         try {
-            let url = '/api/projects?';
+            let url = '/api/projects?pageSize=200&';
             if (statusFilter) url += `status=${statusFilter}&`;
             if (yearFilter) url += `year=${yearFilter}&`;
             if (searchQuery) url += `search=${searchQuery}&`;
@@ -129,6 +130,10 @@ export default function ProjectSelector({ value, onChange, disabled = false, isL
         setSelectedProject(project);
         setIsOpen(false);
         setSearchQuery('');
+        // Pass full project data to parent if callback exists
+        if (onSelectProject) {
+            onSelectProject(project);
+        }
     };
 
     const handleClearSelection = () => {

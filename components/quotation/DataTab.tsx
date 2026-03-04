@@ -462,6 +462,27 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
         });
     };
 
+    // Callback when ProjectSelector passes full project object (higher priority than handleProjectChange)
+    const handleProjectSelect = (project: { id: string; name: string; location: string; totalArea?: number; description?: string; customer: { id: string; name: string } | null; [key: string]: any }) => {
+        const enrichedLines = enrichQuotationLinesWithProjectContext(data.lines, {
+            projectName: project.name,
+            projectItem: (project.description ?? undefined) || data.projectItem,
+            totalArea: project.totalArea ?? undefined,
+        });
+
+        onChange({
+            ...data,
+            projectId: project.id,
+            projectName: project.name,
+            totalArea: project.totalArea ?? undefined,
+            customerId: project.customer?.id ?? data.customerId,
+            location: project.location || data.location,
+            projectItem: (project.description ?? undefined) || data.projectItem,
+            projectNotes: (project.notes ?? undefined) || data.projectNotes,
+            lines: enrichedLines,
+        });
+    };
+
     const scrollToSection = (sectionId: string) => {
         setActiveSectionId(sectionId);
         const el = document.getElementById(sectionId);
@@ -483,6 +504,7 @@ export default function DataTab({ data, onChange, lockProject = false }: DataTab
                                 <ProjectSelector
                                     value={data.projectId}
                                     onChange={(projectId) => handleProjectChange(projectId)}
+                                    onSelectProject={handleProjectSelect}
                                     disabled={lockProject}
                                     isLoading={isLoadingProjects}
                                 />

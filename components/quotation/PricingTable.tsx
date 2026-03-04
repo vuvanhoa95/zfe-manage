@@ -1142,7 +1142,7 @@ export default function PricingTable({
                                                     </select>
                                                     {line.discipline && (
                                                         <div className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold rounded border border-blue-100 inline-block">
-                                                            Bộ môn: {line.discipline}
+                                                            Phòng ban: {line.discipline}
                                                         </div>
                                                     )}
                                                 </div>

@@ -45,21 +45,27 @@ export default function EditQuotationPage() {
     };
 
     const handleSave = async (data: QuotationFormData) => {
-        try {
-            const response = await fetch(`/api/quotations/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
+        const response = await fetch(`/api/quotations/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
 
-            const result = await response.json();
+        const result = await response.json();
 
-            if (!result.success) {
-                alert(result.error || 'Failed to update quotation');
+        if (!result.success) {
+            // Build detailed error message
+            let errorMsg = result.error || 'Không thể cập nhật báo giá';
+            if (result.details?.fieldErrors) {
+                const fieldErrors = Object.entries(result.details.fieldErrors)
+                    .filter(([, msgs]) => Array.isArray(msgs) && (msgs as string[]).length > 0)
+                    .map(([field, msgs]) => `${field}: ${(msgs as string[]).join(', ')}`)
+                    .join('; ');
+                if (fieldErrors) {
+                    errorMsg += ' — ' + fieldErrors;
+                }
             }
-        } catch (error) {
-            console.error('Update error:', error);
-            alert('An error occurred while updating the quotation.');
+            throw new Error(errorMsg);
         }
     };
 

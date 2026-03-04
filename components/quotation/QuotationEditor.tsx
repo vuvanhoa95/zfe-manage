@@ -171,6 +171,7 @@ export default function QuotationEditor({
 
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaved, setLastSaved] = useState<Date | null>(null);
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [isLoadingExisting, setIsLoadingExisting] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -425,15 +426,17 @@ export default function QuotationEditor({
 
     const handleSave = async (isAutoSave = false) => {
         setIsSaving(true);
+        setSaveError(null);
         try {
             await onSave(formData);
             setLastSaved(new Date());
-            if (!isAutoSave) {
-                // Show success message
-            }
+            setSaveError(null);
         } catch (error) {
             console.error('Failed to save:', error);
-            // Show error message
+            const message = error instanceof Error ? error.message : 'Không thể lưu báo giá. Vui lòng thử lại.';
+            setSaveError(message);
+            // Auto-clear error after 8 seconds
+            setTimeout(() => setSaveError(null), 8000);
         } finally {
             setIsSaving(false);
         }
@@ -885,7 +888,24 @@ export default function QuotationEditor({
                     </div>
                 </div>
 
-                {/* Error Messages - Compact */}
+                {/* Save Error Messages */}
+                {saveError && (
+                    <div className="border-t border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 flex items-center justify-between">
+                        <div>
+                            <p className="font-semibold">❌ Lưu báo giá thất bại:</p>
+                            <p>{saveError}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setSaveError(null)}
+                            className="ml-2 px-2 py-1 text-red-600 hover:bg-red-100 rounded text-xs"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+                )}
+
+                {/* Step Validation Error Messages - Compact */}
                 {stepErrors[activeStep] && stepErrors[activeStep]!.length > 0 && (
                     <div className="border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                         <p className="font-semibold mb-1">Vui lòng kiểm tra lại thông tin ở bước hiện tại:</p>

@@ -1,11 +1,11 @@
 {
   "meta": {
-    "last_updated": "2026-03-03T02:18:59Z",
-    "awf_version": "4.0.2"
+    "last_updated": "2026-03-04T17:01:00Z",
+    "awf_version": "4.1.2"
   },
   "project": {
     "name": "ZfeManage",
-    "status": "In Development - Task UX Enhancement Phase",
+    "status": "In Development - Quotation Staff Migration Complete",
     "tech_stack": {
       "framework": "Next.js 15 (App Router, Turbopack dev)",
       "database": "PostgreSQL (Neon)",
@@ -20,7 +20,8 @@
     "db_connection": "Using DIRECT_URL for Neon to avoid pooler issues.",
     "schema_initialization": "Cached global singleton in lib/db-schema.ts.",
     "dashboard_stats": "Parallel Promise.allSettled fetching with 30s in-memory cache.",
-    "list_view_updates": "Optimistic & in-place state updates for task assignments."
+    "list_view_updates": "Optimistic & in-place state updates for task assignments.",
+    "quotation_staff": "Nhân sự trong báo giá lấy từ User (ACTIVE) thay vì OutsourcingStaff. Map: user.department→discipline."
   },
   "ui_architecture": {
     "task_list_view": {
@@ -34,9 +35,27 @@
       "multi_select": {
         "state": "useState<Set<string>>()",
         "handler": "handleTaskSelect - Shift=range, Ctrl=toggle, click=toggle",
-        "key_gotcha": "Global click listener dùng data-task-select attribute để tránh reset khi click checkbox. Tất cả checkbox button PHẢI có data-task-select='true' và Bulk Toolbar div PHẢI có data-task-actions='true'.",
+        "key_gotcha": "Global click listener dùng data-task-select attribute để tránh reset khi click checkbox.",
         "bulk_toolbar": "createPortal → document.body (z-9999). Fix 'fixed bị trapped' bởi parent transform."
       }
+    },
+    "quotation_staff_flow": {
+      "data_source": "/api/users?status=ACTIVE (thay vì /api/outsourcing-staff)",
+      "context": "QuotationDataContext.tsx → fetchOutsourceStaff() → map User→OutsourcingStaff interface",
+      "batch_api": "app/api/quotation/initial-data/route.ts → prisma.user.findMany({ where: { status: 'ACTIVE' } })",
+      "ui": "PricingTable.tsx → dropdown 'Chọn nhân sự' hiển thị name + phòng ban"
+    }
+  },
+  "removed_modules": {
+    "outsourcing_staff": {
+      "removed_date": "2026-03-04",
+      "reason": "Nhân sự trong báo giá giờ lấy từ User thay vì bảng riêng",
+      "deleted_files": [
+        "app/(dashboard)/outsourcing-staff/",
+        "app/api/outsourcing-staff/",
+        "components/quotation/OutsourceCostDetail.tsx"
+      ],
+      "note": "Model OutsourcingStaff vẫn còn trong schema.prisma, chưa migration"
     }
   },
   "knowledge_items": {
@@ -57,14 +76,9 @@
         "file": "components/project/TaskTab.tsx"
       },
       {
-        "id": "sticky-inside-overflow",
-        "description": "overflow-x-auto tạo scroll context mới → sticky children không stick vào viewport. Fix: cho container thêm overflow-y-auto có chiều cao cố định để sticky top-0 hoạt động đúng trong container.",
-        "file": "components/project/TaskTab.tsx"
-      },
-      {
-        "id": "click-outside-attribute-guard",
-        "description": "Global document click listener để clear multi-select. Phân biệt 'click inside' vs 'outside' bằng data-attribute (data-task-select, data-task-actions). Tất cả interactive elements PHẢI có đúng attribute.",
-        "file": "components/project/TaskTab.tsx"
+        "id": "interface-mapping",
+        "description": "Khi thay đổi data source nhưng muốn giữ UI cũ: map fields mới sang interface cũ (User→OutsourcingStaff). Giảm scope thay đổi.",
+        "file": "lib/contexts/QuotationDataContext.tsx"
       }
     ],
     "gotchas": [
@@ -74,7 +88,11 @@
       },
       {
         "id": "overflow-breaks-sticky",
-        "description": "Bất kỳ overflow value nào khác visible trên phần tử cha đều 'nhốt' sticky children bên trong. Không thể dùng sticky top-0 trong một div overflow-x-auto để stick vào viewport."
+        "description": "Bất kỳ overflow value nào khác visible trên phần tử cha đều 'nhốt' sticky children bên trong."
+      },
+      {
+        "id": "git-conflict-files",
+        "description": "Git merge trên Windows tạo file rác với suffix -CIC-PC, -DESKTOP-*. Cần kiểm tra và xóa thường xuyên, kể cả trong node_modules."
       }
     ]
   }

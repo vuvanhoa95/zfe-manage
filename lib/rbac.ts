@@ -29,7 +29,7 @@ export type Permission =
   | 'nav:projects'
   | 'nav:quotations'
   | 'nav:customers'
-  | 'nav:outsourcing_staff'
+
   | 'nav:reports'
   | 'nav:users'
   | 'nav:company_profile'
@@ -81,11 +81,7 @@ export type Permission =
   | 'cashflow:edit'
   | 'cashflow:delete'
 
-  // --- OUTSOURCING STAFF ---
-  | 'outsourcing:create'
-  | 'outsourcing:view'
-  | 'outsourcing:edit'
-  | 'outsourcing:delete'
+
 
   // --- REPORTS ---
   | 'report:view'
@@ -125,7 +121,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'nav:projects',         label: 'Menu: Dự án' },
       { key: 'nav:quotations',       label: 'Menu: Báo giá' },
       { key: 'nav:customers',        label: 'Menu: Khách hàng' },
-      { key: 'nav:outsourcing_staff',label: 'Menu: Nhân sự ngoài' },
+
       { key: 'nav:reports',          label: 'Menu: Báo cáo' },
       { key: 'nav:users',            label: 'Menu: Quản lý User', description: 'Trang quản lý tài khoản' },
       { key: 'nav:company_profile',  label: 'Menu: Hồ sơ công ty' },
@@ -197,16 +193,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       { key: 'cashflow:delete', label: 'Xóa giao dịch' },
     ],
   },
-  {
-    group: 'Nhân sự ngoài',
-    icon: '👷',
-    permissions: [
-      { key: 'outsourcing:create', label: 'Thêm nhân sự ngoài' },
-      { key: 'outsourcing:view',   label: 'Xem nhân sự ngoài' },
-      { key: 'outsourcing:edit',   label: 'Sửa nhân sự ngoài' },
-      { key: 'outsourcing:delete', label: 'Xóa nhân sự ngoài' },
-    ],
-  },
+
   {
     group: 'Báo cáo',
     icon: '📈',
@@ -245,7 +232,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
 export const RBAC_DEFAULTS: Record<SystemRole, Permission[]> = {
   ADMIN: [
     'nav:dashboard', 'nav:projects', 'nav:quotations', 'nav:customers',
-    'nav:outsourcing_staff', 'nav:reports', 'nav:users', 'nav:company_profile', 'nav:settings',
+    'nav:reports', 'nav:users', 'nav:company_profile', 'nav:settings',
     'dashboard:view', 'dashboard:view_financials', 'dashboard:view_all_projects',
     'project:create', 'project:view', 'project:edit', 'project:delete',
     'project:manage_members', 'project:view_financials',
@@ -254,7 +241,7 @@ export const RBAC_DEFAULTS: Record<SystemRole, Permission[]> = {
     'customer:create', 'customer:view', 'customer:edit', 'customer:delete',
     'task:create', 'task:view', 'task:edit', 'task:delete', 'task:view_all',
     'cashflow:create', 'cashflow:view', 'cashflow:edit', 'cashflow:delete',
-    'outsourcing:create', 'outsourcing:view', 'outsourcing:edit', 'outsourcing:delete',
+
     'report:view', 'report:export',
     'company_profile:view', 'company_profile:edit',
     'settings:view', 'settings:edit',
@@ -263,7 +250,7 @@ export const RBAC_DEFAULTS: Record<SystemRole, Permission[]> = {
 
   PM: [
     'nav:dashboard', 'nav:projects', 'nav:quotations', 'nav:customers',
-    'nav:outsourcing_staff', 'nav:reports', 'nav:company_profile', 'nav:settings',
+    'nav:reports', 'nav:company_profile', 'nav:settings',
     'dashboard:view', 'dashboard:view_financials', 'dashboard:view_all_projects',
     'project:create', 'project:view', 'project:edit', 'project:edit_own', 'project:delete',
     'project:manage_members', 'project:view_financials',
@@ -272,7 +259,7 @@ export const RBAC_DEFAULTS: Record<SystemRole, Permission[]> = {
     'customer:create', 'customer:view', 'customer:edit',
     'task:create', 'task:view', 'task:edit', 'task:delete', 'task:view_all',
     'cashflow:create', 'cashflow:view', 'cashflow:edit', 'cashflow:delete',
-    'outsourcing:create', 'outsourcing:view', 'outsourcing:edit',
+
     'report:view', 'report:export',
     'company_profile:view',
     'settings:view',

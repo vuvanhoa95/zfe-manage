@@ -5,12 +5,12 @@ import { prisma } from '@/lib/prisma';
  * Batch endpoint to fetch all initial data needed for Quotation Editor
  * Reduces network overhead by combining multiple requests into one
  * 
- * Returns: { customers, projects, outsourceStaff }
+ * Returns: { customers, projects, outsourceStaff (from Users) }
  */
 export async function GET() {
     try {
         // Fetch all data in parallel for better performance
-        const [customers, projects, outsourceStaff] = await Promise.all([
+        const [customers, projects, users] = await Promise.all([
             // Customers - simple list, no search params needed for initial load
             prisma.customer.findMany({
                 orderBy: { name: 'asc' },
@@ -39,20 +39,26 @@ export async function GET() {
                 },
             }),
             
-            // Outsource Staff - only active staff
-            prisma.outsourcingStaff.findMany({
-                where: { isActive: true },
+            // Users ACTIVE - thay thế OutsourcingStaff
+            prisma.user.findMany({
+                where: { status: 'ACTIVE' },
                 orderBy: { name: 'asc' },
                 select: {
                     id: true,
                     name: true,
-                    discipline: true,
-                    hourlyRate: true,
-                    dailyRate: true,
-                    isActive: true,
+                    email: true,
+                    department: true,
                 },
             }),
         ]);
+
+        // Map users sang outsourceStaff interface để tương thích
+        const outsourceStaff = users.map((u) => ({
+            id: u.id,
+            name: u.name || u.email,
+            discipline: u.department || undefined,
+            isActive: true,
+        }));
 
         return NextResponse.json({
             success: true,
