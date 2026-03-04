@@ -41,18 +41,7 @@ export async function GET(
             .map(line => line.staffName?.trim())
             .filter(name => !!name) || [];
 
-        // Lấy danh sách nhân sự outsource đang active
-        const outsourcingStaff = await withSchemaCheck(
-            () =>
-                prisma.outsourcingStaff.findMany({
-                    where: { isActive: true },
-                    select: { name: true },
-                }),
-            [] as { name: string }[],
-        );
-        const outsourcingStaffNames = outsourcingStaff.map(s => s.name.trim());
-
-        const allPotentialNames = Array.from(new Set([...quotationStaffNames, ...outsourcingStaffNames]));
+        const allPotentialNames = Array.from(new Set(quotationStaffNames));
 
         // Lấy danh sách System Users
         const systemUsers = await withSchemaCheck(

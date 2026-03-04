@@ -1,30 +1,23 @@
 {
-  "updated_at": "2026-03-04T17:01:00Z",
+  "updated_at": "2026-03-04T17:08:00Z",
   "working_on": {
-    "feature": "Bỏ Nhân sự ngoài + Refactor cleanup",
-    "task": "Hoàn thành - Đã dọn dẹp toàn bộ",
+    "feature": "Bỏ Nhân sự ngoài + Refactor + Deploy",
+    "task": "Hoàn thành toàn bộ - Đã deploy lên Vercel",
     "status": "COMPLETED",
-    "files": [
-      "components/layout/Sidebar.tsx",
-      "lib/contexts/QuotationDataContext.tsx",
-      "app/api/quotation/initial-data/route.ts",
-      "app/api/users/route.ts",
-      "components/quotation/PricingTable.tsx"
-    ],
-    "notes": "Đã bỏ OutsourcingStaff, chuyển sang dùng User ACTIVE. Đã xóa 18,840 dòng dead code + file rác."
+    "files": [],
+    "notes": "Đã commit, push, deploy. Vercel auto-build từ main branch."
   },
   "pending_tasks": [
     { "task": "Tách TaskTab.tsx (4,662 dòng) thành sub-components", "priority": "medium", "notes": "God file - cần session refactor riêng" },
-    { "task": "Cleanup RBAC permissions liên quan outsourcing:*", "priority": "low", "notes": "nav:outsourcing_staff, outsourcing:view, outsourcing:edit, outsourcing:create, outsourcing:delete" },
-    { "task": "Xóa model OutsourcingStaff khỏi schema.prisma nếu không cần nữa", "priority": "low" },
+    { "task": "Kiểm tra Vercel build thành công sau schema change", "priority": "high", "notes": "Xóa model OutsourcingStaff có thể cần prisma migrate trên production" },
     { "task": "Integrate Social Login (Phase 01-05 in progress)", "priority": "medium" },
-    { "task": "Check Vercel Deployment for Direct URL sync", "priority": "medium" }
+    { "task": "Xóa prisma/prisma/dev-CIC-PC.db nếu còn trong .gitignore", "priority": "low" }
   ],
   "recent_changes": [
     {
       "timestamp": "2026-03-04T15:00:00Z",
       "type": "feature",
-      "description": "Bỏ mục 'Nhân sự ngoài' khỏi sidebar. Nhân sự trong báo giá giờ lấy từ bảng User (ACTIVE) thay vì OutsourcingStaff. Map: user.name→name, user.department→discipline.",
+      "description": "Bỏ mục 'Nhân sự ngoài' khỏi sidebar. Nhân sự trong báo giá lấy từ User (ACTIVE) thay vì OutsourcingStaff.",
       "files": [
         "components/layout/Sidebar.tsx",
         "lib/contexts/QuotationDataContext.tsx",
@@ -36,7 +29,7 @@
     {
       "timestamp": "2026-03-04T16:55:00Z",
       "type": "refactor",
-      "description": "Đợt 1 Refactor: Xóa 13 file rác (-CIC-PC, -DESKTOP-*), 6 file/folder dead code outsourcing-staff, 6 chỗ console.log debug. Tổng -18,840 dòng.",
+      "description": "Đợt 1 Refactor: Xóa 13 file rác (-CIC-PC, -DESKTOP-*), 6 file/folder dead code outsourcing-staff, 6 console.log debug. Tổng -18,961 dòng.",
       "files": [
         "components/quotation/DataTab-CIC-PC.tsx (DELETED)",
         "components/quotation/PricingTable-CIC-PC.tsx (DELETED)",
@@ -46,13 +39,28 @@
         "components/project/TaskTab.tsx",
         "components/quotation/CatalogTab.tsx"
       ]
+    },
+    {
+      "timestamp": "2026-03-04T17:05:00Z",
+      "type": "refactor",
+      "description": "Cleanup RBAC: xóa nav:outsourcing_staff + outsourcing:* permissions. Xóa model OutsourcingStaff khỏi schema.prisma (giữ outsourcingStaffId trong CashFlow).",
+      "files": [
+        "lib/rbac.ts",
+        "prisma/schema.prisma"
+      ]
+    },
+    {
+      "timestamp": "2026-03-04T17:07:00Z",
+      "type": "deploy",
+      "description": "Commit a19602f pushed to main. Vercel auto-deploy triggered.",
+      "files": []
     }
   ],
   "decisions_made": [
-    { "decision": "Use DIRECT_URL", "reason": "Neon Pooler has intermittent connection drops in dev environment." },
-    { "decision": "Map User→OutsourcingStaff interface", "reason": "Giữ nguyên interface cũ (name, discipline) để không phải sửa PricingTable, DataTab. user.department→discipline." },
-    { "decision": "Không xóa model OutsourcingStaff khỏi schema", "reason": "Để giảm risk. DB migration cần cẩn thận hơn, làm sau khi test kỹ." },
-    { "decision": "Backup branch trước refactor", "reason": "Tạo backup/before-refactor-20260304 để rollback nếu cần." }
+    { "decision": "Map User→OutsourcingStaff interface", "reason": "Giữ nguyên interface cũ để không phải sửa PricingTable, DataTab. user.department→discipline." },
+    { "decision": "Giữ cột outsourcingStaffId trong CashFlow", "reason": "Không xóa cột DB để tương thích ngược. Chỉ bỏ FK constraint + relation." },
+    { "decision": "Backup branch trước refactor", "reason": "backup/before-refactor-20260304 cho rollback." },
+    { "decision": "Deploy ngay, tách TaskTab sau", "reason": "Refactor TaskTab (4662 dòng) cần session riêng, không nên block deploy." }
   ],
   "errors_encountered": []
 }

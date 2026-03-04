@@ -1,40 +1,40 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 HANDOVER DOCUMENT - SOCIAL LOGIN COMPLETE 🚀
+📋 HANDOVER DOCUMENT — 2026-03-04
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📍 Đang làm: ZfeManage - Social Login & User Management
-🔢 Đến bước: Hoàn tất Phase 5 - Sẵn sàng sử dụng thực tế
+📍 Đang làm: Remove OutsourcingStaff + Major Cleanup
+🔢 Đến bước: HOÀN THÀNH - Đã deploy
 
-✅ ĐÃ XONG (SOCIAL LOGIN):
-   - Google & Microsoft OAuth Integration (NextAuth + Prisma) ✓
-   - Admin Approval Workflow (PENDING → ACTIVE/SUSPENDED) ✓
-   - User Management UI (Badge status, Approve/Block buttons) ✓
-   - Email Invitation System (Resend template + Trigger on manual create) ✓
-   - Error Handling (Redirects for pending/suspended accounts) ✓
-   - .env.example updated with OAuth & Admin Email configs ✓
+✅ ĐÃ XONG:
+   - Bỏ mục "Nhân sự ngoài" khỏi sidebar ✓
+   - Chuyển nhân sự báo giá từ OutsourcingStaff → User (ACTIVE) ✓
+   - Refactor Đợt 1: Xóa 18,961 dòng dead code + file rác ✓
+   - Cleanup RBAC permissions outsourcing:* ✓
+   - Xóa model OutsourcingStaff khỏi schema.prisma ✓
+   - Commit + Push + Deploy ✓ (commit: a19602f)
 
-⏳ CÒN LẠI (TIẾP THEO):
-   - Task 6.1: Activity Logs cho trạng thái User
-   - Task 6.2: Forgot Password flow cho tài khoản Email truyền thống
-   - Task 6.3: Advanced RBAC (Grown roles)
+⏳ CÒN LẠI:
+   - Tách TaskTab.tsx (4,662 dòng) → sub-components (Refactor Đợt 2)
+   - Kiểm tra Vercel build thành công
+   - Social Login integration (đang in progress)
 
 🔧 QUYẾT ĐỊNH QUAN TRỌNG:
-   - Unknown social logins luôn là PENDING để bảo vệ dữ liệu công ty.
-   - Admin-created users là ACTIVE để giảm bớt thao tác phê duyệt lại.
-   - Dùng PrismaAdapter để sync metadata social (name, image) vào DB.
-   - Email mời gửi kèm Admin Name để nhân viên biết ai đang mời mình.
+   - Map User fields sang OutsourcingStaff interface (user.department→discipline)
+   - Giữ cột outsourcingStaffId trong CashFlow (legacy, không FK)
+   - Backup branch: backup/before-refactor-20260304
 
 ⚠️ LƯU Ý CHO SESSION SAU:
-   - Đảm bảo GOOGLE / AZURE_AD secrets đã có trong .env local & production.
-   - Thử nghiệm đăng nhập một email "lạ" để test quy trình nộp đơn duyệt.
-   - Kiểm tra email invitation gửi về có đúng landing page /login không.
+   - Vercel build có thể lỗi vì schema change (xóa OutsourcingStaff model)
+   - Nếu lỗi: cần chạy prisma migrate trên production
+   - TaskTab.tsx vẫn là God file 4,662 dòng - cần refactor riêng
 
 📁 FILES QUAN TRỌNG:
-   - lib/auth.ts (NextAuth Config & Callbacks)
-   - app/api/users/route.ts (User status logic)
-   - lib/email/send.ts (Invitation email sender)
-   - app/(dashboard)/users/page.tsx (User Management UI)
+   - .brain/brain.json (static knowledge)
+   - .brain/session.json (progress tracking)
+   - CHANGELOG.md (history)
+   - lib/rbac.ts (permissions đã cleanup)
+   - prisma/schema.prisma (đã xóa OutsourcingStaff model)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📍 Đã lưu bộ não! Để tiếp tục: Gõ /recap
+📍 Đã lưu! Để tiếp tục: Gõ /recap
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
