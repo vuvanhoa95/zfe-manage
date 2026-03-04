@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import QuotationEditor from '@/components/quotation/QuotationEditor';
@@ -16,7 +16,7 @@ type ProjectContext = {
     notes?: string | null;
 };
 
-export default function NewQuotationPage() {
+function NewQuotationContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const projectIdFromUrl = searchParams.get('projectId');
@@ -73,10 +73,8 @@ export default function NewQuotationPage() {
         const result = await response.json();
 
         if (result.success) {
-            // Redirect to edit page of the newly created quotation
             router.push(`/quotations/${result.data.id}/edit`);
         } else {
-            // Build detailed error message
             let errorMsg = result.error || 'Không thể tạo báo giá';
             if (result.details?.fieldErrors) {
                 const fieldErrors = Object.entries(result.details.fieldErrors)
@@ -134,5 +132,26 @@ export default function NewQuotationPage() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function NewQuotationPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="h-full flex flex-col">
+                    <div className="bg-white border-b border-gray-200 px-8 py-4">
+                        <h1 className="text-2xl font-bold text-gray-900">Create New Quotation</h1>
+                        <p className="text-sm text-gray-500">Draft your BIM services proposal.</p>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center gap-2 text-gray-600">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Đang tải...</span>
+                    </div>
+                </div>
+            }
+        >
+            <NewQuotationContent />
+        </Suspense>
     );
 }
