@@ -161,7 +161,6 @@ export async function POST(request: NextRequest) {
                 status: body.status,
                 notes: body.notes,
                 theme: body.theme ?? null,
-                templateId: body.templateId ?? null,
                 createdById: userId,
                 lines: {
                     create: enrichedLines.map((line: any) => ({
