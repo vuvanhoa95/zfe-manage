@@ -5,6 +5,25 @@ import { useRouter, useParams } from 'next/navigation';
 import QuotationEditor from '@/components/quotation/QuotationEditor';
 import { QuotationFormData } from '@/types/quotation';
 
+/**
+ * Recursively convert all `null` values to `undefined`.
+ * Prisma returns `null` for empty DB columns, but Zod `.optional()` only
+ * accepts `undefined`. Without this, every `null` field causes a validation
+ * error on save ("expected string, received null").
+ */
+function stripNulls(obj: any): any {
+    if (obj === null) return undefined;
+    if (Array.isArray(obj)) return obj.map(stripNulls);
+    if (typeof obj === 'object' && obj !== null) {
+        const result: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = stripNulls(value);
+        }
+        return result;
+    }
+    return obj;
+}
+
 export default function EditQuotationPage() {
     const router = useRouter();
     const params = useParams();
@@ -26,10 +45,12 @@ export default function EditQuotationPage() {
             const res = await fetch(`/api/quotations/${id}`);
             const result = await res.json();
             if (result.success) {
-                // API trả về JSON nên các field Date sẽ là string; QuotationEditor expects `date: Date`
+                // Strip null → undefined to avoid Zod validation errors,
+                // and convert date string → Date object
+                const cleaned = stripNulls(result.data);
                 const normalized: QuotationFormData = {
-                    ...result.data,
-                    date: result.data?.date ? new Date(result.data.date) : new Date(),
+                    ...cleaned,
+                    date: cleaned?.date ? new Date(cleaned.date) : new Date(),
                 };
                 setInitialData(normalized);
                 setQuotationNo(result.data.quotationNo);
