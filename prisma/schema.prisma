@@ -53,6 +53,9 @@ model User {
   taskComments       TaskComment[]
   taskAttachments    TaskAttachment[]
   projectMembers     ProjectMember[]
+  cashFlowComments   CashFlowComment[]
+  cashFlowActivities CashFlowActivity[]
+  notifications      Notification[]
 
   @@map("users")
 }
@@ -178,13 +181,13 @@ model Project {
 }
 
 model CashFlow {
-  id                      String            @id @default(uuid())
+  id                      String             @id @default(uuid())
   projectId               String
   type                    String
   category                String?
   description             String
   amount                  Float
-  date                    DateTime
+  date                    DateTime?
   quotationId             String?
   paymentMilestoneNo      Int?
   paymentMilestonePercent Float?
@@ -199,17 +202,71 @@ model CashFlow {
   /// Ghi chú chi tiết về hồ sơ (số hóa đơn, nội dung bổ sung...)
   documentNote            String?
   createdById             String
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-  createdBy               User              @relation(fields: [createdById], references: [id])
-  project                 Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  quotation               Quotation?        @relation(fields: [quotationId], references: [id])
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  createdBy               User               @relation(fields: [createdById], references: [id])
+  project                 Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  quotation               Quotation?         @relation(fields: [quotationId], references: [id])
+  comments                CashFlowComment[]
+  activities              CashFlowActivity[]
 
   @@index([projectId])
   @@index([date])
   @@index([type])
   @@index([quotationId])
   @@map("cash_flows")
+}
+
+/// Bình luận / ghi chú cho dòng tiền
+model CashFlowComment {
+  id          String                      @id @default(uuid())
+  cashFlowId  String
+  userId      String
+  content     String
+  /// JSON array of mentioned user IDs, e.g. ["uuid1","uuid2"]
+  mentions    String?
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+  cashFlow    CashFlow                    @relation(fields: [cashFlowId], references: [id], onDelete: Cascade)
+  user        User                        @relation(fields: [userId], references: [id])
+  attachments CashFlowCommentAttachment[]
+
+  @@index([cashFlowId])
+  @@map("cash_flow_comments")
+}
+
+/// File đính kèm cho bình luận dòng tiền
+model CashFlowCommentAttachment {
+  id        String          @id @default(uuid())
+  commentId String
+  fileName  String
+  fileType  String          // MIME type
+  fileSize  Int             // bytes
+  url       String          @db.Text // base64 data URL hoặc external URL
+  createdAt DateTime        @default(now())
+  comment   CashFlowComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+  @@map("cash_flow_comment_attachments")
+}
+
+/// Lịch sử thay đổi dòng tiền (audit trail)
+model CashFlowActivity {
+  id          String   @id @default(uuid())
+  cashFlowId  String
+  userId      String
+  action      String   // CREATE | UPDATE | STATUS_CHANGE | CHECKLIST_UPDATE | DELETE
+  field       String?  // Tên field bị thay đổi (amount, date, documentStatus...)
+  oldValue    String?  // Giá trị cũ (JSON string nếu object)
+  newValue    String?  // Giá trị mới
+  summary     String?  // Mô tả ngắn (VD: "Cập nhật số tiền từ 100M → 120M")
+  createdAt   DateTime @default(now())
+  cashFlow    CashFlow @relation(fields: [cashFlowId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([cashFlowId])
+  @@index([createdAt])
+  @@map("cash_flow_activities")
 }
 
 model Quotation {
@@ -668,3 +725,19 @@ model SystemConfig {
   @@map("system_configs")
 }
 
+/// Thông báo nội bộ (mention, cập nhật, ...)
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   /// người nhận thông báo
+  type      String   /// MENTION, CASHFLOW_UPDATE, TASK_ASSIGN, SYSTEM
+  title     String
+  message   String
+  link      String?  /// URL tương đối để navigate tới
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}

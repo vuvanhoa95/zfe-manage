@@ -22,6 +22,16 @@ type Alert = {
     date?: string;
 };
 
+type Notification = {
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    link?: string;
+    read: boolean;
+    createdAt: string;
+};
+
 type SmartSearchProject = {
     id: string;
     projectNo: string;
@@ -143,6 +153,8 @@ export default function Header() {
 
     // ── Notifications ──────────────────────────────────────────────────────────
     const [alerts, setAlerts] = useState<Alert[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadNotifCount, setUnreadNotifCount] = useState(0);
     const [showNotifications, setShowNotifications] = useState(false);
     const [loadingAlerts, setLoadingAlerts] = useState(false);
     const notifRef = useRef<HTMLDivElement>(null);
@@ -151,10 +163,20 @@ export default function Header() {
         if (!session?.user) return;
         try {
             setLoadingAlerts(true);
-            const res = await fetch('/api/dashboard/alerts', { cache: 'no-store' });
-            if (res.ok) {
-                const data = await res.json();
+            const [alertsRes, notifsRes] = await Promise.all([
+                fetch('/api/dashboard/alerts', { cache: 'no-store' }),
+                fetch('/api/notifications?limit=20', { cache: 'no-store' }),
+            ]);
+            if (alertsRes.ok) {
+                const data = await alertsRes.json();
                 setAlerts(data.alerts || []);
+            }
+            if (notifsRes.ok) {
+                const data = await notifsRes.json();
+                if (data.success) {
+                    setNotifications(data.data.notifications || []);
+                    setUnreadNotifCount(data.data.unreadCount || 0);
+                }
             }
         } catch {
             // silent
@@ -165,7 +187,7 @@ export default function Header() {
 
     useEffect(() => {
         fetchAlerts();
-        const interval = setInterval(fetchAlerts, 60_000); // refresh mỗi 60 giây
+        const interval = setInterval(fetchAlerts, 60_000);
         return () => clearInterval(interval);
     }, [fetchAlerts]);
 
@@ -181,7 +203,31 @@ export default function Header() {
     }, []);
 
     const highCount = alerts.filter((a) => a.severity === 'high').length;
-    const totalCount = alerts.length;
+    const totalCount = alerts.length + unreadNotifCount;
+
+    const markNotifRead = async (notifId: string) => {
+        try {
+            await fetch('/api/notifications', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notificationId: notifId }),
+            });
+            setNotifications((prev) => prev.map((n) => n.id === notifId ? { ...n, read: true } : n));
+            setUnreadNotifCount((c) => Math.max(0, c - 1));
+        } catch { /* silent */ }
+    };
+
+    const markAllNotifsRead = async () => {
+        try {
+            await fetch('/api/notifications', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ markAllRead: true }),
+            });
+            setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+            setUnreadNotifCount(0);
+        } catch { /* silent */ }
+    };
 
     const getAlertIcon = (type: AlertType): string => {
         switch (type) {
@@ -549,16 +595,69 @@ export default function Header() {
                                         )}
                                     </div>
 
-                                    {/* Alert list */}
+                                    {/* Notification list */}
                                     <div className="max-h-80 overflow-y-auto">
-                                        {loadingAlerts && alerts.length === 0 ? (
+                                        {/* Personal notifications (mentions) */}
+                                        {notifications.length > 0 && (
+                                            <>
+                                                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                                                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Thông báo cá nhân</span>
+                                                    {unreadNotifCount > 0 && (
+                                                        <button
+                                                            onClick={() => void markAllNotifsRead()}
+                                                            className="text-[10px] text-blue-500 hover:text-blue-700"
+                                                        >Đánh dấu đã đọc</button>
+                                                    )}
+                                                </div>
+                                                {notifications.slice(0, 5).map((n) => (
+                                                    <button
+                                                        key={n.id}
+                                                        type="button"
+                                                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors flex items-start gap-3 ${!n.read ? 'bg-blue-50/50' : ''}`}
+                                                        onClick={() => {
+                                                            if (!n.read) void markNotifRead(n.id);
+                                                            setShowNotifications(false);
+                                                            if (n.link) router.push(n.link);
+                                                        }}
+                                                    >
+                                                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-base mt-0.5 ${
+                                                            n.type === 'MENTION' ? 'bg-blue-100 border border-blue-200' : 'bg-gray-100 border border-gray-200'
+                                                        }`}>
+                                                            {n.type === 'MENTION' ? '💬' : '🔔'}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className={`text-xs font-semibold truncate ${!n.read ? 'text-gray-900' : 'text-gray-600'}`}>
+                                                                {n.title}
+                                                            </p>
+                                                            <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed line-clamp-2">
+                                                                {n.message}
+                                                            </p>
+                                                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                                                {new Date(n.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                            </p>
+                                                        </div>
+                                                        {!n.read && (
+                                                            <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2" />
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
+
+                                        {/* System alerts */}
+                                        {alerts.length > 0 && (
+                                            <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                                                <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Cảnh báo hệ thống</span>
+                                            </div>
+                                        )}
+                                        {loadingAlerts && alerts.length === 0 && notifications.length === 0 ? (
                                             <div className="px-4 py-8 text-center text-sm text-gray-400">Đang tải...</div>
-                                        ) : alerts.length === 0 ? (
+                                        ) : alerts.length === 0 && notifications.length === 0 ? (
                                             <div className="px-4 py-8 text-center">
                                                 <p className="text-2xl mb-2">✅</p>
                                                 <p className="text-sm text-gray-400">Không có thông báo nào</p>
                                             </div>
-                                        ) : (
+                                        ) : alerts.length > 0 ? (
                                             <ul className="divide-y divide-gray-50">
                                                 {alerts.map((alert) => {
                                                     const style = getSeverityStyle(alert.severity);
@@ -572,7 +671,6 @@ export default function Header() {
                                                                     if (alert.link) router.push(alert.link);
                                                                 }}
                                                             >
-                                                                {/* Colored indicator */}
                                                                 <div
                                                                     className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-base mt-0.5"
                                                                     style={{ background: style.bg, border: `1px solid ${style.border}` }}
@@ -587,7 +685,6 @@ export default function Header() {
                                                                         {alert.message}
                                                                     </p>
                                                                 </div>
-                                                                {/* Severity dot */}
                                                                 <div
                                                                     className="flex-shrink-0 w-2 h-2 rounded-full mt-2"
                                                                     style={{ background: style.badge }}
@@ -597,7 +694,7 @@ export default function Header() {
                                                     );
                                                 })}
                                             </ul>
-                                        )}
+                                        ) : null}
                                     </div>
 
                                     {/* Footer */}

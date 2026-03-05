@@ -660,7 +660,7 @@ export default function ProjectEditor({ projectId, isNew = false }: ProjectEdito
                                 : 'border-transparent text-gray-600 hover:text-zf-accent'
                                 } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
                         >
-                            Quotations
+                            Báo giá
                         </button>
                         <button
                             type="button"

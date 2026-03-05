@@ -18,7 +18,6 @@ interface NavItem {
 const navItems: NavItem[] = [
     { href: '/',                  label: 'Tổng quan',      icon: 'dashboard',       permission: 'nav:dashboard' },
     { href: '/projects',          label: 'Dự án',          icon: 'briefcase',       permission: 'nav:projects' },
-    { href: '/quotations',        label: 'Báo giá',        icon: 'fileInvoice',     permission: 'nav:quotations' },
     { href: '/customers',         label: 'Khách hàng',     icon: 'customers',       permission: 'nav:customers' },
     { href: '/reports',           label: 'Báo cáo',        icon: 'reports',         permission: 'nav:reports' },
     { href: '/users',             label: 'Quản lý User',   icon: 'users',           permission: 'nav:users' },

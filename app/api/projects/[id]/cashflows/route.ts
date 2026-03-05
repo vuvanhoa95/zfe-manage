@@ -9,11 +9,11 @@ const cashFlowCreateSchema = z.object({
     category: z.string().trim().min(1).max(200).optional().nullable(),
     description: z.string().trim().min(1).max(500),
     amount: z.coerce.number().finite().positive(),
-    date: z.union([z.string().min(1), z.date()]),
+    date: z.union([z.string().min(1), z.date()]).optional().nullable(),
     quotationId: z.string().trim().min(1).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     documentStatus: z.enum(['NONE', 'SUBMITTED', 'APPROVED', 'REJECTED']).optional().nullable(),
-    documentNote: z.string().trim().max(500).optional().nullable(),
+    documentNote: z.string().trim().max(2000).optional().nullable(),
 });
 
 async function getUserIdFromSessionOrFallback(createdById?: string) {
@@ -177,7 +177,7 @@ export async function POST(
                 category: category || null,
                 description,
                 amount,
-                date: date instanceof Date ? date : new Date(date),
+                date: date ? (date instanceof Date ? date : new Date(date)) : null,
                 quotationId: quotationId || null,
                 notes: notes || null,
                 documentStatus: documentStatus && documentStatus !== 'NONE' ? documentStatus : null,

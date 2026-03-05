@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import CustomFieldsSettings from '@/components/settings/CustomFieldsSettings';
 import AISettings from '@/components/settings/AISettings';
+import PaymentChecklistSettings from '@/components/settings/PaymentChecklistSettings';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'export' | 'users' | 'customFields' | 'ai'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'cashflow' | 'export' | 'users' | 'customFields' | 'ai'>('general');
     const [settings, setSettings] = useState({
         // General settings
         defaultVatRate: 8,
@@ -99,6 +100,7 @@ export default function SettingsPage() {
                     {[
                         { id: 'general', label: 'Chung', icon: '⚙️' },
                         { id: 'quotations', label: 'Báo giá', icon: '📄' },
+                        { id: 'cashflow', label: 'Dòng tiền', icon: '💰' },
                         { id: 'export', label: 'Xuất file', icon: '📤' },
                         { id: 'customFields', label: 'Trường tuỳ chỉnh', icon: '🧩' },
                         { id: 'ai', label: 'AI', icon: '🤖' },
@@ -124,7 +126,7 @@ export default function SettingsPage() {
                 <AnimatedTabPanels
                     activeKey={activeTab}
                     variant="ios"
-                    orderedKeys={['general', 'quotations', 'export', 'customFields', 'ai', 'users'] as const}
+                    orderedKeys={['general', 'quotations', 'cashflow', 'export', 'customFields', 'ai', 'users'] as const}
                     render={(tab) =>
                         tab === 'general' ? (
                             <div className="space-y-6">
@@ -250,6 +252,8 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
+                        ) : tab === 'cashflow' ? (
+                            <PaymentChecklistSettings />
                         ) : tab === 'export' ? (
                             <div className="space-y-6">
                         <h2 className="text-xl font-bold text-gray-900 mb-4">Cài đặt Xuất file</h2>

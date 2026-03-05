@@ -24,7 +24,7 @@ interface CashFlow {
     id: string;
     type: 'INCOME' | 'EXPENSE';
     amount: number;
-    date: string;
+    date: string | null;
     description?: string | null;
     category?: string | null;
 }
@@ -71,8 +71,11 @@ function calcForecast(cashflows: CashFlow[]): { chartData: ForecastPoint[]; fore
     // ── 1. Nhóm theo tháng ────────────────────────────────────────────
     const byMonth: Map<string, { income: number; expense: number; date: Date }> = new Map();
 
-    for (const cf of cashflows) {
-        const d = new Date(cf.date);
+    // Filter out cashflows without dates (can't plot on timeline)
+    const datedCashflows = cashflows.filter(cf => cf.date != null);
+
+    for (const cf of datedCashflows) {
+        const d = new Date(cf.date!);
         const key = monthKey(d);
         const existing = byMonth.get(key) || { income: 0, expense: 0, date: d };
         if (cf.type === 'INCOME') existing.income += cf.amount;

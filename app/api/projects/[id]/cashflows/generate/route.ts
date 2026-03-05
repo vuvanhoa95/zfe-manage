@@ -89,11 +89,23 @@ export async function POST(
                 category: string;
                 description: string;
                 amount: number;
-                date: Date;
+                date: Date | null;
                 quotationId: string;
                 notes: string;
                 createdById: string;
+                paymentMilestoneNo?: number;
+                paymentMilestonePercent?: number;
+                paymentMilestoneTitle?: string;
+                documentStatus?: string | null;
+                documentNote?: string | null;
             }> = [];
+
+        // Initialize empty checklist for payment documentation (no items selected by default)
+        const emptyDocNote = JSON.stringify({
+            selectedItems: [],
+            checklist: {},
+            note: '',
+        });
 
         if (quotation.paymentMilestones.length > 0) {
             // Create INCOME flows by milestone percent
@@ -106,10 +118,15 @@ export async function POST(
                     category: 'Thu từ báo giá',
                     description: `Thu theo mốc ${m.no}: ${m.title}`,
                     amount,
-                    date: quotation.date,
+                    date: null, // Để trống - cập nhật khi thanh toán thực tế
                     quotationId: quotation.id,
                     notes: `${autoTag} ${m.description || 'Tự động tạo theo mốc thanh toán'}`,
                     createdById: userId,
+                    paymentMilestoneNo: m.no,
+                    paymentMilestonePercent: m.percent,
+                    paymentMilestoneTitle: m.title,
+                    documentStatus: null,
+                    documentNote: emptyDocNote,
                 });
             }
         } else if (revenueBase > 0) {
@@ -120,7 +137,7 @@ export async function POST(
                 category: 'Thu từ báo giá',
                 description: 'Thu theo tổng báo giá (đã VAT)',
                 amount: Math.round(revenueBase),
-                date: quotation.date,
+                date: null, // Để trống
                 quotationId: quotation.id,
                 notes: `${autoTag} Tự động tạo theo tổng báo giá`,
                 createdById: userId,
@@ -147,7 +164,7 @@ export async function POST(
                         category: 'Chi phí outsource',
                         description: `Outsource${staffLabel}${disciplineLabel}`,
                         amount,
-                        date: quotation.date,
+                        date: null, // Để trống
                         quotationId: quotation.id,
                         notes: `${autoTag} Tự động tạo từ bảng nhân sự outsource`,
                         createdById: userId,
@@ -161,7 +178,7 @@ export async function POST(
                     category: 'Chi phí outsource',
                     description: 'Chi phí outsource theo báo giá',
                     amount: Math.round(quotation.outsourceCost ?? 0),
-                    date: quotation.date,
+                    date: null, // Để trống
                     quotationId: quotation.id,
                     notes: `${autoTag} Tự động tạo từ chi phí outsource tổng`,
                     createdById: userId,
@@ -179,7 +196,7 @@ export async function POST(
                     category: 'Chi phí thuế',
                     description: 'Chi phí thuế theo báo giá',
                     amount: taxAmount,
-                    date: quotation.date,
+                    date: null, // Để trống
                     quotationId: quotation.id,
                     notes: `${autoTag} Tự động tạo từ chi phí thuế trong báo giá`,
                     createdById: userId,
@@ -193,7 +210,7 @@ export async function POST(
                     category: 'Chi phí hoa hồng',
                     description: 'Chi phí hoa hồng theo báo giá',
                     amount: commissionAmount,
-                    date: quotation.date,
+                    date: null, // Để trống
                     quotationId: quotation.id,
                     notes: `${autoTag} Tự động tạo từ chi phí hoa hồng trong báo giá`,
                     createdById: userId,

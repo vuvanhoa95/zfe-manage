@@ -13,7 +13,7 @@ const cashFlowUpdateSchema = z.object({
     quotationId: z.string().trim().min(1).optional().nullable(),
     notes: z.string().trim().max(2000).optional().nullable(),
     documentStatus: z.enum(['NONE', 'SUBMITTED', 'APPROVED', 'REJECTED']).optional().nullable(),
-    documentNote: z.string().trim().max(500).optional().nullable(),
+    documentNote: z.string().trim().max(2000).optional().nullable(),
 });
 
 async function requireUserIdOrFallback() {
@@ -60,7 +60,11 @@ export async function PUT(
         // Verify cashflow belongs to project & lấy thông tin hiện tại
         const existing = await prisma.cashFlow.findUnique({
             where: { id: resolvedParams.cashflowId },
-            select: { id: true, projectId: true, type: true, amount: true, quotationId: true },
+            select: {
+                id: true, projectId: true, type: true, amount: true,
+                quotationId: true, category: true, description: true,
+                date: true, notes: true, documentStatus: true, documentNote: true,
+            },
         });
 
         if (!existing || existing.projectId !== resolvedParams.id) {
@@ -137,7 +141,7 @@ export async function PUT(
                 category: category === undefined ? undefined : category,
                 description,
                 amount,
-                date: date ? (date instanceof Date ? date : new Date(date)) : undefined,
+                date: date === undefined ? undefined : date ? (date instanceof Date ? date : new Date(date)) : null,
                 quotationId: quotationId === undefined ? undefined : quotationId,
                 notes: notes === undefined ? undefined : notes,
                 documentStatus:
@@ -145,13 +149,67 @@ export async function PUT(
                         ? documentStatus
                         : null,
                 documentNote: documentNote === undefined ? undefined : documentNote || null,
-                // keep createdById as-is; userId is fetched to ensure session exists
             },
             include: {
                 quotation: { select: { id: true, quotationNo: true } },
                 createdBy: { select: { id: true, name: true } },
             },
         });
+
+        // --- Activity log: track what changed ---
+        const fieldLabels: Record<string, string> = {
+            type: 'Loại', amount: 'Số tiền', date: 'Ngày',
+            category: 'Danh mục', description: 'Mô tả',
+            documentStatus: 'Trạng thái hồ sơ', documentNote: 'Checklist',
+            notes: 'Ghi chú',
+        };
+
+        const changes: Array<{ field: string; oldVal: string; newVal: string }> = [];
+
+        function fmt(val: any): string {
+            if (val === null || val === undefined) return '';
+            if (val instanceof Date) return val.toISOString().slice(0, 10);
+            return String(val);
+        }
+
+        if (type !== undefined && type !== existing.type) changes.push({ field: 'type', oldVal: fmt(existing.type), newVal: fmt(type) });
+        if (amount !== undefined && amount !== existing.amount) changes.push({ field: 'amount', oldVal: fmt(existing.amount), newVal: fmt(amount) });
+        if (description !== undefined && description !== existing.description) changes.push({ field: 'description', oldVal: fmt(existing.description), newVal: fmt(description) });
+        if (category !== undefined && (category || null) !== (existing.category || null)) changes.push({ field: 'category', oldVal: fmt(existing.category), newVal: fmt(category) });
+        if (documentStatus !== undefined) {
+            const newDS = documentStatus && documentStatus !== 'NONE' ? documentStatus : null;
+            if (newDS !== (existing.documentStatus || null)) {
+                changes.push({ field: 'documentStatus', oldVal: fmt(existing.documentStatus), newVal: fmt(newDS) });
+            }
+        }
+        if (documentNote !== undefined && (documentNote || null) !== (existing.documentNote || null)) {
+            changes.push({ field: 'documentNote', oldVal: '(checklist)', newVal: '(checklist updated)' });
+        }
+
+        if (changes.length > 0) {
+            const summaryParts = changes.map(c => {
+                const label = fieldLabels[c.field] || c.field;
+                if (c.field === 'amount') {
+                    return `${label}: ${Number(c.oldVal).toLocaleString('vi-VN')} → ${Number(c.newVal).toLocaleString('vi-VN')}`;
+                }
+                if (c.field === 'documentNote') return 'Cập nhật checklist hồ sơ';
+                return `${label}: ${c.oldVal || '(trống)'} → ${c.newVal || '(trống)'}`;
+            });
+
+            await prisma.cashFlowActivity.create({
+                data: {
+                    cashFlowId: resolvedParams.cashflowId,
+                    userId,
+                    action: changes.some(c => c.field === 'documentStatus') ? 'STATUS_CHANGE'
+                        : changes.some(c => c.field === 'documentNote') ? 'CHECKLIST_UPDATE'
+                        : 'UPDATE',
+                    field: changes.length === 1 ? changes[0].field : null,
+                    oldValue: changes.length === 1 ? changes[0].oldVal : JSON.stringify(Object.fromEntries(changes.map(c => [c.field, c.oldVal]))),
+                    newValue: changes.length === 1 ? changes[0].newVal : JSON.stringify(Object.fromEntries(changes.map(c => [c.field, c.newVal]))),
+                    summary: summaryParts.join('; '),
+                },
+            });
+        }
 
         return NextResponse.json({
             success: true,
