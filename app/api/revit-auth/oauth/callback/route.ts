@@ -50,8 +50,8 @@ export async function GET(req: Request) {
         const callbackUrl = `${baseUrl}/api/revit-auth/oauth/callback`;
 
         // Exchange authorization code for access token + user info
-        let email: string;
-        let name: string;
+        let email: string = '';
+        let name: string = '';
         let avatarUrl: string | null = null;
 
         if (provider === 'google') {
