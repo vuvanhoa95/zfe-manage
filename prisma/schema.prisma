@@ -57,10 +57,18 @@ model User {
   cashFlowActivities CashFlowActivity[]
   notifications      Notification[]
 
+  // ===== PASSWORD RESET =====
+  resetPasswordToken  String?   @unique
+  resetPasswordExpiry DateTime?
+
   // ===== REVIT ADD-IN LICENSE =====
   /// Có quyền sử dụng Revit Add-in?
   revitLicenseActive Boolean   @default(false)
-  /// Ngày hết hạn license Revit (null = không giới hạn)
+  /// Gói license: 1M, 3M, 6M, 1Y, LIFETIME
+  revitLicensePlan   String?
+  /// Ngày bắt đầu license
+  revitLicenseStart  DateTime?
+  /// Ngày hết hạn license Revit (null = không giới hạn / trọn đời)
   revitLicenseExpiry DateTime?
   /// Machine ID đang active (chỉ cho phép 1 máy/user)
   revitMachineId     String?
