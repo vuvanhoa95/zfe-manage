@@ -57,6 +57,18 @@ model User {
   cashFlowActivities CashFlowActivity[]
   notifications      Notification[]
 
+  // ===== REVIT ADD-IN LICENSE =====
+  /// Có quyền sử dụng Revit Add-in?
+  revitLicenseActive Boolean   @default(false)
+  /// Ngày hết hạn license Revit (null = không giới hạn)
+  revitLicenseExpiry DateTime?
+  /// Machine ID đang active (chỉ cho phép 1 máy/user)
+  revitMachineId     String?
+  /// Lần cuối đăng nhập từ Revit
+  revitLastLogin     DateTime?
+  /// Token đang active — dùng cho single-device lock
+  revitActiveToken   String?
+
   @@map("users")
 }
 
