@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { AnimatedTabPanels } from '@/components/ui/AnimatedTabPanels';
 import CustomFieldsSettings from '@/components/settings/CustomFieldsSettings';
 import AISettings from '@/components/settings/AISettings';
 import PaymentChecklistSettings from '@/components/settings/PaymentChecklistSettings';
+import CompanyProfileSettings from '@/components/settings/CompanyProfileSettings';
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'general' | 'quotations' | 'cashflow' | 'export' | 'users' | 'customFields' | 'ai'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'ai'>('general');
     const [settings, setSettings] = useState({
         // General settings
         defaultVatRate: 8,
@@ -73,8 +73,22 @@ export default function SettingsPage() {
         setSettings(prev => ({ ...prev, [key]: value }));
     };
 
+    // Section header component
+    const SectionHeader = ({ icon, title }: { icon: string; title: string }) => (
+        <div className="flex items-center gap-2 pb-3 border-b border-gray-200 mb-5">
+            <span className="text-lg">{icon}</span>
+            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
+        </div>
+    );
+
+    const tabs = [
+        { id: 'general' as const, label: 'Chung', icon: '⚙️' },
+        { id: 'ai' as const, label: 'AI', icon: '🤖' },
+    ];
+
     return (
         <div className="px-4 py-4 md:px-6 md:py-5 space-y-4">
+            {/* Save button */}
             <div className="flex items-center justify-end">
                 <button
                     onClick={handleSave}
@@ -94,22 +108,14 @@ export default function SettingsPage() {
                 </button>
             </div>
 
-            {/* Tabs */}
+            {/* Tab Navigation */}
             <div className="border-b border-gray-200">
                 <nav className="flex space-x-8">
-                    {[
-                        { id: 'general', label: 'Chung', icon: '⚙️' },
-                        { id: 'quotations', label: 'Báo giá', icon: '📄' },
-                        { id: 'cashflow', label: 'Dòng tiền', icon: '💰' },
-                        { id: 'export', label: 'Xuất file', icon: '📤' },
-                        { id: 'customFields', label: 'Trường tuỳ chỉnh', icon: '🧩' },
-                        { id: 'ai', label: 'AI', icon: '🤖' },
-                        { id: 'users', label: 'Người dùng', icon: '👥' },
-                    ].map((tab) => (
+                    {tabs.map((tab) => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab.id
                                 ? 'border-zf-accent text-zf-accent'
                                 : 'border-transparent text-gray-500 hover:text-zf-accent'
                                 } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zf-accent focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
@@ -121,17 +127,12 @@ export default function SettingsPage() {
                 </nav>
             </div>
 
-            {/* Tab Content */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <AnimatedTabPanels
-                    activeKey={activeTab}
-                    variant="ios"
-                    orderedKeys={['general', 'quotations', 'cashflow', 'export', 'customFields', 'ai', 'users'] as const}
-                    render={(tab) =>
-                        tab === 'general' ? (
-                            <div className="space-y-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">Cài đặt Chung</h2>
-                        
+            {/* ═══════ Tab: Chung ═══════ */}
+            {activeTab === 'general' && (
+                <div className="space-y-6">
+                    {/* Section 1: Chung */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <SectionHeader icon="⚙️" title="Chung" />
                         <div className="grid grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -187,10 +188,16 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
-                        ) : tab === 'quotations' ? (
-                            <div className="space-y-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">Cài đặt Báo giá</h2>
-                        
+
+                    {/* Section 2: Hồ sơ công ty */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <SectionHeader icon="🏢" title="Hồ sơ công ty" />
+                        <CompanyProfileSettings />
+                    </div>
+
+                    {/* Section 3: Báo giá */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <SectionHeader icon="📄" title="Báo giá" />
                         <div className="space-y-4">
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div>
@@ -252,12 +259,16 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
-                        ) : tab === 'cashflow' ? (
-                            <PaymentChecklistSettings />
-                        ) : tab === 'export' ? (
-                            <div className="space-y-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">Cài đặt Xuất file</h2>
-                        
+
+                    {/* Section 4: Dòng tiền */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <SectionHeader icon="💰" title="Dòng tiền" />
+                        <PaymentChecklistSettings />
+                    </div>
+
+                    {/* Section 5: Xuất file */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <SectionHeader icon="📤" title="Xuất file" />
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -308,23 +319,21 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
-                        ) : tab === 'customFields' ? (
-                            <CustomFieldsSettings />
-                        ) : tab === 'ai' ? (
-                            <AISettings />
-                        ) : (
-                            <div className="space-y-6">
-                        <h2 className="text-xl font-bold text-gray-900 mb-4">Quản lý Người dùng</h2>
-                        
-                        <div className="text-center py-12 text-gray-500">
-                            <p className="text-lg mb-2">Tính năng đang phát triển</p>
-                            <p className="text-sm">Quản lý người dùng và phân quyền sẽ được thêm vào phiên bản sau</p>
-                        </div>
+
+                    {/* Section 6: Trường tùy chỉnh */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <SectionHeader icon="🧩" title="Trường tùy chỉnh" />
+                        <CustomFieldsSettings />
                     </div>
-                        )
-                    }
-                />
-            </div>
+                </div>
+            )}
+
+            {/* ═══════ Tab: AI ═══════ */}
+            {activeTab === 'ai' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <AISettings />
+                </div>
+            )}
         </div>
     );
 }

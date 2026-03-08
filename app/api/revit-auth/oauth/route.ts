@@ -1,12 +1,5 @@
-/**
- * GET /api/revit-auth/oauth?provider=google|microsoft&port=PORT&machineId=MACHINE
- * 
- * Khởi tạo OAuth flow cho Revit desktop app.
- * Redirect user → Google/Microsoft consent screen.
- * Sau khi user đồng ý → callback sẽ redirect về localhost:PORT trên máy user.
- */
-
 import { NextResponse } from 'next/server';
+import { revitCorsResponse } from '@/lib/api-security';
 
 export async function GET(req: Request) {
     try {
@@ -22,10 +15,7 @@ export async function GET(req: Request) {
             );
         }
 
-        // Build state param to carry port + machineId through OAuth flow
         const state = Buffer.from(JSON.stringify({ port, machineId, provider })).toString('base64url');
-
-        // Build callback URL — this app's own callback endpoint
         const baseUrl = process.env.NEXTAUTH_URL || `https://${req.headers.get('host')}`;
         const callbackUrl = `${baseUrl}/api/revit-auth/oauth/callback`;
 
@@ -63,7 +53,6 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: 'Invalid provider. Use google or microsoft.' }, { status: 400 });
         }
 
-        // Redirect browser to OAuth consent screen
         return NextResponse.redirect(authUrl);
     } catch (error) {
         console.error('[Revit OAuth] Init error:', error);
@@ -75,13 +64,6 @@ export async function GET(req: Request) {
 }
 
 // CORS preflight
-export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 204,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-        },
-    });
+export async function OPTIONS(req: Request) {
+    return revitCorsResponse(req, 'GET, OPTIONS');
 }

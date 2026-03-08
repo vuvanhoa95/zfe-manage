@@ -229,7 +229,6 @@ export default function CustomFieldsSettings() {
         <div className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900">Trường tuỳ chỉnh</h2>
                     <p className="text-sm text-gray-600">
                         Tạo và phân loại custom fields cho <b>Công việc</b> hoặc <b>Dự án</b> (giống ClickUp).
                     </p>

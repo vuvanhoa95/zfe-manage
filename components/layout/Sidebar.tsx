@@ -21,7 +21,6 @@ const navItems: NavItem[] = [
     { href: '/customers',         label: 'Khách hàng',     icon: 'customers',       permission: 'nav:customers' },
     { href: '/reports',           label: 'Báo cáo',        icon: 'reports',         permission: 'nav:reports' },
     { href: '/users',             label: 'Quản lý User',   icon: 'users',           permission: 'nav:users' },
-    { href: '/company-profile',   label: 'Hồ sơ công ty',  icon: 'companyProfile',  permission: 'nav:company_profile' },
     { href: '/settings',          label: 'Cài đặt',        icon: 'gear',            permission: 'nav:settings' },
 ];
 

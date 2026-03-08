@@ -48,6 +48,7 @@ async function _ensureCoreSchemaOnce() {
     try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "experience" TEXT`); } catch {}
     try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "bankAccount" TEXT`); } catch {}
     try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "taxCode" TEXT`); } catch {}
+    try { await prisma.$executeRawUnsafe(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "mustChangePassword" BOOLEAN NOT NULL DEFAULT FALSE`); } catch {}
 
     // 2. Tạo bảng customers (nếu chưa có)
     await prisma.$executeRawUnsafe(`

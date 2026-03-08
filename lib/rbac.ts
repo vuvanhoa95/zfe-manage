@@ -32,6 +32,7 @@ export type Permission =
 
   | 'nav:reports'
   | 'nav:users'
+  | 'nav:revit_licenses'
   | 'nav:company_profile'
   | 'nav:settings'
 
@@ -124,6 +125,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
 
       { key: 'nav:reports',          label: 'Menu: Báo cáo' },
       { key: 'nav:users',            label: 'Menu: Quản lý User', description: 'Trang quản lý tài khoản' },
+      { key: 'nav:revit_licenses',   label: 'Menu: Revit License', description: 'Quản lý license Revit Add-in' },
       { key: 'nav:company_profile',  label: 'Menu: Hồ sơ công ty' },
       { key: 'nav:settings',         label: 'Menu: Cài đặt' },
     ],
@@ -232,7 +234,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
 export const RBAC_DEFAULTS: Record<SystemRole, Permission[]> = {
   ADMIN: [
     'nav:dashboard', 'nav:projects', 'nav:quotations', 'nav:customers',
-    'nav:reports', 'nav:users', 'nav:company_profile', 'nav:settings',
+    'nav:reports', 'nav:users', 'nav:revit_licenses', 'nav:company_profile', 'nav:settings',
     'dashboard:view', 'dashboard:view_financials', 'dashboard:view_all_projects',
     'project:create', 'project:view', 'project:edit', 'project:delete',
     'project:manage_members', 'project:view_financials',

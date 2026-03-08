@@ -3,8 +3,10 @@
  * 
  * OAuth callback handler for Revit Add-in.
  * Receives authorization code from Google/Microsoft,
- * exchanges it for user profile, creates/checks DB user,
- * generates revitActiveToken, and redirects to localhost listener.
+ * exchanges it for user profile, checks BOTH User + RevitUser tables,
+ * generates active token, and redirects to localhost listener.
+ * 
+ * ⚡ v2: Dual-table lookup (User + RevitUser)
  */
 
 import { NextResponse } from 'next/server';
@@ -123,32 +125,63 @@ export async function GET(req: Request) {
             return renderErrorPage('Không lấy được email từ tài khoản OAuth.');
         }
 
-        // === DATABASE OPERATIONS ===
+        // === DATABASE OPERATIONS (Dual-table lookup) ===
 
-        // Find user by email
-        let user = await prisma.user.findUnique({
-            where: { email },
-        });
+        // 1. Check RevitUser table first (standalone Revit users)
+        const revitUser = await prisma.revitUser.findUnique({ where: { email } });
+
+        if (revitUser) {
+            // Found in RevitUser table
+            if (revitUser.status !== 'ACTIVE') {
+                return redirectToRevit(port, { success: false, error: 'ACCOUNT_SUSPENDED', message: 'Tài khoản đã bị đình chỉ. Liên hệ Admin.' });
+            }
+            if (!revitUser.licenseActive) {
+                return redirectToRevit(port, { success: false, error: 'NO_LICENSE', message: 'License chưa được kích hoạt. Liên hệ Admin.' });
+            }
+            if (revitUser.licenseExpiry && revitUser.licenseExpiry < new Date()) {
+                return redirectToRevit(port, { success: false, error: 'LICENSE_EXPIRED', message: 'License đã hết hạn. Liên hệ Admin để gia hạn.' });
+            }
+
+            const newToken = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
+
+            await prisma.revitUser.update({
+                where: { id: revitUser.id },
+                data: {
+                    activeToken: newToken,
+                    machineId: machineId,
+                    lastLogin: new Date(),
+                    ...(name && name !== revitUser.name ? { name } : {}),
+                },
+            });
+
+            console.log(`[Revit OAuth] Login: ${email} (revit) via ${provider} on ${machineId}`);
+            return redirectToRevit(port, {
+                success: true, token: newToken, email: revitUser.email,
+                name: revitUser.name || name, role: 'USER', company: '',
+                expiresAt: expiresAt.toISOString(),
+            });
+        }
+
+        // 2. Check User table (staff with Revit license)
+        let user = await prisma.user.findUnique({ where: { email } });
 
         if (!user) {
             // Auto-create user with PENDING status (or ACTIVE for super admin)
             const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email);
             user = await prisma.user.create({
                 data: {
-                    email,
-                    name,
-                    image: avatarUrl,
+                    email, name, image: avatarUrl,
                     role: isSuperAdmin ? 'ADMIN' : 'USER',
                     status: isSuperAdmin ? UserStatus.ACTIVE : UserStatus.PENDING,
-                    revitLicenseActive: isSuperAdmin, // Super admin gets license auto
+                    revitLicenseActive: isSuperAdmin,
                 },
             });
 
             if (!isSuperAdmin) {
-                // New user → PENDING, need admin approval
                 return redirectToRevit(port, {
-                    success: false,
-                    error: 'ACCOUNT_PENDING',
+                    success: false, error: 'ACCOUNT_PENDING',
                     message: 'Tài khoản mới đã được tạo. Vui lòng chờ Admin phê duyệt.',
                 });
             }
@@ -165,8 +198,7 @@ export async function GET(req: Request) {
         // Check Revit license
         if (!user.revitLicenseActive) {
             return redirectToRevit(port, {
-                success: false,
-                error: 'NO_LICENSE',
+                success: false, error: 'NO_LICENSE',
                 message: 'Tài khoản chưa được cấp quyền sử dụng Revit Add-in. Liên hệ Admin.',
             });
         }
@@ -174,9 +206,8 @@ export async function GET(req: Request) {
         // Check license expiry
         if (user.revitLicenseExpiry && user.revitLicenseExpiry < new Date()) {
             return redirectToRevit(port, {
-                success: false,
-                error: 'LICENSE_EXPIRED',
-                message: 'License Revit Add-in đã hết hạn. Liên hệ Admin để gia hạn.',
+                success: false, error: 'LICENSE_EXPIRED',
+                message: 'License đã hết hạn. Liên hệ Admin để gia hạn.',
             });
         }
 
@@ -185,30 +216,23 @@ export async function GET(req: Request) {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
 
-        // Update DB — new token + machine ID (invalidates old device)
         await prisma.user.update({
             where: { id: user.id },
             data: {
                 revitActiveToken: newToken,
                 revitMachineId: machineId,
                 revitLastLogin: new Date(),
-                // Sync name/avatar from OAuth if newer
                 ...(name && name !== user.name ? { name } : {}),
                 ...(avatarUrl && avatarUrl !== user.image ? { image: avatarUrl } : {}),
             },
         });
 
-        console.log(`[Revit OAuth] Login: ${email} via ${provider} on ${machineId}`);
+        console.log(`[Revit OAuth] Login: ${email} (staff) via ${provider} on ${machineId}`);
 
-        // === REDIRECT TO REVIT (localhost listener) ===
         return redirectToRevit(port, {
-            success: true,
-            token: newToken,
-            email: user.email,
-            name: user.name || name,
-            role: user.role,
-            company: user.department || '',
-            expiresAt: expiresAt.toISOString(),
+            success: true, token: newToken, email: user.email,
+            name: user.name || name, role: user.role,
+            company: user.department || '', expiresAt: expiresAt.toISOString(),
         });
 
     } catch (error) {

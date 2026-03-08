@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="vi" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
+        className="antialiased"
       >
         <Providers>
           {children}

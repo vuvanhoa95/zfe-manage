@@ -5,6 +5,7 @@ import AzureADProvider from 'next-auth/providers/azure-ad';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { checkRateLimit } from '@/lib/api-security';
 // Local const thay thế @prisma/client enum — tránh lỗi Turbopack resolution
 const UserStatus = { ACTIVE: 'ACTIVE', PENDING: 'PENDING', SUSPENDED: 'SUSPENDED' } as const;
 type UserStatusType = typeof UserStatus[keyof typeof UserStatus];
@@ -45,11 +46,12 @@ export const authOptions: NextAuthOptions = {
                 const password = credentials?.password?.trim();
 
                 if (!email || !password) {
-                    console.error('Missing credentials:', { 
-                        email: !!credentials?.email, 
-                        password: !!credentials?.password 
-                    });
                     throw new Error('Vui lòng nhập đầy đủ email và mật khẩu');
+                }
+
+                // 🛡️ Rate limit: 10 attempts per email per 15 minutes
+                if (!checkRateLimit(`web-login:${email}`, 10, 15 * 60 * 1000)) {
+                    throw new Error('Quá nhiều lần thử đăng nhập. Vui lòng chờ 15 phút.');
                 }
 
                 try {
@@ -60,36 +62,89 @@ export const authOptions: NextAuthOptions = {
 
                     const user = await prisma.user.findUnique({
                         where: { email },
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            role: true,
+                            status: true,
+                            password: true,
+                            mustChangePassword: true,
+                        },
                     });
 
-                    if (!user) {
+                    // ===== Nếu tìm thấy trong bảng users (project staff) =====
+                    if (user) {
+                        if (user.status !== UserStatus.ACTIVE) {
+                            if (user.status === UserStatus.PENDING) {
+                                throw new Error('ACCOUNT_PENDING');
+                            }
+                            throw new Error('ACCOUNT_SUSPENDED');
+                        }
+
+                        if (!user.password) {
+                            throw new Error('Tài khoản này đã được đăng ký qua mạng xã hội. Vui lòng đăng nhập bằng Google hoặc Microsoft.');
+                        }
+
+                        const isValid = await bcrypt.compare(password, user.password);
+                        if (!isValid) {
+                            throw new Error('Mật khẩu không chính xác');
+                        }
+
+                        return {
+                            id: user.id,
+                            name: user.name,
+                            email: user.email,
+                            role: user.role,
+                            status: user.status,
+                            mustChangePassword: user.mustChangePassword,
+                            userType: 'staff', // User dự án
+                        };
+                    }
+
+                    // ===== Fallback: tìm trong bảng revit_users =====
+                    const revitUser = await prisma.revitUser.findUnique({
+                        where: { email },
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            status: true,
+                            password: true,
+                            licensePlan: true,
+                            licenseActive: true,
+                            licenseStart: true,
+                            licenseExpiry: true,
+                            machineId: true,
+                            lastLogin: true,
+                        },
+                    });
+
+                    if (!revitUser) {
                         throw new Error('Không tìm thấy người dùng với email này');
                     }
 
-                    // Check user status
-                    if (user.status !== UserStatus.ACTIVE) {
-                        if (user.status === UserStatus.PENDING) {
-                            throw new Error('ACCOUNT_PENDING');
-                        }
+                    if (revitUser.status !== 'ACTIVE') {
                         throw new Error('ACCOUNT_SUSPENDED');
                     }
 
-                    if (!user.password) {
-                        throw new Error('Tài khoản này đã được đăng ký qua mạng xã hội. Vui lòng đăng nhập bằng Google hoặc Microsoft.');
+                    if (!revitUser.password) {
+                        throw new Error('Tài khoản chưa được thiết lập mật khẩu. Vui lòng liên hệ quản trị viên.');
                     }
 
-                    const isValid = await bcrypt.compare(password, user.password);
-
-                    if (!isValid) {
+                    const isRevitValid = await bcrypt.compare(password, revitUser.password);
+                    if (!isRevitValid) {
                         throw new Error('Mật khẩu không chính xác');
                     }
 
                     return {
-                        id: user.id,
-                        name: user.name,
-                        email: user.email,
-                        role: user.role,
-                        status: user.status,
+                        id: revitUser.id,
+                        name: revitUser.name,
+                        email: revitUser.email,
+                        role: 'REVIT_USER',
+                        status: revitUser.status,
+                        mustChangePassword: false,
+                        userType: 'revit', // User Revit License
                     };
                 } catch (error: any) {
                     // Log error for debugging (only in development)
@@ -247,10 +302,12 @@ export const authOptions: NextAuthOptions = {
 
         async jwt({ token, user, account, profile }) {
             if (user) {
-                // First sign-in: lưu id, role, status
+                // First sign-in: lưu id, role, status, userType
                 token.id = user.id;
                 token.role = (user as any).role;
                 token.status = (user as any).status;
+                token.mustChangePassword = (user as any).mustChangePassword ?? false;
+                token.userType = (user as any).userType ?? 'staff';
             }
 
             // Luôn lấy email/name từ nguồn ĐÚNG:
@@ -269,13 +326,26 @@ export const authOptions: NextAuthOptions = {
             // Refresh role/status từ DB mỗi lần sign-in (tránh stale token)
             if (user && token.id) {
                 try {
-                    const dbUser = await prisma.user.findUnique({
-                        where: { id: token.id as string },
-                        select: { role: true, status: true }
-                    });
-                    if (dbUser) {
-                        token.role = dbUser.role;
-                        token.status = dbUser.status;
+                    if (token.userType === 'revit') {
+                        // RevitUser — refresh từ revit_users table
+                        const dbRevitUser = await prisma.revitUser.findUnique({
+                            where: { id: token.id as string },
+                            select: { status: true }
+                        });
+                        if (dbRevitUser) {
+                            token.status = dbRevitUser.status;
+                        }
+                    } else {
+                        // Staff user — refresh từ users table
+                        const dbUser = await prisma.user.findUnique({
+                            where: { id: token.id as string },
+                            select: { role: true, status: true, mustChangePassword: true }
+                        });
+                        if (dbUser) {
+                            token.role = dbUser.role;
+                            token.status = dbUser.status;
+                            token.mustChangePassword = dbUser.mustChangePassword;
+                        }
                     }
                 } catch {
                     // Ignore DB errors - dùng giá trị đã có trong token
@@ -290,6 +360,8 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).id = token.id;
                 (session.user as any).role = token.role;
                 (session.user as any).status = token.status;
+                (session.user as any).mustChangePassword = token.mustChangePassword ?? false;
+                (session.user as any).userType = token.userType ?? 'staff';
                 // Luôn dùng email/name từ token (đã được set đúng từ profile OAuth hoặc credentials)
                 if (token.email) session.user.email = token.email as string;
                 if (token.name) session.user.name = token.name as string;

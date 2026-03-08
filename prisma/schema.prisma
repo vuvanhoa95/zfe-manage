@@ -57,6 +57,10 @@ model User {
   cashFlowActivities CashFlowActivity[]
   notifications      Notification[]
 
+  // ===== FORCE CHANGE PASSWORD =====
+  /// Bắt đổi mật khẩu lần đầu đăng nhập
+  mustChangePassword Boolean   @default(false)
+
   // ===== PASSWORD RESET =====
   resetPasswordToken  String?   @unique
   resetPasswordExpiry DateTime?
@@ -760,4 +764,42 @@ model Notification {
   @@index([userId, read])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+/// ================================
+/// REVIT ADD-IN USERS (Standalone)
+/// Tách riêng khỏi User web app.
+/// Dùng cho khách hàng/đối tác chỉ dùng Revit Add-in,
+/// không cần truy cập web quản lý dự án.
+/// ================================
+model RevitUser {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  name                String?
+  password            String?
+  /// Trạng thái: ACTIVE | SUSPENDED
+  status              String    @default("ACTIVE")
+  /// Gói license: 1M, 3M, 6M, 1Y, LIFETIME
+  licensePlan         String    @default("1M")
+  /// License đang kích hoạt?
+  licenseActive       Boolean   @default(true)
+  /// Ngày bắt đầu license
+  licenseStart        DateTime?
+  /// Ngày hết hạn (null = trọn đời)
+  licenseExpiry       DateTime?
+  /// Machine ID đang active (single device lock)
+  machineId           String?
+  /// Token đang active — dùng cho single-device lock
+  activeToken         String?
+  /// Lần cuối đăng nhập từ Revit
+  lastLogin           DateTime?
+  /// Password reset token
+  resetPasswordToken  String?   @unique
+  /// Password reset expiry
+  resetPasswordExpiry DateTime?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("revit_users")
 }

@@ -286,12 +286,6 @@ export default function Header() {
                 subtitle: 'Danh sách tài khoản và phân quyền',
                 icon: 'user',
             };
-        if (path === '/company-profile')
-            return {
-                title: 'Hồ sơ công ty',
-                subtitle: 'Thông tin dùng cho xuất báo giá',
-                icon: 'companyProfile',
-            };
         if (path === '/settings')
             return {
                 title: 'Cài đặt',
@@ -323,7 +317,6 @@ export default function Header() {
             if (segment === 'quotations') return 'Báo giá';
             if (segment === 'customers') return 'Khách hàng';
             if (segment === 'users') return 'Quản lý User';
-            if (segment === 'company-profile') return 'Hồ sơ công ty';
             if (segment === 'settings') return 'Cài đặt';
             if (segment === 'reports') return 'Báo cáo';
             if (segment === 'new') return 'Tạo mới';

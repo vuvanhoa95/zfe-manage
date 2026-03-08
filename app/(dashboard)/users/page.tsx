@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { RevitLicensesContent } from '../revit-licenses/page';
 
 type AppUser = {
     id: string;
@@ -15,6 +16,7 @@ type AppUser = {
     bankAccount?: string;
     taxCode?: string;
     status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
+    revitLicenseActive?: boolean;
     createdAt?: string;
 };
 
@@ -48,13 +50,17 @@ export default function UsersPage() {
     const { data: session, status } = useSession();
     const currentUser: any = session?.user || { role: 'GUEST' };
 
+
     const [users, setUsers] = useState<AppUser[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
+    const [togglingLicenseId, setTogglingLicenseId] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
     const [showModal, setShowModal] = useState<boolean>(false);
     const [editingUser, setEditingUser] = useState<AppUser | null>(null);
     const [form, setForm] = useState<UserFormState>(INITIAL_FORM);
+    const [activeTab, setActiveTab] = useState<'staff' | 'revit'>('staff');
 
     // Chỉ check isAdmin sau khi session đã load xong
     const sessionLoading = status === 'loading';
@@ -285,6 +291,30 @@ export default function UsersPage() {
         }
     };
 
+    const handleToggleLicense = async (user: AppUser) => {
+        setTogglingLicenseId(user.id);
+        try {
+            const res = await fetch('/api/users', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, revitLicenseActive: !user.revitLicenseActive }),
+            });
+            const result = await res.json();
+            if (result.success) {
+                setUsers(prev => prev.map(u =>
+                    u.id === user.id ? { ...u, revitLicenseActive: !user.revitLicenseActive } : u
+                ));
+            } else {
+                alert(result.error || 'Lỗi cập nhật license');
+            }
+        } catch (error) {
+            console.error('Toggle license error:', error);
+            alert('Có lỗi xảy ra khi cập nhật license');
+        } finally {
+            setTogglingLicenseId(null);
+        }
+    };
+
     // Hiển thị loading khi session đang load
     if (sessionLoading || (isLoading && isAdmin)) {
         return (
@@ -319,29 +349,68 @@ export default function UsersPage() {
         );
     }
 
+
     return (
         <div className="px-4 py-4 md:px-6 md:py-5 space-y-4">
+            {/* Tab Switcher */}
             <div className="flex items-center justify-between gap-3">
                 <div>
                     <h1 className="text-xl font-bold text-gray-900">Quản lý User</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">{users.length} tài khoản trong hệ thống</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        {activeTab === 'staff'
+                            ? `${users.length} tài khoản nhân sự`
+                            : 'Quản lý license Revit Add-in'
+                        }
+                    </p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Link
-                        href="/users/permissions"
-                        className="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors font-medium flex items-center gap-2 text-sm"
-                    >
-                        <span>🛡️</span> Phân quyền
-                    </Link>
-                    <button
-                        type="button"
-                        onClick={openCreateModal}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 text-sm"
-                    >
-                        <span>👤+</span> Thêm User
-                    </button>
-                </div>
+                {activeTab === 'staff' && (
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/users/permissions"
+                            className="px-4 py-2 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors font-medium flex items-center gap-2 text-sm"
+                        >
+                            <span>🛡️</span> Phân quyền
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={openCreateModal}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 text-sm"
+                        >
+                            <span>👤+</span> Thêm User
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+                <button
+                    onClick={() => setActiveTab('staff')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        activeTab === 'staff'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    👥 Nhân sự Dự án
+                </button>
+                <button
+                    onClick={() => setActiveTab('revit')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        activeTab === 'revit'
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    🔧 Revit License
+                </button>
+            </div>
+
+            {/* Tab Content */}
+            {activeTab === 'revit' ? (
+                <RevitLicensesContent />
+            ) : (
+                <>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
@@ -354,6 +423,7 @@ export default function UsersPage() {
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Bộ môn</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Vai trò</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Trạng thái</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">License</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Ngày tạo</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">
                                     Thao tác
@@ -363,13 +433,13 @@ export default function UsersPage() {
                         <tbody className="divide-y divide-gray-200">
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                                         Đang tải danh sách user...
                                     </td>
                                 </tr>
                             ) : users.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                                         Chưa có user nào.
                                     </td>
                                 </tr>
@@ -433,6 +503,42 @@ export default function UsersPage() {
                                                 </span>
                                             </div>
                                         </td>
+                                        {/* License Toggle */}
+                                        <td className="px-6 py-4 text-sm text-center">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    disabled={togglingLicenseId === user.id}
+                                                    onClick={() => handleToggleLicense(user)}
+                                                    title={user.revitLicenseActive ? 'Nhấn để tắt license' : 'Nhấn để bật license'}
+                                                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none disabled:cursor-not-allowed ${
+                                                        user.revitLicenseActive
+                                                            ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]'
+                                                            : 'bg-gray-300'
+                                                    }`}
+                                                >
+                                                    {togglingLicenseId === user.id ? (
+                                                        <span className="absolute inset-0 flex items-center justify-center">
+                                                            <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                                            </svg>
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
+                                                                user.revitLicenseActive ? 'translate-x-6' : 'translate-x-1'
+                                                            }`}
+                                                        />
+                                                    )}
+                                                </button>
+                                                <span className={`text-[10px] font-semibold tracking-wide ${
+                                                    user.revitLicenseActive ? 'text-cyan-600' : 'text-gray-400'
+                                                }`}>
+                                                    {user.revitLicenseActive ? 'Bật' : 'Tắt'}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-4 text-sm text-gray-600">
                                             {user.createdAt
                                                 ? new Date(user.createdAt).toLocaleDateString('vi-VN')
@@ -472,7 +578,7 @@ export default function UsersPage() {
                 </div>
             </div>
 
-            {showModal && (
+            {showModal && activeTab === 'staff' && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-lg my-8 overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
@@ -524,16 +630,35 @@ export default function UsersPage() {
                                         Mật khẩu {!editingUser && <span className="text-red-500">*</span>}
                                         {editingUser && <span className="text-gray-400 font-normal"> (để trống = giữ nguyên)</span>}
                                     </label>
-                                    <input
-                                        type="password"
-                                        required={!editingUser}
-                                        value={form.password}
-                                        onChange={(event) =>
-                                            setForm((prev) => ({ ...prev, password: event.target.value }))
-                                        }
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                        placeholder={editingUser ? 'Nhập nếu muốn đổi mật khẩu mới' : 'Mật khẩu đăng nhập'}
-                                    />
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? 'text' : 'password'}
+                                            required={!editingUser}
+                                            value={form.password}
+                                            onChange={(event) =>
+                                                setForm((prev) => ({ ...prev, password: event.target.value }))
+                                            }
+                                            className="w-full px-4 py-2 pr-11 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder={editingUser ? 'Nhập nếu muốn đổi mật khẩu mới' : 'Mật khẩu đăng nhập'}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(prev => !prev)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-0.5"
+                                            title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                                        >
+                                            {showPassword ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
                                     {editingUser && (
                                         <p className="mt-1 text-xs text-gray-500">
                                             💡 Bỏ trống để giữ nguyên mật khẩu hiện tại. Chỉ nhập nếu muốn đặt lại mật khẩu mới.
@@ -675,7 +800,8 @@ export default function UsersPage() {
                     </div>
                 </div>
             )}
+            </>
+            )}
         </div>
     );
 }
-

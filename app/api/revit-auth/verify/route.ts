@@ -1,21 +1,9 @@
-/**
- * GET /api/auth/revit-verify
- * 
- * Xác minh token từ Revit Add-in còn hợp lệ không.
- * Dùng khi:
- * - Revit khởi động (CheckAuthentication)
- * - Định kỳ kiểm tra token
- * 
- * Headers:
- *   Authorization: Bearer <token>
- */
-
 import { NextResponse } from 'next/server';
 import { revitVerify } from '@/lib/revit-auth';
+import { revitCorsResponse } from '@/lib/api-security';
 
 export async function GET(req: Request) {
     try {
-        // Lấy token từ header
         const authHeader = req.headers.get('Authorization');
         const token = authHeader?.replace('Bearer ', '').trim();
 
@@ -49,13 +37,6 @@ export async function GET(req: Request) {
 }
 
 // Handle CORS preflight
-export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 204,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-    });
+export async function OPTIONS(req: Request) {
+    return revitCorsResponse(req, 'GET, OPTIONS');
 }

@@ -4,20 +4,24 @@
  * Endpoint xác thực cho Revit Add-in desktop app.
  * Single Device Lock: login máy mới → tự động đá máy cũ.
  * 
- * Request body:
- * {
- *   "email": "user@company.com",
- *   "password": "abc123",
- *   "machineId": "DESKTOP-ABC123",
- *   "addinVersion": "1.0.0"
- * }
+ * 🛡️ Rate limited: 10 attempts / 15 minutes per IP
  */
 
 import { NextResponse } from 'next/server';
 import { revitLogin } from '@/lib/revit-auth';
+import { revitCorsResponse, checkRateLimit, getClientIP } from '@/lib/api-security';
 
 export async function POST(req: Request) {
     try {
+        // 🛡️ Rate limit check
+        const clientIP = getClientIP(req);
+        if (!checkRateLimit(`revit-login:${clientIP}`, 10, 15 * 60 * 1000)) {
+            return NextResponse.json(
+                { success: false, message: 'Quá nhiều lần thử đăng nhập. Vui lòng chờ 15 phút.' },
+                { status: 429 }
+            );
+        }
+
         const body = await req.json();
         const { email, password, machineId, addinVersion } = body;
 
@@ -43,7 +47,6 @@ export async function POST(req: Request) {
                 expiresAt: result.expiresAt,
             });
         } else {
-            // Xác định HTTP status code dựa trên loại lỗi
             const status = result.message?.includes('mật khẩu') || result.message?.includes('Email')
                 ? 401
                 : 403;
@@ -62,14 +65,7 @@ export async function POST(req: Request) {
     }
 }
 
-// Handle CORS preflight (nếu cần)
-export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 204,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-    });
+// Handle CORS preflight
+export async function OPTIONS(req: Request) {
+    return revitCorsResponse(req, 'POST, OPTIONS');
 }

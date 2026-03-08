@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
                             bankAccount: bankAccount || null,
                             taxCode: taxCode || null,
                             status: UserStatus.ACTIVE, // Manually created users are ACTIVE
+                            mustChangePassword: true, // Bắt đổi mật khẩu lần đầu
                         },
                     });
                 }
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
                                 bankAccount: bankAccount || null,
                                 taxCode: taxCode || null,
                                 status: UserStatus.ACTIVE,
+                                mustChangePassword: true,
                             },
                         });
                     }

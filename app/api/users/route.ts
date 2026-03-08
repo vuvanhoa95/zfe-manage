@@ -67,6 +67,13 @@ export async function GET(request: NextRequest) {
                 bankAccount: true,
                 taxCode: true,
                 status: true,
+                // Revit Add-in License fields
+                revitLicenseActive: true,
+                revitLicensePlan: true,
+                revitLicenseStart: true,
+                revitLicenseExpiry: true,
+                revitMachineId: true,
+                revitLastLogin: true,
             },
             orderBy: {
                 name: 'asc',
@@ -140,31 +147,81 @@ export async function PATCH(request: NextRequest) {
         const session = await requirePermission('user:toggle_status');
 
         const body = await request.json();
-        const { userId, status } = body;
+        const { userId, status, revitLicenseActive, revitLicensePlan, revitLicenseStart, revitLicenseExpiry, revitMachineId, revitActiveToken } = body;
 
-        if (!userId || !status) {
-            return NextResponse.json({ success: false, error: 'Missing userId or status' }, { status: 400 });
+        if (!userId) {
+            return NextResponse.json({ success: false, error: 'Missing userId' }, { status: 400 });
         }
 
-        const validStatuses = Object.values(UserStatus);
-        if (!validStatuses.includes(status as typeof UserStatus[keyof typeof UserStatus])) {
-            return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
+        // Build update data dynamically
+        const updateData: Record<string, unknown> = {};
+
+        // Toggle account status
+        if (status !== undefined) {
+            const validStatuses = Object.values(UserStatus);
+            if (!validStatuses.includes(status as typeof UserStatus[keyof typeof UserStatus])) {
+                return NextResponse.json({ success: false, error: 'Invalid status' }, { status: 400 });
+            }
+            updateData.status = status;
+        }
+
+        // Toggle Revit License
+        if (revitLicenseActive !== undefined) {
+            updateData.revitLicenseActive = Boolean(revitLicenseActive);
+        }
+
+        // Set Revit License Plan
+        if (revitLicensePlan !== undefined) {
+            updateData.revitLicensePlan = revitLicensePlan || null;
+        }
+
+        // Set Revit License Start date
+        if (revitLicenseStart !== undefined) {
+            updateData.revitLicenseStart = revitLicenseStart ? new Date(revitLicenseStart) : null;
+        }
+
+        // Set Revit License Expiry
+        if (revitLicenseExpiry !== undefined) {
+            updateData.revitLicenseExpiry = revitLicenseExpiry ? new Date(revitLicenseExpiry) : null;
+        }
+
+        // Reset Revit device (set to null to allow re-login from another machine)
+        if (revitMachineId !== undefined) {
+            updateData.revitMachineId = revitMachineId;
+        }
+        if (revitActiveToken !== undefined) {
+            updateData.revitActiveToken = revitActiveToken;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ success: false, error: 'No data to update' }, { status: 400 });
         }
 
         const updatedUser = await prisma.user.update({
             where: { id: userId },
-            data: { status: status as 'ACTIVE' | 'PENDING' | 'SUSPENDED' },
+            data: updateData,
+            select: {
+                id: true,
+                email: true,
+                status: true,
+                revitLicenseActive: true,
+                revitLicensePlan: true,
+                revitLicenseStart: true,
+                revitLicenseExpiry: true,
+                revitMachineId: true,
+                revitLastLogin: true,
+            },
         });
 
         return NextResponse.json({
             success: true,
             data: updatedUser,
-            message: `User ${updatedUser.email} has been updated to ${status}`
+            message: `User ${updatedUser.email} has been updated`
         });
     } catch (error: any) {
-        console.error('[API] Failed to update user status:', error);
+        console.error('[API] Failed to update user:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Lỗi khi cập nhật trạng thái user' },
+            { success: false, error: error.message || 'Lỗi khi cập nhật user' },
             { status: 500 }
         );
     }
@@ -273,7 +330,7 @@ export async function DELETE(request: NextRequest) {
 
             // 7. Xóa user sau khi tất cả FK đã được xử lý an toàn
             await tx.user.delete({ where: { id: userId } });
-        });
+        }, { maxWait: 10000, timeout: 30000 });
 
         return NextResponse.json({
             success: true,

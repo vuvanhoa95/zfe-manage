@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { PageTransition } from '@/components/ui/PageTransition';
@@ -20,7 +21,20 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { data: session } = useSession();
     const { isOpen, setIsOpen, commands } = useCommandPalette();
+
+    // ===== REDIRECT REVIT USER → PORTAL =====
+    useEffect(() => {
+        const userType = (session?.user as any)?.userType;
+        const mustChange = (session?.user as any)?.mustChangePassword;
+        if (userType === 'revit') {
+            router.replace('/revit-portal');
+        } else if (mustChange) {
+            router.replace('/change-password');
+        }
+    }, [session, router]);
     
     // Lọc bớt các cảnh báo Recharts gây nhiễu log nhưng không ảnh hưởng tới chức năng.
     useEffect(() => {

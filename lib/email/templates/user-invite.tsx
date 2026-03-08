@@ -45,12 +45,12 @@ export const UserInvitationEmail = ({
               Admin <strong>{adminName}</strong> đã thêm bạn vào hệ thống ZFENIX Hub với vai trò <strong>{role}</strong>.
             </Text>
             <Text style={paragraph}>
-              Bạn có thể đăng nhập vào hệ thống ngay bây giờ để bắt đầu làm việc.
+              Bạn có thể đăng nhập vào hệ thống ngay bây giờ. Khi đăng nhập lần đầu, hệ thống sẽ yêu cầu bạn <strong>đặt mật khẩu mới</strong> để đảm bảo bảo mật.
             </Text>
             
             <Section style={buttonContainer}>
               <Link style={button} href={loginUrl}>
-                Đăng nhập ngay
+                Đăng nhập & Đặt mật khẩu
               </Link>
             </Section>
 

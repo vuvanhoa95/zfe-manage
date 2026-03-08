@@ -15,15 +15,11 @@ import { prisma } from '@/lib/prisma';
  * ⚠️ XÓA TẤT CẢ DỮ LIỆU - SỬ DỤNG CẨN THẬN
  */
 export async function POST(request: NextRequest) {
-  // Chỉ cho phép reset trong production (hoặc development nếu có flag đặc biệt)
-  if (process.env.NODE_ENV !== 'production' && !request.headers.get('x-force-reset')) {
+  // 🛡️ BLOCK in production — chỉ cho phép trong development
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Reset database chỉ được phép trong production',
-        hint: 'Nếu muốn reset trong development, thêm header: x-force-reset: true',
-      },
-      { status: 403 }
+      { success: false, error: 'Not Found' },
+      { status: 404 }
     );
   }
 
