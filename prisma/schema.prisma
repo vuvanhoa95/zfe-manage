@@ -803,3 +803,25 @@ model RevitUser {
 
   @@map("revit_users")
 }
+
+/// ================================
+/// REVIT LICENSE KEYS
+/// Mã kích hoạt Revit Add-in.
+/// Admin tạo key, user nhập key để kích hoạt/gia hạn license.
+/// ================================
+model RevitLicenseKey {
+  id        String    @id @default(uuid())
+  /// Mã kích hoạt (unique, uppercase)
+  key       String    @unique
+  /// Gói license: 1M, 3M, 6M, 1Y, LIFETIME
+  plan      String
+  /// Email người dùng đã kích hoạt
+  usedBy    String?
+  /// Thời điểm kích hoạt
+  usedAt    DateTime?
+  /// Ghi chú (admin)
+  note      String?
+  createdAt DateTime  @default(now())
+
+  @@map("revit_license_keys")
+}

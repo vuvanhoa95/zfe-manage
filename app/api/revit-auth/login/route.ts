@@ -45,6 +45,7 @@ export async function POST(req: Request) {
                 token: result.token,
                 user: result.user,
                 expiresAt: result.expiresAt,
+                license: result.license,
             });
         } else {
             const status = result.message?.includes('mật khẩu') || result.message?.includes('Email')

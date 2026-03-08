@@ -69,6 +69,7 @@ export function RevitLicensesContent() {
     const [form, setForm] = useState<LicenseFormState>(INITIAL_FORM);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [togglingId, setTogglingId] = useState<string | null>(null);
+    const [suspendingId, setSuspendingId] = useState<string | null>(null);
 
     // Edit plan modal
     const [editPlanUser, setEditPlanUser] = useState<LicenseEntry | null>(null);
@@ -190,6 +191,36 @@ export function RevitLicensesContent() {
             if (result.success) await fetchData();
             else alert(result.error || 'Lỗi xóa');
         } catch { alert('Lỗi hệ thống'); }
+    };
+
+    const handleSuspendAccount = async (entry: LicenseEntry) => {
+        const isSuspended = entry.status === 'SUSPENDED';
+        const action = isSuspended ? 'kích hoạt lại' : 'vô hiệu hóa';
+        if (!confirm(`${isSuspended ? '✅' : '🚫'} ${action.charAt(0).toUpperCase() + action.slice(1)} tài khoản "${entry.name || entry.email}"?\n\n${isSuspended ? 'User sẽ có thể đăng nhập lại.' : 'User sẽ KHÔNG thể đăng nhập Revit nữa.'}`)) return;
+        setSuspendingId(entry.id);
+        try {
+            const endpoint = entry.source === 'revit' ? '/api/revit-users' : '/api/users';
+            const newStatus = isSuspended ? 'ACTIVE' : 'SUSPENDED';
+            const body: any = { userId: entry.id, status: newStatus };
+            // Nếu vô hiệu hóa, tắt license + xóa device luôn
+            if (!isSuspended && entry.source === 'revit') {
+                body.licenseActive = false;
+                body.machineId = null;
+                body.activeToken = null;
+            }
+            const res = await fetch(endpoint, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const result = await res.json();
+            if (result.success) {
+                await fetchData();
+            } else {
+                alert(result.error || `Lỗi ${action}`);
+            }
+        } catch { alert('Lỗi hệ thống'); }
+        finally { setSuspendingId(null); }
     };
 
     const handleEditPlan = async () => {
@@ -446,6 +477,27 @@ export function RevitLicensesContent() {
                                             {/* Actions */}
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    {/* Suspend/Activate account */}
+                                                    <button
+                                                        type="button"
+                                                        disabled={suspendingId === entry.id}
+                                                        onClick={() => handleSuspendAccount(entry)}
+                                                        title={entry.status === 'SUSPENDED' ? 'Kích hoạt lại tài khoản' : 'Vô hiệu hóa tài khoản'}
+                                                        className={`group p-1.5 rounded-md transition-colors ${entry.status === 'SUSPENDED' ? 'hover:bg-emerald-50 bg-red-50' : 'hover:bg-orange-50'}`}
+                                                    >
+                                                        {suspendingId === entry.id ? (
+                                                            <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                        ) : entry.status === 'SUSPENDED' ? (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
+                                                    {/* Reset device */}
                                                     {entry.machineId && (
                                                         <button
                                                             type="button"
@@ -458,6 +510,7 @@ export function RevitLicensesContent() {
                                                             </svg>
                                                         </button>
                                                     )}
+                                                    {/* Delete user */}
                                                     {entry.source === 'revit' && (
                                                         <button
                                                             type="button"

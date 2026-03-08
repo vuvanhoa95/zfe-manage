@@ -21,12 +21,20 @@ export interface RevitUser {
   company: string | null;
 }
 
+export interface RevitLicenseInfo {
+  plan: string | null;
+  active: boolean;
+  start: string | null;
+  expiry: string | null;
+}
+
 export interface RevitLoginResult {
   success: boolean;
   token?: string;
   user?: RevitUser;
   expiresAt?: string;
   message?: string;
+  license?: RevitLicenseInfo;
 }
 
 export interface RevitVerifyResult {
@@ -58,6 +66,8 @@ async function findByEmail(email: string) {
       role: staffUser.role,
       department: staffUser.department,
       licenseActive: staffUser.revitLicenseActive,
+      licensePlan: staffUser.revitLicensePlan,
+      licenseStart: staffUser.revitLicenseStart,
       licenseExpiry: staffUser.revitLicenseExpiry,
       activeToken: staffUser.revitActiveToken,
       machineId: staffUser.revitMachineId,
@@ -80,6 +90,8 @@ async function findByEmail(email: string) {
       role: 'USER',
       department: null as string | null,
       licenseActive: revitUser.licenseActive,
+      licensePlan: revitUser.licensePlan,
+      licenseStart: revitUser.licenseStart,
       licenseExpiry: revitUser.licenseExpiry,
       activeToken: revitUser.activeToken,
       machineId: revitUser.machineId,
@@ -98,6 +110,8 @@ async function findByEmail(email: string) {
       role: staffUser.role,
       department: staffUser.department,
       licenseActive: false,
+      licensePlan: null as string | null,
+      licenseStart: null as Date | null,
       licenseExpiry: null as Date | null,
       activeToken: null as string | null,
       machineId: null as string | null,
@@ -110,7 +124,7 @@ async function findByEmail(email: string) {
 /**
  * Tìm user theo token từ CẢ 2 bảng.
  */
-async function findByToken(token: string) {
+export async function findByToken(token: string) {
   // Tìm trong User
   const staffUser = await prisma.user.findFirst({
     where: { revitActiveToken: token },
@@ -266,6 +280,12 @@ export async function revitLogin(
       company: found.department || null,
     },
     expiresAt: expiresAt.toISOString(),
+    license: {
+      plan: found.licensePlan || null,
+      active: found.licenseActive,
+      start: found.licenseStart?.toISOString() || null,
+      expiry: found.licenseExpiry?.toISOString() || null,
+    },
   };
 }
 

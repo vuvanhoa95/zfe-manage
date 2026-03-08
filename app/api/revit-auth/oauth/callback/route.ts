@@ -161,6 +161,10 @@ export async function GET(req: Request) {
                 success: true, token: newToken, email: revitUser.email,
                 name: revitUser.name || name, role: 'USER', company: '',
                 expiresAt: expiresAt.toISOString(),
+                licensePlan: revitUser.licensePlan || '',
+                licenseActive: String(revitUser.licenseActive),
+                licenseStart: revitUser.licenseStart?.toISOString() || '',
+                licenseExpiry: revitUser.licenseExpiry?.toISOString() || '',
             });
         }
 
@@ -233,6 +237,10 @@ export async function GET(req: Request) {
             success: true, token: newToken, email: user.email,
             name: user.name || name, role: user.role,
             company: user.department || '', expiresAt: expiresAt.toISOString(),
+            licensePlan: user.revitLicensePlan || '',
+            licenseActive: String(user.revitLicenseActive),
+            licenseStart: user.revitLicenseStart?.toISOString() || '',
+            licenseExpiry: user.revitLicenseExpiry?.toISOString() || '',
         });
 
     } catch (error) {
