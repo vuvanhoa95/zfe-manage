@@ -46,7 +46,7 @@ export async function GET(req: Request) {
                 `client_id=${encodeURIComponent(clientId)}` +
                 `&redirect_uri=${encodeURIComponent(callbackUrl)}` +
                 `&response_type=code` +
-                `&scope=${encodeURIComponent('openid email profile')}` +
+                `&scope=${encodeURIComponent('openid email profile User.Read')}` +
                 `&state=${state}` +
                 `&prompt=select_account`;
         } else {

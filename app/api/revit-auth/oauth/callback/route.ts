@@ -97,6 +97,7 @@ export async function GET(req: Request) {
                         client_secret: process.env.AZURE_AD_CLIENT_SECRET || '',
                         redirect_uri: callbackUrl,
                         grant_type: 'authorization_code',
+                        scope: 'openid email profile User.Read',
                     }),
                 }
             );
@@ -109,14 +110,33 @@ export async function GET(req: Request) {
 
             const tokenData = await tokenRes.json();
 
-            // Get user profile from Microsoft Graph
-            const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
-                headers: { Authorization: `Bearer ${tokenData.access_token}` },
-            });
-            const profile = await profileRes.json();
+            // Strategy 1: Get from Microsoft Graph API
+            try {
+                const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+                    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+                });
+                const profile = await profileRes.json();
+                console.log('[Revit OAuth] MS Graph profile:', JSON.stringify({ mail: profile.mail, upn: profile.userPrincipalName, name: profile.displayName }));
 
-            email = (profile.mail || profile.userPrincipalName)?.toLowerCase();
-            name = profile.displayName || email?.split('@')[0] || 'User';
+                email = (profile.mail || profile.userPrincipalName)?.toLowerCase();
+                name = profile.displayName || 'User';
+            } catch (graphErr) {
+                console.error('[Revit OAuth] Graph API failed:', graphErr);
+            }
+
+            // Strategy 2: Fallback to id_token (works for personal MS accounts)
+            if (!email && tokenData.id_token) {
+                try {
+                    const payload = JSON.parse(
+                        Buffer.from(tokenData.id_token.split('.')[1], 'base64').toString()
+                    );
+                    console.log('[Revit OAuth] id_token claims:', JSON.stringify({ email: payload.email, preferred_username: payload.preferred_username, name: payload.name }));
+                    email = (payload.email || payload.preferred_username)?.toLowerCase();
+                    name = name || payload.name || 'User';
+                } catch (jwtErr) {
+                    console.error('[Revit OAuth] id_token decode failed:', jwtErr);
+                }
+            }
         } else {
             return renderErrorPage('Provider không hợp lệ.');
         }
