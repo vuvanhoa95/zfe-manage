@@ -1,6 +1,17 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — tránh crash khi build (build-time không có env vars)
+let _resend: Resend | null = null;
+function getResend(): Resend {
+    if (!_resend) {
+        const key = process.env.RESEND_API_KEY;
+        if (!key) {
+            throw new Error('RESEND_API_KEY not configured');
+        }
+        _resend = new Resend(key);
+    }
+    return _resend;
+}
 
 const APP_URL = process.env.NEXTAUTH_URL || 'https://zfenixmanage.site';
 const FROM_EMAIL = 'ZFENIX License <hoavv@zfenix.com>';
@@ -94,7 +105,7 @@ export async function sendLicenseWelcomeEmail({
 </html>`;
 
     try {
-        const data = await resend.emails.send({
+        const data = await getResend().emails.send({
             from: FROM_EMAIL,
             to: [toEmail],
             subject: '🔑 Bạn đã được cấp License Revit Add-in ZFENIX',
