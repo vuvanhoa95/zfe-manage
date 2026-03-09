@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
         });
     } catch (error: any) {
         console.error('[API] Failed to fetch users:', error);
-        
+
         // Log chi tiết trong development
         if (process.env.NODE_ENV === 'development') {
             console.error('[API] Fetch users error details:', {
@@ -147,7 +147,7 @@ export async function PATCH(request: NextRequest) {
         const session = await requirePermission('user:toggle_status');
 
         const body = await request.json();
-        const { userId, status, revitLicenseActive, revitLicensePlan, revitLicenseStart, revitLicenseExpiry, revitMachineId, revitActiveToken } = body;
+        const { userId, status, revitLicenseActive, revitLicensePlan, revitLicenseStart, revitLicenseExpiry, revitMachineId, revitActiveToken, mcpLicenseActive, mcpLicensePlan, mcpLicenseStart, mcpLicenseExpiry } = body;
 
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Missing userId' }, { status: 400 });
@@ -193,6 +193,20 @@ export async function PATCH(request: NextRequest) {
             updateData.revitActiveToken = revitActiveToken;
         }
 
+        // MCP AI License fields
+        if (mcpLicenseActive !== undefined) {
+            updateData.mcpLicenseActive = Boolean(mcpLicenseActive);
+        }
+        if (mcpLicensePlan !== undefined) {
+            updateData.mcpLicensePlan = mcpLicensePlan || null;
+        }
+        if (mcpLicenseStart !== undefined) {
+            updateData.mcpLicenseStart = mcpLicenseStart ? new Date(mcpLicenseStart) : null;
+        }
+        if (mcpLicenseExpiry !== undefined) {
+            updateData.mcpLicenseExpiry = mcpLicenseExpiry ? new Date(mcpLicenseExpiry) : null;
+        }
+
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ success: false, error: 'No data to update' }, { status: 400 });
         }
@@ -210,6 +224,10 @@ export async function PATCH(request: NextRequest) {
                 revitLicenseExpiry: true,
                 revitMachineId: true,
                 revitLastLogin: true,
+                mcpLicenseActive: true,
+                mcpLicensePlan: true,
+                mcpLicenseStart: true,
+                mcpLicenseExpiry: true,
             },
         });
 

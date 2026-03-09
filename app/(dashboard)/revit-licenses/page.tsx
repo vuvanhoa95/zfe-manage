@@ -18,6 +18,10 @@ type LicenseEntry = {
     licenseExpiry: string | null;
     machineId: string | null;
     lastLogin: string | null;
+    mcpLicenseActive: boolean;
+    mcpLicensePlan: string | null;
+    mcpLicenseStart: string | null;
+    mcpLicenseExpiry: string | null;
     createdAt: string;
 };
 
@@ -25,10 +29,10 @@ type FilterType = 'all' | 'revit' | 'staff' | 'active' | 'expired' | 'inactive';
 
 // === License Plans ===
 const LICENSE_PLANS = [
-    { key: '1M',       label: '1 tháng',  months: 1,    icon: '📅' },
-    { key: '3M',       label: '3 tháng',  months: 3,    icon: '📆' },
-    { key: '6M',       label: '6 tháng',  months: 6,    icon: '🗓️' },
-    { key: '1Y',       label: '1 năm',    months: 12,   icon: '📋' },
+    { key: '1M', label: '1 tháng', months: 1, icon: '📅' },
+    { key: '3M', label: '3 tháng', months: 3, icon: '📆' },
+    { key: '6M', label: '6 tháng', months: 6, icon: '🗓️' },
+    { key: '1Y', label: '1 năm', months: 12, icon: '📋' },
     { key: 'LIFETIME', label: 'Trọn đời', months: null, icon: '♾️' },
 ] as const;
 
@@ -69,6 +73,7 @@ export function RevitLicensesContent() {
     const [form, setForm] = useState<LicenseFormState>(INITIAL_FORM);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [togglingId, setTogglingId] = useState<string | null>(null);
+    const [togglingMcpId, setTogglingMcpId] = useState<string | null>(null);
     const [suspendingId, setSuspendingId] = useState<string | null>(null);
 
     // Edit plan modal
@@ -83,7 +88,7 @@ export function RevitLicensesContent() {
         if (sessionLoading) return;
         if (isAdmin) void fetchData();
         else setIsLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin, sessionLoading]);
 
     const fetchData = async () => {
@@ -154,6 +159,31 @@ export function RevitLicensesContent() {
             }
         } catch { alert('Lỗi hệ thống'); }
         finally { setTogglingId(null); }
+    };
+
+    const handleToggleMcpLicense = async (entry: LicenseEntry) => {
+        setTogglingMcpId(entry.id);
+        try {
+            const endpoint = entry.source === 'revit' ? '/api/revit-users' : '/api/users';
+            const body = entry.source === 'revit'
+                ? { userId: entry.id, mcpLicenseActive: !entry.mcpLicenseActive }
+                : { userId: entry.id, mcpLicenseActive: !entry.mcpLicenseActive };
+
+            const res = await fetch(endpoint, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            const result = await res.json();
+            if (result.success) {
+                setEntries(prev => prev.map(u =>
+                    u.id === entry.id ? { ...u, mcpLicenseActive: !entry.mcpLicenseActive } : u
+                ));
+            } else {
+                alert(result.error || 'Lỗi cập nhật MCP');
+            }
+        } catch { alert('Lỗi hệ thống'); }
+        finally { setTogglingMcpId(null); }
     };
 
     const handleResetDevice = async (entry: LicenseEntry) => {
@@ -315,11 +345,10 @@ export function RevitLicensesContent() {
                         key={key}
                         type="button"
                         onClick={() => setFilter(key)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                            filter === key
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${filter === key
                                 ? `bg-${color}-100 text-${color}-700 ring-1 ring-${color}-300`
                                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                        }`}
+                            }`}
                     >
                         {label} ({counts[key]})
                     </button>
@@ -337,6 +366,7 @@ export function RevitLicensesContent() {
                                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Email</th>
                                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Gói</th>
                                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-center">Trạng thái</th>
+                                <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-center">MCP AI</th>
                                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Hết hạn</th>
                                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Thiết bị</th>
                                 <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Lần cuối</th>
@@ -345,9 +375,9 @@ export function RevitLicensesContent() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {isLoading ? (
-                                <tr><td colSpan={9} className="px-6 py-12 text-center text-gray-500">Đang tải...</td></tr>
+                                <tr><td colSpan={10} className="px-6 py-12 text-center text-gray-500">Đang tải...</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={9} className="px-6 py-12 text-center text-gray-500">Không có dữ liệu.</td></tr>
+                                <tr><td colSpan={10} className="px-6 py-12 text-center text-gray-500">Không có dữ liệu.</td></tr>
                             ) : (
                                 filtered.map((entry) => {
                                     const remaining = getRemainingDays(entry.licenseExpiry);
@@ -358,22 +388,20 @@ export function RevitLicensesContent() {
                                         <tr key={`${entry.source}-${entry.id}`} className="hover:bg-gray-50">
                                             {/* Source badge */}
                                             <td className="px-4 py-3 text-sm">
-                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                                    entry.source === 'revit'
+                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${entry.source === 'revit'
                                                         ? 'bg-indigo-50 text-indigo-700'
                                                         : 'bg-blue-50 text-blue-700'
-                                                }`}>
+                                                    }`}>
                                                     {entry.source === 'revit' ? '🔧 Revit' : '👥 Nhân sự'}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-sm font-semibold text-gray-900">
                                                 {entry.name || '—'}
                                                 {entry.source === 'staff' && entry.role && (
-                                                    <span className={`ml-1.5 inline-flex px-1.5 py-0.5 rounded text-[9px] font-medium ${
-                                                        entry.role === 'ADMIN' ? 'bg-red-50 text-red-600' :
-                                                        entry.role === 'PM' ? 'bg-amber-50 text-amber-600' :
-                                                        'bg-gray-50 text-gray-500'
-                                                    }`}>{entry.role}</span>
+                                                    <span className={`ml-1.5 inline-flex px-1.5 py-0.5 rounded text-[9px] font-medium ${entry.role === 'ADMIN' ? 'bg-red-50 text-red-600' :
+                                                            entry.role === 'PM' ? 'bg-amber-50 text-amber-600' :
+                                                                'bg-gray-50 text-gray-500'
+                                                        }`}>{entry.role}</span>
                                                 )}
                                             </td>
                                             <td className="px-4 py-3 text-sm text-gray-600">{entry.email}</td>
@@ -401,35 +429,62 @@ export function RevitLicensesContent() {
                                                         type="button"
                                                         disabled={togglingId === entry.id}
                                                         onClick={() => handleToggleLicense(entry)}
-                                                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none disabled:cursor-not-allowed ${
-                                                            entry.licenseActive
+                                                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none disabled:cursor-not-allowed ${entry.licenseActive
                                                                 ? isExpired
                                                                     ? 'bg-amber-400'
                                                                     : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
                                                                 : 'bg-gray-300'
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {togglingId === entry.id ? (
                                                             <span className="absolute inset-0 flex items-center justify-center">
                                                                 <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                                                                 </svg>
                                                             </span>
                                                         ) : (
-                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${
-                                                                entry.licenseActive ? 'translate-x-6' : 'translate-x-1'
-                                                            }`} />
+                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${entry.licenseActive ? 'translate-x-6' : 'translate-x-1'
+                                                                }`} />
                                                         )}
                                                     </button>
-                                                    <span className={`text-[10px] font-semibold ${
-                                                        entry.licenseActive
+                                                    <span className={`text-[10px] font-semibold ${entry.licenseActive
                                                             ? isExpired ? 'text-amber-600' : 'text-emerald-600'
                                                             : 'text-gray-400'
-                                                    }`}>
+                                                        }`}>
                                                         {entry.licenseActive
                                                             ? isExpired ? 'Hết hạn' : 'Active'
                                                             : 'Tắt'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            {/* MCP License toggle */}
+                                            <td className="px-4 py-3 text-center">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        disabled={togglingMcpId === entry.id}
+                                                        onClick={() => handleToggleMcpLicense(entry)}
+                                                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 focus:outline-none disabled:cursor-not-allowed ${entry.mcpLicenseActive
+                                                                ? 'bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]'
+                                                                : 'bg-gray-300'
+                                                            }`}
+                                                    >
+                                                        {togglingMcpId === entry.id ? (
+                                                            <span className="absolute inset-0 flex items-center justify-center">
+                                                                <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                                                </svg>
+                                                            </span>
+                                                        ) : (
+                                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300 ${entry.mcpLicenseActive ? 'translate-x-6' : 'translate-x-1'
+                                                                }`} />
+                                                        )}
+                                                    </button>
+                                                    <span className={`text-[10px] font-semibold ${entry.mcpLicenseActive ? 'text-violet-600' : 'text-gray-400'
+                                                        }`}>
+                                                        {entry.mcpLicenseActive ? '🤖 On' : 'Off'}
                                                     </span>
                                                 </div>
                                             </td>
@@ -437,19 +492,17 @@ export function RevitLicensesContent() {
                                             <td className="px-4 py-3 text-sm">
                                                 {entry.licenseExpiry ? (
                                                     <div>
-                                                        <div className={`text-xs font-medium ${
-                                                            isExpired ? 'text-red-600' :
-                                                            isExpiringSoon ? 'text-amber-600' :
-                                                            'text-gray-600'
-                                                        }`}>
+                                                        <div className={`text-xs font-medium ${isExpired ? 'text-red-600' :
+                                                                isExpiringSoon ? 'text-amber-600' :
+                                                                    'text-gray-600'
+                                                            }`}>
                                                             {new Date(entry.licenseExpiry).toLocaleDateString('vi-VN')}
                                                         </div>
                                                         {remaining !== null && (
-                                                            <div className={`text-[10px] ${
-                                                                isExpired ? 'text-red-500' :
-                                                                isExpiringSoon ? 'text-amber-500' :
-                                                                'text-gray-400'
-                                                            }`}>
+                                                            <div className={`text-[10px] ${isExpired ? 'text-red-500' :
+                                                                    isExpiringSoon ? 'text-amber-500' :
+                                                                        'text-gray-400'
+                                                                }`}>
                                                                 {isExpired ? `Quá hạn ${Math.abs(remaining)} ngày` : `Còn ${remaining} ngày`}
                                                             </div>
                                                         )}
@@ -486,7 +539,7 @@ export function RevitLicensesContent() {
                                                         className={`group p-1.5 rounded-md transition-colors ${entry.status === 'SUSPENDED' ? 'hover:bg-emerald-50 bg-red-50' : 'hover:bg-orange-50'}`}
                                                     >
                                                         {suspendingId === entry.id ? (
-                                                            <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                                                            <svg className="animate-spin h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
                                                         ) : entry.status === 'SUSPENDED' ? (
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -563,11 +616,10 @@ export function RevitLicensesContent() {
                                 <div className="grid grid-cols-5 gap-2">
                                     {LICENSE_PLANS.map((p) => (
                                         <button key={p.key} type="button" onClick={() => setForm(prev => ({ ...prev, plan: p.key }))}
-                                            className={`p-2 rounded-lg border text-center text-xs font-medium transition-all ${
-                                                form.plan === p.key
+                                            className={`p-2 rounded-lg border text-center text-xs font-medium transition-all ${form.plan === p.key
                                                     ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
                                                     : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                                            }`}>
+                                                }`}>
                                             <div className="text-lg">{p.icon}</div>
                                             <div>{p.label}</div>
                                         </button>
@@ -599,11 +651,10 @@ export function RevitLicensesContent() {
                             <div className="grid grid-cols-5 gap-2">
                                 {LICENSE_PLANS.map((p) => (
                                     <button key={p.key} type="button" onClick={() => setEditPlan(p.key)}
-                                        className={`p-2 rounded-lg border text-center text-xs font-medium transition-all ${
-                                            editPlan === p.key
+                                        className={`p-2 rounded-lg border text-center text-xs font-medium transition-all ${editPlan === p.key
                                                 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
                                                 : 'border-gray-200 hover:border-gray-300 text-gray-600'
-                                        }`}>
+                                            }`}>
                                         <div className="text-lg">{p.icon}</div>
                                         <div>{p.label}</div>
                                     </button>

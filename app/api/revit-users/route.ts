@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
         // 2. Lấy User (nhân sự) có Revit license active
         const staffWithLicense = await prisma.user.findMany({
-            where: { revitLicenseActive: true },
+            where: { OR: [{ revitLicenseActive: true }, { mcpLicenseActive: true }] },
             select: {
                 id: true,
                 email: true,
@@ -37,6 +37,10 @@ export async function GET(request: NextRequest) {
                 revitLicenseExpiry: true,
                 revitMachineId: true,
                 revitLastLogin: true,
+                mcpLicenseActive: true,
+                mcpLicensePlan: true,
+                mcpLicenseStart: true,
+                mcpLicenseExpiry: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -48,13 +52,17 @@ export async function GET(request: NextRequest) {
             email: u.email,
             name: u.name,
             status: u.status,
-            source: 'revit' as const, // Nguồn: bảng RevitUser
+            source: 'revit' as const,
             licensePlan: u.licensePlan,
             licenseActive: u.licenseActive,
             licenseStart: u.licenseStart?.toISOString() ?? null,
             licenseExpiry: u.licenseExpiry?.toISOString() ?? null,
             machineId: u.machineId,
             lastLogin: u.lastLogin?.toISOString() ?? null,
+            mcpLicenseActive: u.mcpLicenseActive,
+            mcpLicensePlan: u.mcpLicensePlan,
+            mcpLicenseStart: u.mcpLicenseStart?.toISOString() ?? null,
+            mcpLicenseExpiry: u.mcpLicenseExpiry?.toISOString() ?? null,
             createdAt: u.createdAt.toISOString(),
         }));
 
@@ -63,7 +71,7 @@ export async function GET(request: NextRequest) {
             email: u.email,
             name: u.name,
             status: u.status,
-            source: 'staff' as const, // Nguồn: bảng User (nhân sự)
+            source: 'staff' as const,
             role: u.role,
             department: u.department,
             licensePlan: u.revitLicensePlan,
@@ -72,6 +80,10 @@ export async function GET(request: NextRequest) {
             licenseExpiry: u.revitLicenseExpiry?.toISOString() ?? null,
             machineId: u.revitMachineId,
             lastLogin: u.revitLastLogin?.toISOString() ?? null,
+            mcpLicenseActive: u.mcpLicenseActive,
+            mcpLicensePlan: u.mcpLicensePlan,
+            mcpLicenseStart: u.mcpLicenseStart?.toISOString() ?? null,
+            mcpLicenseExpiry: u.mcpLicenseExpiry?.toISOString() ?? null,
             createdAt: u.createdAt.toISOString(),
         }));
 
@@ -202,7 +214,7 @@ export async function PATCH(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { userId, licenseActive, licensePlan, licenseStart, licenseExpiry, machineId, activeToken, status } = body;
+        const { userId, licenseActive, licensePlan, licenseStart, licenseExpiry, machineId, activeToken, status, mcpLicenseActive, mcpLicensePlan, mcpLicenseStart, mcpLicenseExpiry } = body;
 
         if (!userId) {
             return NextResponse.json({ success: false, error: 'Thiếu userId' }, { status: 400 });
@@ -217,6 +229,10 @@ export async function PATCH(request: NextRequest) {
         if (machineId !== undefined) updateData.machineId = machineId;
         if (activeToken !== undefined) updateData.activeToken = activeToken;
         if (status !== undefined) updateData.status = status;
+        if (mcpLicenseActive !== undefined) updateData.mcpLicenseActive = Boolean(mcpLicenseActive);
+        if (mcpLicensePlan !== undefined) updateData.mcpLicensePlan = mcpLicensePlan || null;
+        if (mcpLicenseStart !== undefined) updateData.mcpLicenseStart = mcpLicenseStart ? new Date(mcpLicenseStart) : null;
+        if (mcpLicenseExpiry !== undefined) updateData.mcpLicenseExpiry = mcpLicenseExpiry ? new Date(mcpLicenseExpiry) : null;
 
         const updated = await prisma.revitUser.update({
             where: { id: userId },
