@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { getDatabaseErrorMessage } from '@/lib/db-error-messages';
 
 function LoginForm() {
@@ -318,9 +319,9 @@ function LoginForm() {
                                     <input type="checkbox" className="w-4 h-4 rounded border-white/20 accent-cyan-500" />
                                     <span className="text-sm text-slate-400 group-hover:text-slate-200 transition-colors">Ghi nhớ đăng nhập</span>
                                 </label>
-                                <button disabled type="button" className="text-sm text-cyan-400 font-medium opacity-40 cursor-not-allowed">
+                                <Link href="/forgot-password" className="text-sm text-cyan-400 font-medium hover:text-cyan-300 transition-colors">
                                     Quên mật khẩu?
-                                </button>
+                                </Link>
                             </div>
 
                             <button
