@@ -5,8 +5,6 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getDatabaseErrorMessage } from '@/lib/db-error-messages';
-import { useLanguage } from '@/hooks/useLanguage';
-import { SUPPORTED_LANGUAGES } from '@/lib/i18n';
 
 function LoginForm() {
     const [email, setEmail] = useState('');
@@ -16,34 +14,41 @@ function LoginForm() {
     const [socialLoading, setSocialLoading] = useState<string | null>(null);
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { lang, setLanguage, t } = useLanguage();
 
     useEffect(() => {
         const errorType = searchParams.get('error');
         if (errorType) {
             if (errorType === 'ACCOUNT_PENDING') {
-                setError(t('login', 'errorPending'));
+                setError('Tài khoản của bạn đang chờ quản trị viên phê duyệt. Vui lòng quay lại sau.');
             } else if (errorType === 'ACCOUNT_SUSPENDED') {
-                setError(t('login', 'errorSuspended'));
+                setError('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ quản trị viên.');
             } else if (errorType === 'OAuthAccountNotLinked') {
-                setError(t('login', 'errorLinked'));
+                setError('Email này đã được sử dụng với một phương thức đăng nhập khác.');
             } else if (errorType === 'OAuthSignin' || errorType === 'OAuthCallback') {
-                setError(t('login', 'errorSocial'));
+                setError('Có lỗi xảy ra khi đăng nhập bằng tài khoản mạng xã hội.');
             } else if (errorType === 'google') {
-                setError(t('login', 'errorGoogle'));
+                setError('Đăng nhập Google thất bại. Vui lòng thử lại hoặc liên hệ quản trị viên.');
             } else if (errorType === 'azure-ad') {
-                setError(t('login', 'errorMicrosoft'));
+                setError('Đăng nhập Microsoft thất bại. Vui lòng thử lại hoặc liên hệ quản trị viên.');
             } else if (errorType === 'OAuthCreateAccount') {
-                setError(t('login', 'errorCreateAccount'));
+                setError('Không thể tạo tài khoản từ đăng nhập mạng xã hội. Vui lòng liên hệ quản trị viên.');
             } else if (errorType === 'Callback') {
-                setError(t('login', 'errorCallback'));
+                setError('Lỗi xử lý đăng nhập. Vui lòng thử lại.');
             } else {
-                setError(t('login', 'errorGeneral'));
+                // Catch-all: hiển thị lỗi thay vì im lặng
+                setError('Đăng nhập thất bại. Vui lòng thử lại hoặc sử dụng phương thức khác.');
                 console.error('[Login] Unhandled error type:', errorType);
             }
+            // Clear social loading on error
             setSocialLoading(null);
         }
-    }, [searchParams, lang]); // re-run when language changes
+    }, [searchParams]);
+
+    const fillDemoAdmin = () => {
+        setEmail('hoavv@zfenix.com');
+        setPassword('Zfenix2026');
+        setError('');
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,13 +63,18 @@ function LoginForm() {
             });
 
             if (result?.error) {
+                // Hiển thị lỗi chi tiết hơn
                 const errorMessage = result.error;
                 console.error('Login error:', errorMessage);
 
+                // Check for database connection errors
+                // Format: "database|ERROR_CODE|ERROR_MESSAGE"
                 if (errorMessage.startsWith('database|')) {
+                    // Parse encoded error
                     const parts = errorMessage.split('|');
                     const errorCode = parts[1] || undefined;
                     const originalMessage = parts[2] || errorMessage;
+
                     const detailedMessage = getDatabaseErrorMessage(errorCode, originalMessage);
                     setError(detailedMessage);
                 } else if (
@@ -74,7 +84,10 @@ function LoginForm() {
                     errorMessage.includes('connect') ||
                     errorMessage.includes('connection')
                 ) {
+                    // Fallback: Detect error code từ patterns (legacy support)
                     let errorCode: string | undefined;
+
+                    // Detect Prisma error codes từ patterns
                     if (errorMessage.includes('P1001') || errorMessage.includes("Can't reach database")) {
                         errorCode = 'P1001';
                     } else if (errorMessage.includes('P1002') || errorMessage.includes('timeout')) {
@@ -92,33 +105,35 @@ function LoginForm() {
                     } else if (errorMessage.includes('ENOTFOUND')) {
                         errorCode = 'ENOTFOUND';
                     }
+
                     const detailedMessage = getDatabaseErrorMessage(errorCode, errorMessage);
                     setError(detailedMessage);
                 } else if (errorMessage.includes('NEXTAUTH_SECRET')) {
-                    setError(t('login', 'errorAuthConfig'));
+                    setError('Lỗi cấu hình authentication. Vui lòng liên hệ quản trị viên.');
                 } else if (
                     errorMessage.includes('CredentialsSignin') ||
                     errorMessage.includes('Không tìm thấy') ||
                     errorMessage.includes('Mật khẩu không chính xác')
                 ) {
-                    setError(t('login', 'errorCredentials'));
+                    setError('Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
                 } else if (errorMessage === 'ACCOUNT_PENDING') {
-                    setError(t('login', 'errorPending'));
+                    setError('Tài khoản của bạn đang chờ quản trị viên phê duyệt. Vui lòng quay lại sau.');
                 } else if (errorMessage === 'ACCOUNT_SUSPENDED') {
-                    setError(t('login', 'errorSuspended'));
+                    setError('Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ quản trị viên.');
                 } else {
-                    setError(errorMessage || t('login', 'errorCredentials'));
+                    setError(errorMessage || 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
                 }
             } else if (result?.ok) {
                 router.push('/');
                 router.refresh();
             } else {
                 console.error('Login failed - no error, no ok:', result);
-                setError(t('login', 'errorFailed'));
+                setError('Đăng nhập thất bại. Vui lòng thử lại.');
             }
         } catch (err: any) {
             console.error('Login error:', err);
-            setError(err?.message || t('login', 'errorGeneral'));
+            const errorMessage = err?.message || 'Có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại sau.';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -131,20 +146,22 @@ function LoginForm() {
             await signIn(provider, { callbackUrl: '/' });
         } catch (err) {
             setSocialLoading(null);
-            setError(t('login', 'errorSocialInit'));
+            setError('Không thể khởi tạo đăng nhập mạng xã hội.');
         }
     };
 
-    // ── Canvas particle trail ────────────────────────────────────────────────
+    // ── Canvas particle trail (giống dự án web ZFENIX) ──────────────────────
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const particlesRef = useRef<Array<{
         x: number; y: number; vx: number; vy: number;
         life: number; size: number; color: string;
     }>>([]);
     const animFrameRef = useRef<number | undefined>(undefined);
+    const isMountedForCanvas = useRef(false);
 
     useEffect(() => {
         if (!canvasRef.current) return;
+        isMountedForCanvas.current = true;
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -194,10 +211,9 @@ function LoginForm() {
             if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
         };
     }, []);
-
     return (
         <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-            {/* Navy Dark Background */}
+            {/* Navy Dark Background + Cyan Glow - ZFENIX Web Style */}
             <div className="fixed inset-0 z-0">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#001529] via-[#000d1a] to-[#001529]" />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(56,189,248,0.18),transparent_45%),radial-gradient(circle_at_80%_85%,rgba(34,211,238,0.15),transparent_50%),radial-gradient(circle_at_50%_50%,rgba(129,140,248,0.1),transparent_65%)]" />
@@ -208,59 +224,36 @@ function LoginForm() {
                 <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-[1]" />
             </div>
 
-            {/* Language Switcher - top right */}
-            <div className="fixed top-4 right-4 z-20 flex items-center gap-1 bg-slate-900/70 backdrop-blur-md border border-cyan-500/20 rounded-xl px-1.5 py-1">
-                {SUPPORTED_LANGUAGES.map((l) => (
-                    <button
-                        key={l.code}
-                        onClick={() => setLanguage(l.code)}
-                        title={l.label}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${lang === l.code
-                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                            }`}
-                    >
-                        <span>{l.flag}</span>
-                        <span>{l.code.toUpperCase()}</span>
-                    </button>
-                ))}
-            </div>
-
-            {/* Login Card */}
+            {/* Login Card - Glassmorphism Dark */}
             <div className="relative z-10 w-full max-w-md px-4 sm:px-6">
                 <div className="backdrop-blur-2xl rounded-3xl shadow-2xl border bg-slate-900/85 border-cyan-500/20 shadow-[0_25px_50px_-12px_rgba(56,189,248,0.25)]">
                     <div className="pt-8 px-6 pb-0 text-center">
                         <h1 className="text-5xl sm:text-6xl font-bold tracking-tight uppercase select-none zfenix-logo mb-2">
                             <span>ZFENIX</span>
                         </h1>
-                        <p className="text-cyan-400/70 text-xs uppercase tracking-widest font-medium">
-                            {t('login', 'title')}
-                        </p>
+                        <p className="text-cyan-400/70 text-xs uppercase tracking-widest font-medium">QUẢN LÝ DỰ ÁN</p>
                     </div>
 
-                    <div className="p-5 sm:p-7">
-                        <h2 className="text-xl font-bold text-slate-100 mb-5 text-center">
-                            {t('login', 'heading')}
-                        </h2>
+                    <div className="p-6 sm:p-8">
+                        <h2 className="text-2xl font-bold text-slate-100 mb-6 text-center">Đăng nhập</h2>
 
                         {error && (
-                            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-sm font-medium">
+                            <div className="mb-5 p-3.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-sm font-medium">
                                 {error}
                             </div>
                         )}
 
-                        {/* Social Buttons */}
-                        <div className="grid grid-cols-2 gap-2.5 mb-4">
+                        <div className="grid grid-cols-2 gap-3 mb-5">
                             <button
                                 type="button"
                                 disabled={!!socialLoading || loading}
                                 onClick={() => handleSocialLogin('google')}
-                                className={`flex items-center justify-center gap-2 py-2.5 border border-white/10 rounded-xl bg-white/5 transition-all font-semibold text-slate-200 text-sm hover:bg-white/10 hover:border-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${socialLoading === 'google' ? 'opacity-60' : ''}`}
+                                className={`flex items-center justify-center gap-2 py-3.5 border border-white/10 rounded-xl bg-white/5 transition-all font-semibold text-slate-200 text-sm hover:bg-white/10 hover:border-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${socialLoading === 'google' ? 'opacity-60' : ''}`}
                             >
                                 {socialLoading === 'google' ? (
                                     <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
                                 ) : (
-                                    <svg width="17" height="17" viewBox="0 0 24 24">
+                                    <svg width="18" height="18" viewBox="0 0 24 24">
                                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
@@ -274,12 +267,12 @@ function LoginForm() {
                                 type="button"
                                 disabled={!!socialLoading || loading}
                                 onClick={() => handleSocialLogin('azure-ad')}
-                                className={`flex items-center justify-center gap-2 py-2.5 border border-white/10 rounded-xl bg-white/5 transition-all font-semibold text-slate-200 text-sm hover:bg-white/10 hover:border-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${socialLoading === 'azure-ad' ? 'opacity-60' : ''}`}
+                                className={`flex items-center justify-center gap-2 py-3.5 border border-white/10 rounded-xl bg-white/5 transition-all font-semibold text-slate-200 text-sm hover:bg-white/10 hover:border-cyan-500/30 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${socialLoading === 'azure-ad' ? 'opacity-60' : ''}`}
                             >
                                 {socialLoading === 'azure-ad' ? (
                                     <span className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
                                 ) : (
-                                    <svg width="17" height="17" viewBox="0 0 23 23" fill="none">
+                                    <svg width="18" height="18" viewBox="0 0 23 23" fill="none">
                                         <path d="M0 0h10.89v10.89H0V0z" fill="#F25022" />
                                         <path d="M12.11 0H23v10.89H12.11V0z" fill="#7FBA00" />
                                         <path d="M0 12.11h10.89V23H0V12.11z" fill="#00A4EF" />
@@ -290,77 +283,63 @@ function LoginForm() {
                             </button>
                         </div>
 
-                        {/* Divider */}
-                        <div className="flex items-center gap-3 mb-4">
+                        <div className="flex items-center gap-3 mb-5">
                             <div className="flex-1 h-px bg-white/10" />
-                            <span className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">
-                                {t('login', 'orEmail')}
-                            </span>
+                            <span className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">Hoặc email</span>
                             <div className="flex-1 h-px bg-white/10" />
                         </div>
 
-                        {/* Form */}
-                        <form onSubmit={handleSubmit} className="space-y-3">
-                            {/* Email */}
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                    {t('login', 'email')}
-                                </label>
+                                <label className="block text-sm font-semibold text-slate-200 mb-1.5">Email</label>
                                 <input
                                     type="email"
                                     required
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full px-3.5 py-2 bg-slate-800/60 border border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-slate-100 placeholder-slate-500 text-sm transition-all hover:border-cyan-500/30"
-                                    placeholder={t('login', 'emailPlaceholder')}
+                                    className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-slate-100 placeholder-slate-500 transition-all hover:border-cyan-500/30"
+                                    placeholder="admin@zfenix.com"
                                 />
                             </div>
 
-                            {/* Password */}
                             <div>
-                                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                                    {t('login', 'password')}
-                                </label>
+                                <label className="block text-sm font-semibold text-slate-200 mb-1.5">Mật khẩu</label>
                                 <input
                                     type="password"
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full px-3.5 py-2 bg-slate-800/60 border border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-slate-100 placeholder-slate-500 text-sm transition-all hover:border-cyan-500/30"
-                                    placeholder={t('login', 'passwordPlaceholder')}
+                                    className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 text-slate-100 placeholder-slate-500 transition-all hover:border-cyan-500/30"
+                                    placeholder="••••••••"
                                 />
                             </div>
 
-                            {/* Remember + Forgot */}
-                            <div className="flex items-center justify-between pt-0.5">
+                            <div className="flex items-center justify-between">
                                 <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input type="checkbox" className="w-3.5 h-3.5 rounded border-white/20 accent-cyan-500" />
-                                    <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors">
-                                        {t('login', 'rememberMe')}
-                                    </span>
+                                    <input type="checkbox" className="w-4 h-4 rounded border-white/20 accent-cyan-500" />
+                                    <span className="text-sm text-slate-400 group-hover:text-slate-200 transition-colors">Ghi nhớ đăng nhập</span>
                                 </label>
-                                <Link href="/forgot-password" className="text-xs text-cyan-400 font-medium hover:text-cyan-300 transition-colors">
-                                    {t('login', 'forgotPassword')}
+                                <Link href="/forgot-password" className="text-sm text-cyan-400 font-medium hover:text-cyan-300 transition-colors">
+                                    Quên mật khẩu?
                                 </Link>
                             </div>
 
-                            {/* Submit */}
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className={`w-full py-2.5 rounded-xl font-semibold text-white text-sm transition-all shadow-lg bg-gradient-to-r from-cyan-500 via-sky-500 to-cyan-600 hover:from-cyan-600 hover:via-sky-600 hover:to-cyan-700 shadow-cyan-500/30 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed mt-1 ${loading ? '' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
+                                className={`w-full py-3.5 rounded-xl font-semibold text-white text-base transition-all shadow-lg bg-gradient-to-r from-cyan-500 via-sky-500 to-cyan-600 hover:from-cyan-600 hover:via-sky-600 hover:to-cyan-700 shadow-cyan-500/30 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed ${loading ? '' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        {t('login', 'signingIn')}
+                                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Đang đăng nhập...
                                     </span>
-                                ) : t('login', 'signIn')}
+                                ) : 'Đăng nhập'}
                             </button>
                         </form>
 
-                        <p className="text-center mt-5 text-xs text-slate-500">
-                            © 2026 ZFENIX · <span className="italic">{t('login', 'copyright')}</span>
+                        <p className="text-center mt-6 text-xs text-slate-500">
+                            © 2026 ZFENIX · <span className="italic">Trustworthy Pinnacle</span>
                         </p>
                     </div>
                 </div>

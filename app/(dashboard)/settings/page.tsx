@@ -5,11 +5,8 @@ import CustomFieldsSettings from '@/components/settings/CustomFieldsSettings';
 import AISettings from '@/components/settings/AISettings';
 import PaymentChecklistSettings from '@/components/settings/PaymentChecklistSettings';
 import CompanyProfileSettings from '@/components/settings/CompanyProfileSettings';
-import { useLanguage } from '@/hooks/useLanguage';
-import { SUPPORTED_LANGUAGES } from '@/lib/i18n';
 
 export default function SettingsPage() {
-    const { lang, setLanguage } = useLanguage();
     const [activeTab, setActiveTab] = useState<'general' | 'ai'>('general');
     const [settings, setSettings] = useState({
         // General settings
@@ -17,18 +14,18 @@ export default function SettingsPage() {
         defaultCurrency: 'VND',
         defaultLocation: 'Hà Nội',
         defaultPaymentTerms: 30,
-
+        
         // Quotation settings
         autoGenerateQuotationNo: true,
         quotationNoPrefix: 'BG',
         defaultQuotationTitle: 'BÁO GIÁ DỊCH VỤ MÔ HÌNH BIM',
         defaultTotalArea: 87750,
-
+        
         // Export settings
         defaultDocxTemplate: 'default',
         defaultPdfTemplate: 'default',
         includeCompanyLogo: true,
-
+        
         // Notification settings
         emailNotifications: false,
         emailOnQuotationCreated: false,
@@ -53,14 +50,14 @@ export default function SettingsPage() {
     const handleSave = async () => {
         setLoading(true);
         setSaveStatus('saving');
-
+        
         try {
             // Save to localStorage (or API in the future)
             localStorage.setItem('app_settings', JSON.stringify(settings));
-
+            
             // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 500));
-
+            
             setSaveStatus('saved');
             setTimeout(() => setSaveStatus('idle'), 2000);
         } catch (error) {
@@ -85,7 +82,7 @@ export default function SettingsPage() {
     );
 
     const tabs = [
-        { id: 'general' as const, label: lang === 'en' ? 'General' : 'Chung', icon: '⚙️' },
+        { id: 'general' as const, label: 'Chung', icon: '⚙️' },
         { id: 'ai' as const, label: 'AI', icon: '🤖' },
     ];
 
@@ -96,12 +93,13 @@ export default function SettingsPage() {
                 <button
                     onClick={handleSave}
                     disabled={loading}
-                    className={`px-6 py-2 rounded-lg font-medium transition-all ${saveStatus === 'saved'
+                    className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                        saveStatus === 'saved'
                             ? 'bg-green-600 text-white'
                             : saveStatus === 'error'
-                                ? 'bg-red-600 text-white'
-                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                        } disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+                            ? 'bg-red-600 text-white'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                    } disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
                 >
                     {saveStatus === 'saving' && <span className="animate-spin">⏳</span>}
                     {saveStatus === 'saved' && <span>✓</span>}
@@ -132,40 +130,9 @@ export default function SettingsPage() {
             {/* ═══════ Tab: Chung ═══════ */}
             {activeTab === 'general' && (
                 <div className="space-y-6">
-
-                    {/* Section 0: Language */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <SectionHeader icon="🌐" title={lang === 'en' ? 'Language & Region' : 'Ngôn ngữ & Khu vực'} />
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-800">
-                                    {lang === 'en' ? 'Interface Language' : 'Ngôn ngữ giao diện'}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                    {lang === 'en' ? 'Choose the display language for the application' : 'Chọn ngôn ngữ hiển thị của ứng dụng'}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-1">
-                                {SUPPORTED_LANGUAGES.map((l) => (
-                                    <button
-                                        key={l.code}
-                                        onClick={() => setLanguage(l.code)}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${lang === l.code
-                                                ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-800 hover:bg-white'
-                                            }`}
-                                    >
-                                        <span>{l.flag}</span>
-                                        <span>{l.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Section 1: Chung */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <SectionHeader icon="⚙️" title={lang === 'en' ? 'General' : 'Chung'} />
+                        <SectionHeader icon="⚙️" title="Chung" />
                         <div className="grid grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
