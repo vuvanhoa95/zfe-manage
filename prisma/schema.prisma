@@ -81,6 +81,16 @@ model User {
   /// Token đang active — dùng cho single-device lock
   revitActiveToken   String?
 
+  // ===== MCP AI LICENSE =====
+  /// Có quyền sử dụng MCP AI?
+  mcpLicenseActive   Boolean   @default(false)
+  /// Gói MCP: 1M, 3M, 6M, 1Y, LIFETIME
+  mcpLicensePlan     String?
+  /// Ngày bắt đầu MCP license
+  mcpLicenseStart    DateTime?
+  /// Ngày hết hạn MCP (null = trọn đời)
+  mcpLicenseExpiry   DateTime?
+
   @@map("users")
 }
 
@@ -801,6 +811,16 @@ model RevitUser {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
+  // ===== MCP AI LICENSE =====
+  /// Có quyền sử dụng MCP AI?
+  mcpLicenseActive   Boolean   @default(false)
+  /// Gói MCP: 1M, 3M, 6M, 1Y, LIFETIME
+  mcpLicensePlan     String?
+  /// Ngày bắt đầu MCP license
+  mcpLicenseStart    DateTime?
+  /// Ngày hết hạn MCP (null = trọn đời)
+  mcpLicenseExpiry   DateTime?
+
   @@map("revit_users")
 }
 
@@ -815,6 +835,8 @@ model RevitLicenseKey {
   key       String    @unique
   /// Gói license: 1M, 3M, 6M, 1Y, LIFETIME
   plan      String
+  /// Loại key: TOOLS, MCP, BUNDLE (cả 2)
+  type      String    @default("TOOLS")
   /// Email người dùng đã kích hoạt
   usedBy    String?
   /// Thời điểm kích hoạt

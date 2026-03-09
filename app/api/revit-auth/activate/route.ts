@@ -86,26 +86,46 @@ export async function POST(req: Request) {
             expiryDate.setMonth(expiryDate.getMonth() + months);
         }
 
-        // 6. Update user license (depends on source table)
+        // 6. Update user license based on key TYPE (TOOLS / MCP / BUNDLE)
+        const keyType = (licenseKey as any).type || 'TOOLS'; // type field
+        const updateTools = keyType === 'TOOLS' || keyType === 'BUNDLE';
+        const updateMcp = keyType === 'MCP' || keyType === 'BUNDLE';
+
         if (found.source === 'staff') {
+            const data: any = {};
+            if (updateTools) {
+                data.revitLicenseActive = true;
+                data.revitLicensePlan = licenseKey.plan;
+                data.revitLicenseStart = startDate;
+                data.revitLicenseExpiry = expiryDate;
+            }
+            if (updateMcp) {
+                data.mcpLicenseActive = true;
+                data.mcpLicensePlan = licenseKey.plan;
+                data.mcpLicenseStart = startDate;
+                data.mcpLicenseExpiry = expiryDate;
+            }
             await prisma.user.update({
                 where: { id: found.id },
-                data: {
-                    revitLicenseActive: true,
-                    revitLicensePlan: licenseKey.plan,
-                    revitLicenseStart: startDate,
-                    revitLicenseExpiry: expiryDate,
-                },
+                data,
             });
         } else {
+            const data: any = {};
+            if (updateTools) {
+                data.licenseActive = true;
+                data.licensePlan = licenseKey.plan;
+                data.licenseStart = startDate;
+                data.licenseExpiry = expiryDate;
+            }
+            if (updateMcp) {
+                data.mcpLicenseActive = true;
+                data.mcpLicensePlan = licenseKey.plan;
+                data.mcpLicenseStart = startDate;
+                data.mcpLicenseExpiry = expiryDate;
+            }
             await prisma.revitUser.update({
                 where: { id: found.id },
-                data: {
-                    licenseActive: true,
-                    licensePlan: licenseKey.plan,
-                    licenseStart: startDate,
-                    licenseExpiry: expiryDate,
-                },
+                data,
             });
         }
 
@@ -118,17 +138,24 @@ export async function POST(req: Request) {
             },
         });
 
-        console.log(`[Revit Activate] ${found.email} activated key ${normalizedKey} → plan ${licenseKey.plan}`);
+        const typeLabel = keyType === 'BUNDLE' ? 'Tools + MCP AI' : keyType === 'MCP' ? 'MCP AI' : 'Tools';
+        console.log(`[Revit Activate] ${found.email} activated key ${normalizedKey} → ${keyType}/${licenseKey.plan}`);
 
         return NextResponse.json({
             success: true,
-            message: `Kích hoạt thành công! Gói: ${PLAN_LABELS[licenseKey.plan] || licenseKey.plan}`,
-            license: {
+            message: `Kích hoạt thành công! Gói: ${PLAN_LABELS[licenseKey.plan] || licenseKey.plan} (${typeLabel})`,
+            license: updateTools ? {
                 plan: licenseKey.plan,
                 active: true,
                 start: startDate.toISOString(),
                 expiry: expiryDate?.toISOString() || null,
-            },
+            } : undefined,
+            mcpLicense: updateMcp ? {
+                plan: licenseKey.plan,
+                active: true,
+                start: startDate.toISOString(),
+                expiry: expiryDate?.toISOString() || null,
+            } : undefined,
         });
     } catch (error) {
         console.error('[Revit Activate] Error:', error);

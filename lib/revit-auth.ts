@@ -35,12 +35,14 @@ export interface RevitLoginResult {
   expiresAt?: string;
   message?: string;
   license?: RevitLicenseInfo;
+  mcpLicense?: RevitLicenseInfo;
 }
 
 export interface RevitVerifyResult {
   valid: boolean;
   user?: RevitUser;
   message?: string;
+  mcpLicense?: { active: boolean; expiry: string | null };
 }
 
 /**
@@ -71,6 +73,10 @@ async function findByEmail(email: string) {
       licenseExpiry: staffUser.revitLicenseExpiry,
       activeToken: staffUser.revitActiveToken,
       machineId: staffUser.revitMachineId,
+      mcpLicenseActive: staffUser.mcpLicenseActive,
+      mcpLicensePlan: staffUser.mcpLicensePlan,
+      mcpLicenseStart: staffUser.mcpLicenseStart,
+      mcpLicenseExpiry: staffUser.mcpLicenseExpiry,
     };
   }
 
@@ -95,6 +101,10 @@ async function findByEmail(email: string) {
       licenseExpiry: revitUser.licenseExpiry,
       activeToken: revitUser.activeToken,
       machineId: revitUser.machineId,
+      mcpLicenseActive: revitUser.mcpLicenseActive,
+      mcpLicensePlan: revitUser.mcpLicensePlan,
+      mcpLicenseStart: revitUser.mcpLicenseStart,
+      mcpLicenseExpiry: revitUser.mcpLicenseExpiry,
     };
   }
 
@@ -115,6 +125,10 @@ async function findByEmail(email: string) {
       licenseExpiry: null as Date | null,
       activeToken: null as string | null,
       machineId: null as string | null,
+      mcpLicenseActive: staffUser.mcpLicenseActive,
+      mcpLicensePlan: staffUser.mcpLicensePlan,
+      mcpLicenseStart: staffUser.mcpLicenseStart,
+      mcpLicenseExpiry: staffUser.mcpLicenseExpiry,
     };
   }
 
@@ -141,6 +155,8 @@ export async function findByToken(token: string) {
       status: staffUser.status,
       licenseActive: staffUser.revitLicenseActive,
       licenseExpiry: staffUser.revitLicenseExpiry,
+      mcpLicenseActive: staffUser.mcpLicenseActive,
+      mcpLicenseExpiry: staffUser.mcpLicenseExpiry,
     };
   }
 
@@ -160,6 +176,8 @@ export async function findByToken(token: string) {
       status: revitUser.status,
       licenseActive: revitUser.licenseActive,
       licenseExpiry: revitUser.licenseExpiry,
+      mcpLicenseActive: revitUser.mcpLicenseActive,
+      mcpLicenseExpiry: revitUser.mcpLicenseExpiry,
     };
   }
 
@@ -286,6 +304,12 @@ export async function revitLogin(
       start: found.licenseStart?.toISOString() || null,
       expiry: found.licenseExpiry?.toISOString() || null,
     },
+    mcpLicense: {
+      plan: found.mcpLicensePlan || null,
+      active: found.mcpLicenseActive,
+      start: found.mcpLicenseStart?.toISOString() || null,
+      expiry: found.mcpLicenseExpiry?.toISOString() || null,
+    },
   };
 }
 
@@ -338,6 +362,10 @@ export async function revitVerify(token: string): Promise<RevitVerifyResult> {
       name: found.name || found.email.split('@')[0],
       role: found.role,
       company: found.department || null,
+    },
+    mcpLicense: {
+      active: found.mcpLicenseActive,
+      expiry: found.mcpLicenseExpiry?.toISOString() || null,
     },
   };
 }
