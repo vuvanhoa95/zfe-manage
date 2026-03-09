@@ -35,13 +35,13 @@ export const authOptions: NextAuthOptions = {
             async authorize(credentials) {
                 // Debug logging
                 if (process.env.NODE_ENV === 'development') {
-                    console.log('Authorize called with:', { 
-                        hasEmail: !!credentials?.email, 
+                    console.log('Authorize called with:', {
+                        hasEmail: !!credentials?.email,
                         hasPassword: !!credentials?.password,
                         emailLength: credentials?.email?.length || 0
                     });
                 }
-                
+
                 const email = credentials?.email?.trim();
                 const password = credentials?.password?.trim();
 
@@ -160,13 +160,13 @@ export const authOptions: NextAuthOptions = {
                             console.error('Prisma error meta:', error.meta);
                         }
                     }
-                    
+
                     // Extract error code và message
                     // Prisma errors có code trong error.code
                     // Custom errors có thể có code trong error.code hoặc message
                     const errorMessage = error?.message || '';
                     let errorCode = error?.code || '';
-                    
+
                     // Check for Prisma error codes (P1001, P1002, etc.)
                     if (!errorCode && errorMessage) {
                         // Try to extract Prisma error code from message
@@ -175,9 +175,9 @@ export const authOptions: NextAuthOptions = {
                             errorCode = prismaCodeMatch[0];
                         }
                     }
-                    
+
                     // Check if it's a database connection error
-                    const isDatabaseError = 
+                    const isDatabaseError =
                         errorCode === 'DATABASE_URL_MISSING' ||
                         errorCode === 'DATABASE_FILE_NOT_FOUND' ||
                         errorCode === 'P1001' || // Can't reach database server
@@ -198,21 +198,21 @@ export const authOptions: NextAuthOptions = {
                         errorMessage.includes('ENOTFOUND') ||
                         errorMessage.includes('timeout') ||
                         errorMessage.includes('schema');
-                    
+
                     if (isDatabaseError) {
                         // Encode error code vào message để login page có thể parse
                         // Format: "database|ERROR_CODE|ERROR_MESSAGE"
-                        const encodedError = errorCode 
+                        const encodedError = errorCode
                             ? `database|${errorCode}|${errorMessage || 'Database connection error'}`
                             : `database|UNKNOWN|${errorMessage || 'Database connection error'}`;
                         throw new Error(encodedError);
                     }
-                    
+
                     // Check if it's a credentials error (user not found or wrong password)
                     if (errorMessage.includes('Không tìm thấy') || errorMessage.includes('Mật khẩu')) {
                         throw error; // Re-throw original error
                     }
-                    
+
                     // For other errors, throw generic error
                     throw new Error('Có lỗi xảy ra trong quá trình xác thực. Vui lòng thử lại sau.');
                 }
@@ -221,6 +221,8 @@ export const authOptions: NextAuthOptions = {
     ],
     callbacks: {
         async signIn({ user, account, profile }) {
+            console.log(`[NextAuth signIn] provider=${account?.provider}, email=${user?.email}, userId=${user?.id}`);
+
             // Super Admin: Always ADMIN + ACTIVE — không thể xóa, luôn active
             const SUPER_ADMIN_EMAILS = [
                 '7604vuhoa@gmail.com',   // Google Admin
@@ -230,7 +232,10 @@ export const authOptions: NextAuthOptions = {
             // Only handle OAuth providers (Google, Microsoft)
             if (account?.provider !== 'credentials') {
                 const userEmail = user?.email?.toLowerCase();
-                if (!userEmail) return false;
+                if (!userEmail) {
+                    console.error('[NextAuth signIn] No email from OAuth provider');
+                    return false;
+                }
 
                 // Email thực từ Google/Microsoft profile
                 // Đây là email người dùng THỰC SỰ đăng nhập bằng
@@ -375,8 +380,31 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: 'jwt',
     },
+    events: {
+        async signIn({ user, account }) {
+            console.log(`[NextAuth Event] signIn success: ${user?.email} via ${account?.provider}`);
+        },
+        async linkAccount({ user, account }) {
+            console.log(`[NextAuth Event] linkAccount: ${user?.email} with ${account?.provider}`);
+        },
+        async createUser({ user }) {
+            console.log(`[NextAuth Event] createUser: ${user?.email}`);
+        },
+    },
+    logger: {
+        error(code, metadata) {
+            console.error(`[NextAuth Error] code=${code}`, JSON.stringify(metadata, null, 2));
+        },
+        warn(code) {
+            console.warn(`[NextAuth Warn] ${code}`);
+        },
+        debug(code, metadata) {
+            // Log debug trên production tạm thời để debug Google login
+            console.log(`[NextAuth Debug] ${code}`, JSON.stringify(metadata));
+        },
+    },
     // Chỉ set secret nếu có trong môi trường.
     // Trong development nếu thiếu, NextAuth sẽ tự generate secret tạm thời.
     ...(process.env.NEXTAUTH_SECRET ? { secret: process.env.NEXTAUTH_SECRET } : {}),
-    debug: isDevelopment,
+    debug: true, // TẠM BẬT để debug Google login - tắt sau khi fix xong
 };
