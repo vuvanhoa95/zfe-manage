@@ -124,7 +124,19 @@ function LoginForm() {
                     setError(errorMessage || 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
                 }
             } else if (result?.ok) {
-                router.push('/');
+                // Lấy session để biết userType → redirect đúng chỗ
+                try {
+                    const sessionRes = await fetch('/api/auth/session');
+                    const sessionData = await sessionRes.json();
+                    const userType = sessionData?.user?.userType;
+                    if (userType === 'revit') {
+                        router.push('/revit-portal');
+                    } else {
+                        router.push('/');
+                    }
+                } catch {
+                    router.push('/');
+                }
                 router.refresh();
             } else {
                 console.error('Login failed - no error, no ok:', result);
@@ -143,7 +155,8 @@ function LoginForm() {
         setSocialLoading(provider);
         setError('');
         try {
-            await signIn(provider, { callbackUrl: '/' });
+            // Dùng /api/auth/session-redirect để post-login redirect đúng theo userType
+            await signIn(provider, { callbackUrl: '/api/auth/session-redirect' });
         } catch (err) {
             setSocialLoading(null);
             setError('Không thể khởi tạo đăng nhập mạng xã hội.');
