@@ -2,6 +2,44 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+/**
+ * Helper: tìm user theo resetPasswordToken từ CẢ 2 bảng.
+ * Trả về source = 'staff' (User) hoặc 'revit' (RevitUser).
+ */
+async function findByResetToken(token: string) {
+    // 1. Tìm trong bảng User (nhân sự)
+    const staffUser = await prisma.user.findUnique({
+        where: { resetPasswordToken: token },
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            resetPasswordExpiry: true,
+        },
+    });
+
+    if (staffUser) {
+        return { source: 'staff' as const, ...staffUser };
+    }
+
+    // 2. Tìm trong bảng RevitUser (standalone)
+    const revitUser = await prisma.revitUser.findUnique({
+        where: { resetPasswordToken: token },
+        select: {
+            id: true,
+            email: true,
+            name: true,
+            resetPasswordExpiry: true,
+        },
+    });
+
+    if (revitUser) {
+        return { source: 'revit' as const, ...revitUser };
+    }
+
+    return null;
+}
+
 // POST /api/auth/reset-password — Đặt mật khẩu mới bằng token
 export async function POST(request: Request) {
     try {
@@ -21,17 +59,10 @@ export async function POST(request: Request) {
             );
         }
 
-        // Find user by reset token
-        const user = await prisma.user.findUnique({
-            where: { resetPasswordToken: token },
-            select: {
-                id: true,
-                email: true,
-                resetPasswordExpiry: true,
-            },
-        });
+        // Find user by reset token (dual-table lookup)
+        const found = await findByResetToken(token);
 
-        if (!user) {
+        if (!found) {
             return NextResponse.json(
                 { success: false, error: 'Link không hợp lệ hoặc đã được sử dụng' },
                 { status: 400 }
@@ -39,7 +70,7 @@ export async function POST(request: Request) {
         }
 
         // Check expiry
-        if (user.resetPasswordExpiry && user.resetPasswordExpiry < new Date()) {
+        if (found.resetPasswordExpiry && found.resetPasswordExpiry < new Date()) {
             return NextResponse.json(
                 { success: false, error: 'Link đã hết hạn. Vui lòng liên hệ admin để được cấp lại.' },
                 { status: 400 }
@@ -50,17 +81,29 @@ export async function POST(request: Request) {
         const hashedPassword = await bcrypt.hash(password, 12);
 
         // Update password + clear token + activate account
-        await prisma.user.update({
-            where: { id: user.id },
-            data: {
-                password: hashedPassword,
-                resetPasswordToken: null,
-                resetPasswordExpiry: null,
-                status: 'ACTIVE', // Auto-activate when password is set
-            },
-        });
+        if (found.source === 'staff') {
+            await prisma.user.update({
+                where: { id: found.id },
+                data: {
+                    password: hashedPassword,
+                    resetPasswordToken: null,
+                    resetPasswordExpiry: null,
+                    status: 'ACTIVE', // Auto-activate when password is set
+                },
+            });
+        } else {
+            await prisma.revitUser.update({
+                where: { id: found.id },
+                data: {
+                    password: hashedPassword,
+                    resetPasswordToken: null,
+                    resetPasswordExpiry: null,
+                    status: 'ACTIVE',
+                },
+            });
+        }
 
-        console.log(`[ResetPassword] Password updated for ${user.email}`);
+        console.log(`[ResetPassword] Password updated for ${found.email} (${found.source})`);
 
         return NextResponse.json({
             success: true,
@@ -88,24 +131,17 @@ export async function GET(request: Request) {
             );
         }
 
-        const user = await prisma.user.findUnique({
-            where: { resetPasswordToken: token },
-            select: {
-                id: true,
-                email: true,
-                name: true,
-                resetPasswordExpiry: true,
-            },
-        });
+        // Dual-table lookup
+        const found = await findByResetToken(token);
 
-        if (!user) {
+        if (!found) {
             return NextResponse.json(
                 { success: false, error: 'Token không hợp lệ hoặc đã được sử dụng' },
                 { status: 400 }
             );
         }
 
-        if (user.resetPasswordExpiry && user.resetPasswordExpiry < new Date()) {
+        if (found.resetPasswordExpiry && found.resetPasswordExpiry < new Date()) {
             return NextResponse.json(
                 { success: false, error: 'Link đã hết hạn' },
                 { status: 400 }
@@ -114,7 +150,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({
             success: true,
-            data: { email: user.email, name: user.name },
+            data: { email: found.email, name: found.name },
         });
     } catch (error: any) {
         console.error('[ResetPassword] Verify error:', error);
@@ -124,3 +160,4 @@ export async function GET(request: Request) {
         );
     }
 }
+
