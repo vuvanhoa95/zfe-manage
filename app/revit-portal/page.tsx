@@ -141,7 +141,7 @@ export default function RevitPortalPage() {
             </div>
 
             {/* Portal Card */}
-            <div className="relative z-10 w-full max-w-lg px-4 sm:px-6">
+            <div className="relative z-10 w-full max-w-lg">
                 <div className="backdrop-blur-2xl rounded-3xl shadow-2xl border bg-slate-900/85 border-cyan-500/20 shadow-[0_25px_50px_-12px_rgba(56,189,248,0.25)]">
                     {/* Header */}
                     <div className="pt-8 px-6 pb-4 text-center border-b border-white/5">
@@ -177,28 +177,25 @@ export default function RevitPortalPage() {
                         ) : licenseData ? (
                             <>
                                 {/* License Status Banner */}
-                                <div className={`rounded-2xl p-5 border ${
-                                    !licenseData.licenseActive || isExpired
+                                <div className={`rounded-2xl p-5 border ${!licenseData.licenseActive || isExpired
                                         ? 'bg-red-500/10 border-red-500/30'
                                         : isExpiringSoon
                                             ? 'bg-amber-500/10 border-amber-500/30'
                                             : 'bg-emerald-500/10 border-emerald-500/30'
-                                }`}>
+                                    }`}>
                                     <div className="flex items-center gap-3 mb-3">
-                                        <div className={`w-3 h-3 rounded-full animate-pulse ${
-                                            !licenseData.licenseActive || isExpired
+                                        <div className={`w-3 h-3 rounded-full animate-pulse ${!licenseData.licenseActive || isExpired
                                                 ? 'bg-red-500'
                                                 : isExpiringSoon
                                                     ? 'bg-amber-500'
                                                     : 'bg-emerald-500'
-                                        }`} />
-                                        <span className={`font-bold text-lg ${
-                                            !licenseData.licenseActive || isExpired
+                                            }`} />
+                                        <span className={`font-bold text-lg ${!licenseData.licenseActive || isExpired
                                                 ? 'text-red-400'
                                                 : isExpiringSoon
                                                     ? 'text-amber-400'
                                                     : 'text-emerald-400'
-                                        }`}>
+                                            }`}>
                                             {!licenseData.licenseActive
                                                 ? '🔒 License Bị Khóa'
                                                 : isExpired

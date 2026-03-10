@@ -81,11 +81,11 @@ export async function POST(request: Request) {
 
         // Plan label for email
         const PLAN_LABELS: Record<string, string> = {
-            '1M': '📅 1 tháng',
-            '3M': '📆 3 tháng',
-            '6M': '🗓️ 6 tháng',
-            '1Y': '📋 1 năm',
-            'LIFETIME': '♾️ Trọn đời',
+            '1M': '1 Month',
+            '3M': '3 Months',
+            '6M': '6 Months',
+            '1Y': '1 Year',
+            'LIFETIME': 'Lifetime',
         };
         const planLabel = PLAN_LABELS[plan] || plan;
 

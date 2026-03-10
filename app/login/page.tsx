@@ -238,7 +238,7 @@ function LoginForm() {
             </div>
 
             {/* Login Card - Glassmorphism Dark */}
-            <div className="relative z-10 w-full max-w-md px-4 sm:px-6">
+            <div className="relative z-10 w-full max-w-md">
                 <div className="backdrop-blur-2xl rounded-3xl shadow-2xl border bg-slate-900/85 border-cyan-500/20 shadow-[0_25px_50px_-12px_rgba(56,189,248,0.25)]">
                     <div className="pt-8 px-6 pb-0 text-center">
                         <h1 className="text-5xl sm:text-6xl font-bold tracking-tight uppercase select-none zfenix-logo mb-2">

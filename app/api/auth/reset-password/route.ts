@@ -15,6 +15,9 @@ async function findByResetToken(token: string) {
             email: true,
             name: true,
             resetPasswordExpiry: true,
+            revitLicensePlan: true,
+            revitLicenseStart: true,
+            revitLicenseExpiry: true,
         },
     });
 
@@ -30,6 +33,9 @@ async function findByResetToken(token: string) {
             email: true,
             name: true,
             resetPasswordExpiry: true,
+            licensePlan: true,
+            licenseStart: true,
+            licenseExpiry: true,
         },
     });
 
@@ -148,9 +154,26 @@ export async function GET(request: Request) {
             );
         }
 
+        // Normalize license fields across both user sources
+        const licensePlan = found.source === 'staff'
+            ? (found as any).revitLicensePlan
+            : (found as any).licensePlan;
+        const licenseStart = found.source === 'staff'
+            ? (found as any).revitLicenseStart
+            : (found as any).licenseStart;
+        const licenseExpiry = found.source === 'staff'
+            ? (found as any).revitLicenseExpiry
+            : (found as any).licenseExpiry;
+
         return NextResponse.json({
             success: true,
-            data: { email: found.email, name: found.name },
+            data: {
+                email: found.email,
+                name: found.name,
+                licensePlan: licensePlan || '1M',
+                licenseStart: licenseStart?.toISOString() || null,
+                licenseExpiry: licenseExpiry?.toISOString() || null,
+            },
         });
     } catch (error: any) {
         console.error('[ResetPassword] Verify error:', error);

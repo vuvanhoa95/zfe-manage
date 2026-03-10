@@ -136,7 +136,7 @@ export default function ChangePasswordPage() {
             </div>
 
             {/* Card - Glassmorphism Dark (giống Login) */}
-            <div className="relative z-10 w-full max-w-md px-4 sm:px-6">
+            <div className="relative z-10 w-full max-w-md">
                 <div className="backdrop-blur-2xl rounded-3xl shadow-2xl border bg-slate-900/85 border-cyan-500/20 shadow-[0_25px_50px_-12px_rgba(56,189,248,0.25)]">
                     {/* Header */}
                     <div className="pt-8 px-6 pb-0 text-center">
@@ -220,13 +220,12 @@ export default function ChangePasswordPage() {
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     placeholder="Nhập lại mật khẩu mới"
-                                    className={`w-full px-4 py-3 bg-slate-800/60 border rounded-xl outline-none focus:ring-2 focus:ring-cyan-500/50 text-slate-100 placeholder-slate-500 transition-all ${
-                                        confirmPassword && confirmPassword !== newPassword
+                                    className={`w-full px-4 py-3 bg-slate-800/60 border rounded-xl outline-none focus:ring-2 focus:ring-cyan-500/50 text-slate-100 placeholder-slate-500 transition-all ${confirmPassword && confirmPassword !== newPassword
                                             ? 'border-red-500/50'
                                             : confirmPassword && confirmPassword === newPassword
-                                              ? 'border-emerald-500/50'
-                                              : 'border-white/10 hover:border-cyan-500/30'
-                                    }`}
+                                                ? 'border-emerald-500/50'
+                                                : 'border-white/10 hover:border-cyan-500/30'
+                                        }`}
                                     required
                                     minLength={6}
                                 />

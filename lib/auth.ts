@@ -276,20 +276,35 @@ export const authOptions: NextAuthOptions = {
                     (SUPER_ADMIN_EMAILS.includes(realEmail) && (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE));
 
                 if (needsUpdate) {
-                    const updateData: Record<string, any> = {}; // Changed to any to allow UserStatus
-                    if (dbUser.email !== realEmail) updateData.email = realEmail;
+                    const updateData: Record<string, any> = {};
                     if (realName && dbUser.name !== realName) updateData.name = realName;
                     if (SUPER_ADMIN_EMAILS.includes(realEmail)) {
                         updateData.role = 'ADMIN';
                         updateData.status = UserStatus.ACTIVE;
                     }
-                    await prisma.user.update({
-                        where: { id: dbUser.id },
-                        data: updateData,
-                    });
-                    // Cập nhật local ref
-                    Object.assign(dbUser, updateData);
+                    // Chỉ update email nếu thực sự cần VÀ không bị unique conflict
+                    if (dbUser.email !== realEmail) {
+                        // Kiểm tra xem realEmail đã tồn tại ở user khác chưa
+                        const existingEmail = await prisma.user.findUnique({
+                            where: { email: realEmail },
+                            select: { id: true }
+                        });
+                        if (!existingEmail || existingEmail.id === dbUser.id) {
+                            // An toàn để update email
+                            updateData.email = realEmail;
+                        }
+                        // Nếu email đã thuộc user khác, bỏ qua email update
+                    }
+                    if (Object.keys(updateData).length > 0) {
+                        await prisma.user.update({
+                            where: { id: dbUser.id },
+                            data: updateData,
+                        });
+                        // Cập nhật local ref
+                        Object.assign(dbUser, updateData);
+                    }
                 }
+
 
                 // Kiểm tra status (sau khi update)
                 if (dbUser.status !== UserStatus.ACTIVE) {
@@ -312,6 +327,7 @@ export const authOptions: NextAuthOptions = {
                 token.role = (user as any).role;
                 token.status = (user as any).status;
                 token.mustChangePassword = (user as any).mustChangePassword ?? false;
+                // OAuth users từ PrismaAdapter không có userType → mặc định 'staff'
                 token.userType = (user as any).userType ?? 'staff';
             }
 
@@ -329,6 +345,8 @@ export const authOptions: NextAuthOptions = {
             }
 
             // Refresh role/status từ DB mỗi lần sign-in (tránh stale token)
+            // QUAN TRỌNG: OAuth users (Google/Microsoft) không có role/status từ PrismaAdapter
+            // → BẮT BUỘC phải refresh từ DB để lấy đầy đủ thông tin
             if (user && token.id) {
                 try {
                     if (token.userType === 'revit') {
@@ -342,6 +360,7 @@ export const authOptions: NextAuthOptions = {
                         }
                     } else {
                         // Staff user — refresh từ users table
+                        // Với OAuth login, đây là lúc DUY NHẤT lấy được role/status từ DB
                         const dbUser = await prisma.user.findUnique({
                             where: { id: token.id as string },
                             select: { role: true, status: true, mustChangePassword: true }
@@ -350,9 +369,26 @@ export const authOptions: NextAuthOptions = {
                             token.role = dbUser.role;
                             token.status = dbUser.status;
                             token.mustChangePassword = dbUser.mustChangePassword;
+                        } else if (account?.provider !== 'credentials') {
+                            // OAuth user vừa được tạo bởi PrismaAdapter nhưng chưa có trong DB
+                            // Thử tìm theo email
+                            const emailToSearch = (token.email as string)?.toLowerCase();
+                            if (emailToSearch) {
+                                const dbUserByEmail = await prisma.user.findUnique({
+                                    where: { email: emailToSearch },
+                                    select: { id: true, role: true, status: true, mustChangePassword: true }
+                                });
+                                if (dbUserByEmail) {
+                                    token.id = dbUserByEmail.id;
+                                    token.role = dbUserByEmail.role;
+                                    token.status = dbUserByEmail.status;
+                                    token.mustChangePassword = dbUserByEmail.mustChangePassword;
+                                }
+                            }
                         }
                     }
-                } catch {
+                } catch (err) {
+                    console.error('[NextAuth jwt] DB refresh failed:', err);
                     // Ignore DB errors - dùng giá trị đã có trong token
                 }
             }
@@ -399,12 +435,56 @@ export const authOptions: NextAuthOptions = {
             console.warn(`[NextAuth Warn] ${code}`);
         },
         debug(code, metadata) {
-            // Log debug trên production tạm thời để debug Google login
-            console.log(`[NextAuth Debug] ${code}`, JSON.stringify(metadata));
+            if (isDevelopment) {
+                console.log(`[NextAuth Debug] ${code}`, JSON.stringify(metadata));
+            }
         },
     },
     // Chỉ set secret nếu có trong môi trường.
     // Trong development nếu thiếu, NextAuth sẽ tự generate secret tạm thời.
     ...(process.env.NEXTAUTH_SECRET ? { secret: process.env.NEXTAUTH_SECRET } : {}),
-    debug: true, // TẠM BẬT để debug Google login - tắt sau khi fix xong
+    debug: isDevelopment,
+    // Fix Microsoft (AzureAD) login trên localhost HTTP:
+    // SameSite=None + Secure=true cookies không hoạt động trên HTTP.
+    // NextAuth sẽ tự dùng SameSite=Lax + Secure=false khi NEXTAUTH_URL là HTTP.
+    // Thêm useSecureCookies=false để đảm bảo cookies được gửi đúng trên localhost.
+    useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
+    cookies: {
+        // Fix PKCE state cookie cho OAuth trên localhost HTTP
+        pkceCodeVerifier: {
+            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.pkce.code_verifier`,
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
+            },
+        },
+        state: {
+            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.state`,
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
+            },
+        },
+        callbackUrl: {
+            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.callback-url`,
+            options: {
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
+            },
+        },
+        sessionToken: {
+            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.session-token`,
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
+            },
+        },
+    },
 };

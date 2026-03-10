@@ -103,6 +103,8 @@ model Account {
   refresh_token     String? @db.Text
   access_token      String? @db.Text
   expires_at        Int?
+  /// Microsoft Azure AD: thời gian hết hạn mở rộng (giây)
+  ext_expires_in    Int?
   token_type        String?
   scope             String?
   id_token          String? @db.Text
@@ -113,6 +115,7 @@ model Account {
   @@unique([provider, providerAccountId])
   @@map("accounts")
 }
+
 
 model Session {
   id           String   @id @default(uuid())

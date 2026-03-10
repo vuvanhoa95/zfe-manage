@@ -1,8 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+
+/** Map plan code → human label */
+const PLAN_LABELS: Record<string, string> = {
+    '1M': '1 Month',
+    '3M': '3 Months',
+    '6M': '6 Months',
+    '1Y': '1 Year',
+    'LIFETIME': 'Lifetime',
+};
+
+function formatDate(iso: string | null) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+    });
+}
 
 function ResetPasswordContent() {
     const searchParams = useSearchParams();
@@ -11,6 +27,9 @@ function ResetPasswordContent() {
     const [status, setStatus] = useState<'loading' | 'valid' | 'invalid' | 'success' | 'expired'>('loading');
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
+    const [licensePlan, setLicensePlan] = useState('1M');
+    const [licenseStart, setLicenseStart] = useState<string | null>(null);
+    const [licenseExpiry, setLicenseExpiry] = useState<string | null>(null);
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +41,6 @@ function ResetPasswordContent() {
             setStatus('invalid');
             return;
         }
-        // Verify token
         fetch(`/api/auth/reset-password?token=${token}`)
             .then(res => res.json())
             .then(result => {
@@ -30,6 +48,9 @@ function ResetPasswordContent() {
                     setStatus('valid');
                     setUserName(result.data.name || '');
                     setUserEmail(result.data.email || '');
+                    setLicensePlan(result.data.licensePlan || '1M');
+                    setLicenseStart(result.data.licenseStart || null);
+                    setLicenseExpiry(result.data.licenseExpiry || null);
                 } else if (result.error?.includes('hết hạn')) {
                     setStatus('expired');
                 } else {
@@ -44,11 +65,11 @@ function ResetPasswordContent() {
         setErrorMsg('');
 
         if (password.length < 6) {
-            setErrorMsg('Mật khẩu phải có ít nhất 6 ký tự');
+            setErrorMsg('Password must be at least 6 characters');
             return;
         }
         if (password !== confirmPassword) {
-            setErrorMsg('Mật khẩu xác nhận không khớp');
+            setErrorMsg('Passwords do not match');
             return;
         }
 
@@ -63,107 +84,251 @@ function ResetPasswordContent() {
             if (result.success) {
                 setStatus('success');
             } else {
-                setErrorMsg(result.error || 'Có lỗi xảy ra');
+                setErrorMsg(result.error || 'An error occurred');
             }
         } catch {
-            setErrorMsg('Không thể kết nối server');
+            setErrorMsg('Could not connect to server');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
-            <div className="w-full max-w-md">
-                {/* Logo */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30 mb-4">
-                        <span className="text-3xl">🔑</span>
-                    </div>
-                    <h1 className="text-2xl font-bold text-white">ZFENIX Revit License</h1>
-                    <p className="text-indigo-300 text-sm mt-1">Đặt mật khẩu tài khoản</p>
-                </div>
+    // ── Canvas particle trail ──
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const particlesRef = useRef<Array<{
+        x: number; y: number; vx: number; vy: number;
+        life: number; size: number; color: string;
+    }>>([]);
+    const animFrameRef = useRef<number | undefined>(undefined);
 
-                {/* Card */}
-                <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const resize = () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        };
+        resize();
+        window.addEventListener('resize', resize);
+
+        const onMouseMove = (e: MouseEvent) => {
+            for (let i = 0; i < 2; i++) {
+                particlesRef.current.push({
+                    x: e.clientX, y: e.clientY,
+                    vx: (Math.random() - 0.5) * 2.5,
+                    vy: (Math.random() - 0.5) * 2.5,
+                    life: 1,
+                    size: 2.5 + Math.random() * 1.5,
+                    color: `hsl(${195 + Math.random() * 30}, 85%, ${55 + Math.random() * 15}%)`,
+                });
+            }
+        };
+        window.addEventListener('mousemove', onMouseMove);
+
+        const animate = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particlesRef.current = particlesRef.current.filter((p) => {
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.02; p.size *= 0.98;
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                return p.life > 0 && p.size > 0.1;
+            });
+            animFrameRef.current = requestAnimationFrame(animate);
+        };
+        animate();
+
+        return () => {
+            window.removeEventListener('resize', resize);
+            window.removeEventListener('mousemove', onMouseMove);
+            if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+        };
+    }, []);
+
+    return (
+        <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+            {/* Navy Dark Background */}
+            <div className="fixed inset-0 z-0">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#001529] via-[#000d1a] to-[#001529]" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(56,189,248,0.15),transparent_45%),radial-gradient(circle_at_80%_85%,rgba(23,138,243,0.12),transparent_50%)]" />
+                <div className="absolute top-20 left-20 w-80 h-80 bg-cyan-500/[0.1] rounded-full blur-3xl" />
+                <div className="absolute bottom-20 right-20 w-96 h-96 bg-sky-500/[0.1] rounded-full blur-3xl" />
+                <div className="absolute inset-0 opacity-[0.02] scan-lines" />
+                <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-[1]" />
+            </div>
+
+            {/* Card */}
+            <div className="relative z-10 w-full max-w-md">
+                <div className="backdrop-blur-2xl rounded-3xl shadow-2xl border bg-slate-900/85 border-cyan-500/20 shadow-[0_25px_50px_-12px_rgba(56,189,248,0.2)] overflow-hidden">
+
+                    {/* Top accent bar */}
+                    <div className="h-1 bg-gradient-to-r from-[#001529] via-[#178AF3] to-[#38BDF8]" />
+
+                    {/* Header */}
+                    <div className="pt-8 px-6 pb-2 text-center">
+                        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight uppercase select-none zfenix-logo mb-1">
+                            <span>ZFENIX</span>
+                        </h1>
+                        <p className="text-cyan-400/60 text-[10px] uppercase tracking-[0.25em] font-medium">
+                            Revit License · Set Password
+                        </p>
+                    </div>
+
+                    {/* ──── LOADING ──── */}
                     {status === 'loading' && (
                         <div className="p-10 text-center">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-400 mx-auto"></div>
-                            <p className="text-indigo-200 mt-4 text-sm">Đang xác thực link...</p>
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-cyan-400 mx-auto" />
+                            <p className="text-slate-400 mt-4 text-sm">Verifying your link...</p>
                         </div>
                     )}
 
-                    {status === 'invalid' && (
+                    {/* ──── INVALID / EXPIRED ──── */}
+                    {(status === 'invalid' || status === 'expired') && (
                         <div className="p-10 text-center">
-                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-500/20 mb-4">
-                                <span className="text-3xl">❌</span>
+                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full mb-4"
+                                style={{ background: status === 'expired' ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)' }}>
+                                <span className="text-3xl">{status === 'expired' ? '⏱️' : '❌'}</span>
                             </div>
-                            <h2 className="text-lg font-bold text-white mb-2">Link không hợp lệ</h2>
-                            <p className="text-gray-400 text-sm">
-                                Link đặt mật khẩu không đúng hoặc đã được sử dụng.<br />
-                                Vui lòng liên hệ admin để được cấp lại.
+                            <h2 className="text-lg font-bold text-white mb-2">
+                                {status === 'expired' ? 'Link Expired' : 'Invalid Link'}
+                            </h2>
+                            <p className="text-slate-400 text-sm">
+                                {status === 'expired'
+                                    ? 'This password reset link has expired (24h).'
+                                    : 'This link is invalid or has already been used.'}
+                                <br />Please contact your administrator for a new link.
                             </p>
                         </div>
                     )}
 
-                    {status === 'expired' && (
-                        <div className="p-10 text-center">
-                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-500/20 mb-4">
-                                <span className="text-3xl">⏱️</span>
-                            </div>
-                            <h2 className="text-lg font-bold text-white mb-2">Link đã hết hạn</h2>
-                            <p className="text-gray-400 text-sm">
-                                Link đặt mật khẩu đã quá 24 giờ.<br />
-                                Vui lòng liên hệ admin để được cấp link mới.
-                            </p>
-                        </div>
-                    )}
-
+                    {/* ──── SUCCESS ──── */}
                     {status === 'success' && (
-                        <div className="p-10 text-center">
-                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-500/20 mb-4">
-                                <span className="text-3xl">✅</span>
+                        <div className="p-8 text-center">
+                            {/* Success Icon */}
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/15 mb-5">
+                                <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
                             </div>
-                            <h2 className="text-lg font-bold text-white mb-2">Đặt mật khẩu thành công!</h2>
-                            <p className="text-gray-400 text-sm mb-4">
-                                Bạn có thể đăng nhập trên Revit Add-in bằng:
+                            <h2 className="text-xl font-bold text-white mb-2">Password Set Successfully!</h2>
+                            <p className="text-slate-400 text-sm mb-6">
+                                You can now log in to the Revit Add-in with your credentials.
                             </p>
-                            <div className="bg-white/5 rounded-xl p-4 text-left space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-indigo-400 text-xs font-medium w-14">Email:</span>
-                                    <span className="text-white text-sm font-mono">{userEmail}</span>
+
+                            {/* Credentials Card */}
+                            <div className="bg-white/5 backdrop-blur rounded-xl border border-white/10 p-5 text-left space-y-3 mb-6">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-cyan-400 text-xs font-semibold w-16 shrink-0">Email</span>
+                                    <span className="text-white text-sm font-mono truncate">{userEmail}</span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-indigo-400 text-xs font-medium w-14">Mật khẩu:</span>
-                                    <span className="text-white text-sm">Mật khẩu bạn vừa tạo</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-cyan-400 text-xs font-semibold w-16 shrink-0">Password</span>
+                                    <span className="text-slate-300 text-sm">The password you just created</span>
                                 </div>
                             </div>
-                            <div className="mt-6 bg-indigo-500/10 rounded-lg p-3 text-xs text-indigo-300">
-                                <p className="font-medium mb-1">📋 Các bước tiếp theo:</p>
-                                <ol className="text-left space-y-1 ml-4 list-decimal text-indigo-300/80">
-                                    <li>Mở Revit → Tab ZFENIX</li>
-                                    <li>Nhấn nút Login</li>
-                                    <li>Nhập email + mật khẩu</li>
-                                    <li>Bắt đầu sử dụng! 🚀</li>
-                                </ol>
+
+                            {/* License Badge */}
+                            <div className="bg-[#178AF3]/10 border border-[#178AF3]/20 rounded-xl p-4 mb-6">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[#38BDF8] text-xs font-semibold uppercase tracking-wider">License Plan</span>
+                                    <span className="text-white text-sm font-bold">{PLAN_LABELS[licensePlan] || licensePlan}</span>
+                                </div>
+                                <div className="h-px bg-white/10 my-2" />
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                        <span className="text-slate-500">Start</span>
+                                        <p className="text-slate-200 font-medium">{formatDate(licenseStart)}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-500">Expires</span>
+                                        <p className="text-slate-200 font-medium">
+                                            {licensePlan === 'LIFETIME' ? '∞ Lifetime' : formatDate(licenseExpiry)}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Steps */}
+                            <div className="bg-white/5 rounded-xl p-4">
+                                <p className="text-cyan-400 text-xs font-semibold mb-3 text-left">Getting Started</p>
+                                <div className="flex items-start justify-between">
+                                    {[
+                                        { n: '1', label: 'Open Revit', last: false },
+                                        { n: '2', label: 'ZFENIX Tab', last: false },
+                                        { n: '3', label: 'Click Login', last: false },
+                                        { n: '4', label: 'Enjoy! 🚀', last: true },
+                                    ].map((s, i) => (
+                                        <>
+                                            <div key={s.n} className="text-center flex-shrink-0">
+                                                <div className={`w-7 h-7 mx-auto mb-1 rounded-full text-xs font-bold flex items-center justify-center ${s.n === '4' ? 'bg-[#178AF3] text-white' : 'bg-white/10 text-cyan-400'
+                                                    }`}>
+                                                    {s.n}
+                                                </div>
+                                                <span className="text-slate-400 text-[10px] whitespace-nowrap">{s.label}</span>
+                                            </div>
+                                            {!s.last && (
+                                                <div key={`arrow-${i}`} className="flex-1 flex items-center justify-center pb-4">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
 
+                    {/* ──── FORM (valid) ──── */}
                     {status === 'valid' && (
-                        <form onSubmit={handleSubmit} className="p-8 space-y-5">
+                        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
                             {/* Welcome */}
-                            <div className="text-center pb-2">
-                                <p className="text-indigo-200 text-sm">
-                                    Xin chào <strong className="text-white">{userName}</strong>
+                            <div className="text-center pb-1">
+                                <p className="text-slate-200 text-sm">
+                                    Welcome, <strong className="text-white">{userName}</strong>
                                 </p>
-                                <p className="text-gray-400 text-xs mt-1">{userEmail}</p>
+                                <p className="text-slate-500 text-xs mt-1">{userEmail}</p>
                             </div>
 
-                            {/* Password */}
+                            {/* License Info Card */}
+                            <div className="bg-[#178AF3]/8 border border-[#178AF3]/15 rounded-xl p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-[#001529] flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-[#38BDF8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <p className="text-white text-sm font-semibold">{PLAN_LABELS[licensePlan] || licensePlan}</p>
+                                            <p className="text-slate-500 text-[10px]">Revit Add-in License</p>
+                                        </div>
+                                    </div>
+                                    {licenseExpiry && licensePlan !== 'LIFETIME' && (
+                                        <div className="text-right">
+                                            <p className="text-slate-500 text-[10px]">Expires</p>
+                                            <p className="text-slate-300 text-xs font-medium">{formatDate(licenseExpiry)}</p>
+                                        </div>
+                                    )}
+                                    {licensePlan === 'LIFETIME' && (
+                                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full uppercase tracking-wider">Lifetime</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Password Field */}
                             <div>
-                                <label className="block text-sm font-medium text-indigo-200 mb-1.5">
-                                    Mật khẩu mới
+                                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                                    New Password
                                 </label>
                                 <div className="relative">
                                     <input
@@ -172,13 +337,13 @@ function ResetPasswordContent() {
                                         minLength={6}
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full px-4 py-3 pr-11 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                        placeholder="Tối thiểu 6 ký tự"
+                                        className="w-full px-4 py-3 pr-11 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all hover:border-cyan-500/30"
+                                        placeholder="Minimum 6 characters"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(p => !p)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
                                     >
                                         {showPassword ? (
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -196,8 +361,8 @@ function ResetPasswordContent() {
 
                             {/* Confirm Password */}
                             <div>
-                                <label className="block text-sm font-medium text-indigo-200 mb-1.5">
-                                    Xác nhận mật khẩu
+                                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                                    Confirm Password
                                 </label>
                                 <input
                                     type={showPassword ? 'text' : 'password'}
@@ -205,14 +370,14 @@ function ResetPasswordContent() {
                                     minLength={6}
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                    placeholder="Nhập lại mật khẩu"
+                                    className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all hover:border-cyan-500/30"
+                                    placeholder="Re-enter your password"
                                 />
                             </div>
 
                             {/* Error */}
                             {errorMsg && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400">
                                     ⚠️ {errorMsg}
                                 </div>
                             )}
@@ -221,29 +386,53 @@ function ResetPasswordContent() {
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:from-indigo-500 hover:to-purple-500 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                className={`w-full py-3.5 rounded-xl font-semibold text-white text-base transition-all shadow-lg bg-gradient-to-r from-cyan-500 via-sky-500 to-cyan-600 hover:from-cyan-600 hover:via-sky-600 hover:to-cyan-700 shadow-cyan-500/25 hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed ${isSubmitting ? '' : 'hover:scale-[1.02] active:scale-[0.98]'}`}
                             >
                                 {isSubmitting ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                                        </svg>
-                                        Đang xử lý...
+                                        <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Processing...
                                     </span>
                                 ) : (
-                                    '🔐 Đặt mật khẩu'
+                                    '🔐 Set Password'
                                 )}
                             </button>
                         </form>
                     )}
-                </div>
 
-                {/* Bottom */}
-                <p className="text-center text-gray-500 text-xs mt-6">
-                    © {new Date().getFullYear()} ZFENIX · Đại Lý Dung Phú
-                </p>
+                    {/* Footer */}
+                    <div className="px-6 pb-6 text-center">
+                        <p className="text-slate-600 text-[10px] mt-2">
+                            © {new Date().getFullYear()} ZFENIX · <a href="https://www.zfenix.com" className="text-cyan-500/60 hover:text-cyan-400 transition-colors">WWW.ZFENIX.COM</a>
+                        </p>
+                    </div>
+                </div>
             </div>
+
+            <style jsx>{`
+                .zfenix-logo span {
+                    display: inline-block;
+                    background: linear-gradient(135deg, #ffffff 0%, #bae6fd 30%, #38bdf8 50%, #bae6fd 70%, #ffffff 100%);
+                    background-size: 200% 200%;
+                    -webkit-background-clip: text;
+                    background-clip: text;
+                    -webkit-text-fill-color: transparent;
+                    animation: gradient-shift 3s ease-in-out infinite;
+                    filter: drop-shadow(0 0 12px rgba(56,189,248,0.35));
+                }
+                @keyframes gradient-shift {
+                    0%, 100% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                }
+                .scan-lines {
+                    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(56,189,248,0.3) 2px, rgba(56,189,248,0.3) 4px);
+                    animation: scan 8s linear infinite;
+                }
+                @keyframes scan {
+                    0% { background-position: 0 0; }
+                    100% { background-position: 0 100px; }
+                }
+            `}</style>
         </div>
     );
 }
@@ -251,8 +440,8 @@ function ResetPasswordContent() {
 export default function ResetPasswordPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-400"></div>
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#001529] via-[#000d1a] to-[#001529]">
+                <div className="w-8 h-8 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
             </div>
         }>
             <ResetPasswordContent />
