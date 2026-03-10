@@ -237,25 +237,20 @@ export const authOptions: NextAuthOptions = {
                     return false;
                 }
 
-                // Email thực từ Google/Microsoft profile
-                // Đây là email người dùng THỰC SỰ đăng nhập bằng
+                // Email thực từ Google/Microsoft profile — source of truth
                 const realEmail = (profile?.email ?? userEmail).toLowerCase();
                 const realName = (profile as any)?.name ?? (profile as any)?.displayName ?? user.name;
 
-                // Find user by email (PrismaAdapter đã tạo/link user trước khi callback này chạy)
-                // Dùng user.id vì PrismaAdapter đã set sẵn
-                let dbUser = user.id
-                    ? await prisma.user.findUnique({
-                        where: { id: user.id },
-                        select: { id: true, status: true, role: true, email: true, name: true }
-                    })
-                    : await prisma.user.findUnique({
-                        where: { email: realEmail },
-                        select: { id: true, status: true, role: true, email: true, name: true }
-                    });
+                // Tìm user theo EMAIL trước — đây là cách duy nhất đảm bảo không conflict.
+                // PrismaAdapter có thể tạo user mới với ID khác nếu lần đầu login OAuth,
+                // nhưng email là unique identifier mà ta biết chắc từ provider.
+                let dbUser = await prisma.user.findUnique({
+                    where: { email: realEmail },
+                    select: { id: true, status: true, role: true, email: true, name: true }
+                });
 
-                if (!dbUser) {
-                    // Fallback: tìm theo email từ user object
+                // Fallback: tìm theo userEmail nếu realEmail khác
+                if (!dbUser && realEmail !== userEmail) {
                     dbUser = await prisma.user.findUnique({
                         where: { email: userEmail },
                         select: { id: true, status: true, role: true, email: true, name: true }
@@ -263,17 +258,26 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 if (!dbUser) {
-                    // User không tìm thấy → new user → PENDING
-                    if (SUPER_ADMIN_EMAILS.includes(realEmail)) return true;
+                    // User chưa có trong hệ thống
+                    // Super admin: cho phép login, NextAuth sẽ tạo user mới
+                    if (SUPER_ADMIN_EMAILS.includes(realEmail)) {
+                        // Sau khi PrismaAdapter tạo xong, user sẽ được tìm lại trong jwt callback
+                        return true;
+                    }
+                    // User thường: chưa được phê duyệt
                     return '/login?error=ACCOUNT_PENDING';
                 }
 
-                // ✅ ĐỒNG BỘ: Luôn cập nhật email + name trong DB theo Google/Microsoft profile
-                // Đây là fix cốt lõi: đảm bảo DB user record khớp với tài khoản Google thực tế
+                // Đảm bảo user.id trong token trỏ đến đúng user trong DB
+                // (tránh trường hợp PrismaAdapter tạo user mới với ID khác)
+                user.id = dbUser.id;
+
+                // Cập nhật name nếu có thay đổi từ Google/Microsoft profile
+                // KHÔNG bao giờ cập nhật email (đã tìm theo email → không cần update)
                 const needsUpdate =
-                    dbUser.email !== realEmail ||
                     (realName && dbUser.name !== realName) ||
-                    (SUPER_ADMIN_EMAILS.includes(realEmail) && (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE));
+                    (SUPER_ADMIN_EMAILS.includes(realEmail) &&
+                        (dbUser.role !== 'ADMIN' || dbUser.status !== UserStatus.ACTIVE));
 
                 if (needsUpdate) {
                     const updateData: Record<string, any> = {};
@@ -282,31 +286,16 @@ export const authOptions: NextAuthOptions = {
                         updateData.role = 'ADMIN';
                         updateData.status = UserStatus.ACTIVE;
                     }
-                    // Chỉ update email nếu thực sự cần VÀ không bị unique conflict
-                    if (dbUser.email !== realEmail) {
-                        // Kiểm tra xem realEmail đã tồn tại ở user khác chưa
-                        const existingEmail = await prisma.user.findUnique({
-                            where: { email: realEmail },
-                            select: { id: true }
-                        });
-                        if (!existingEmail || existingEmail.id === dbUser.id) {
-                            // An toàn để update email
-                            updateData.email = realEmail;
-                        }
-                        // Nếu email đã thuộc user khác, bỏ qua email update
-                    }
                     if (Object.keys(updateData).length > 0) {
                         await prisma.user.update({
                             where: { id: dbUser.id },
                             data: updateData,
                         });
-                        // Cập nhật local ref
                         Object.assign(dbUser, updateData);
                     }
                 }
 
-
-                // Kiểm tra status (sau khi update)
+                // Kiểm tra status
                 if (dbUser.status !== UserStatus.ACTIVE) {
                     if (dbUser.status === UserStatus.PENDING) {
                         return '/login?error=ACCOUNT_PENDING';
@@ -321,6 +310,7 @@ export const authOptions: NextAuthOptions = {
         },
 
         async jwt({ token, user, account, profile }) {
+
             if (user) {
                 // First sign-in: lưu id, role, status, userType
                 token.id = user.id;
