@@ -434,47 +434,5 @@ export const authOptions: NextAuthOptions = {
     // Trong development nếu thiếu, NextAuth sẽ tự generate secret tạm thời.
     ...(process.env.NEXTAUTH_SECRET ? { secret: process.env.NEXTAUTH_SECRET } : {}),
     debug: isDevelopment,
-    // Fix Microsoft (AzureAD) login trên localhost HTTP:
-    // SameSite=None + Secure=true cookies không hoạt động trên HTTP.
-    // NextAuth sẽ tự dùng SameSite=Lax + Secure=false khi NEXTAUTH_URL là HTTP.
-    // Thêm useSecureCookies=false để đảm bảo cookies được gửi đúng trên localhost.
-    useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
-    cookies: {
-        // Fix PKCE state cookie cho OAuth trên localhost HTTP
-        pkceCodeVerifier: {
-            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.pkce.code_verifier`,
-            options: {
-                httpOnly: true,
-                sameSite: 'lax',
-                path: '/',
-                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
-            },
-        },
-        state: {
-            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.state`,
-            options: {
-                httpOnly: true,
-                sameSite: 'lax',
-                path: '/',
-                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
-            },
-        },
-        callbackUrl: {
-            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.callback-url`,
-            options: {
-                sameSite: 'lax',
-                path: '/',
-                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
-            },
-        },
-        sessionToken: {
-            name: `${process.env.NEXTAUTH_URL?.startsWith('https://') ? '__Secure-' : ''}next-auth.session-token`,
-            options: {
-                httpOnly: true,
-                sameSite: 'lax',
-                path: '/',
-                secure: process.env.NEXTAUTH_URL?.startsWith('https://') ?? true,
-            },
-        },
-    },
 };
+
