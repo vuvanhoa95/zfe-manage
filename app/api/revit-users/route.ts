@@ -136,13 +136,23 @@ export async function POST(request: NextRequest) {
 
         const startDate = new Date();
         let expiryDate: Date | null = null;
-        const PLAN_MONTHS: Record<string, number | null> = {
-            '1M': 1, '3M': 3, '6M': 6, '1Y': 12, 'LIFETIME': null,
-        };
-        const months = PLAN_MONTHS[plan];
-        if (months !== null && months !== undefined) {
+        let userStatus = 'ACTIVE';
+        let isTrialPlan = plan === 'TRIAL_30D';
+
+        if (isTrialPlan) {
+            // Dùng thử 30 ngày
+            userStatus = 'TRIAL';
             expiryDate = new Date(startDate);
-            expiryDate.setMonth(expiryDate.getMonth() + months);
+            expiryDate.setDate(expiryDate.getDate() + 30);
+        } else {
+            const PLAN_MONTHS: Record<string, number | null> = {
+                '1M': 1, '3M': 3, '6M': 6, '1Y': 12, 'LIFETIME': null,
+            };
+            const months = PLAN_MONTHS[plan];
+            if (months !== null && months !== undefined) {
+                expiryDate = new Date(startDate);
+                expiryDate.setMonth(expiryDate.getMonth() + months);
+            }
         }
 
         const tempPassword = password || `Zfenix_${Math.random().toString(36).slice(2, 10)}`;
@@ -151,14 +161,16 @@ export async function POST(request: NextRequest) {
         const user = await prisma.revitUser.create({
             data: {
                 email: normalizedEmail, name: name.trim(),
-                password: hashedPassword, status: 'ACTIVE',
+                password: hashedPassword,
+                status: userStatus,
                 organization: organization?.trim() || null,
                 licensePlan: plan || '1M', licenseActive: true,
                 licenseStart: startDate, licenseExpiry: expiryDate,
-                registrationProvider: 'manual',
+                trialUsed: isTrialPlan,
+                registrationProvider: isTrialPlan ? 'manual-trial' : 'manual',
                 resetPasswordToken: resetToken, resetPasswordExpiry: resetExpiry,
             },
-            select: { id: true, email: true, name: true, licensePlan: true },
+            select: { id: true, email: true, name: true, licensePlan: true, status: true },
         });
 
         const PLAN_LABELS: Record<string, string> = {

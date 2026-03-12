@@ -32,6 +32,7 @@ type FilterType = 'all' | 'trial' | 'paid' | 'staff' | 'expired' | 'inactive';
 
 // === Constants ===
 const LICENSE_PLANS = [
+    { key: 'TRIAL_30D', label: 'Dùng thử', months: 1, icon: '🎁' },
     { key: '1M', label: '1 tháng', months: 1, icon: '📅' },
     { key: '3M', label: '3 tháng', months: 3, icon: '📆' },
     { key: '6M', label: '6 tháng', months: 6, icon: '🗓️' },
