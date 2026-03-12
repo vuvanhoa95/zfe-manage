@@ -258,13 +258,33 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 if (!dbUser) {
-                    // User chưa có trong hệ thống
                     // Super admin: cho phép login, NextAuth sẽ tạo user mới
                     if (SUPER_ADMIN_EMAILS.includes(realEmail)) {
-                        // Sau khi PrismaAdapter tạo xong, user sẽ được tìm lại trong jwt callback
                         return true;
                     }
-                    // User thường: chưa được phê duyệt
+
+                    // ============================================================
+                    // TRIAL USER CHECK: Tìm trong bảng revit_users
+                    // Các user dùng thử đăng ký qua Revit Add-in → cho vào /revit-portal
+                    // ============================================================
+                    try {
+                        const revitUser = await prisma.revitUser.findUnique({
+                            where: { email: realEmail },
+                            select: { id: true, status: true, licenseActive: true }
+                        });
+                        if (revitUser) {
+                            if (revitUser.status === 'ACTIVE') {
+                                // Cho phép login, jwt callback sẽ set userType='revit'
+                                // proxy.ts sẽ redirect về /revit-portal
+                                return true;
+                            }
+                            return '/login?error=ACCOUNT_SUSPENDED';
+                        }
+                    } catch (e) {
+                        console.error('[NextAuth signIn] RevitUser lookup failed:', e);
+                    }
+
+                    // Không có trong cả 2 bảng → chưa được phê duyệt
                     return '/login?error=ACCOUNT_PENDING';
                 }
 
@@ -295,9 +315,33 @@ export const authOptions: NextAuthOptions = {
                     }
                 }
 
-                // Kiểm tra status
+                // Kiểm tra status — chỉ áp dụng cho staff (users table)
                 if (dbUser.status !== UserStatus.ACTIVE) {
+                    // ============================================================
+                    // TRIAL USER BYPASS:
+                    // Nếu user trong `users` table có status PENDING,
+                    // có thể do PrismaAdapter tự tạo khi login OAuth lần đầu.
+                    // Kiểm tra xem email này có trong revit_users không — nếu có
+                    // → đây là trial user → promote ACTIVE và cho vào /revit-portal
+                    // ============================================================
                     if (dbUser.status === UserStatus.PENDING) {
+                        try {
+                            const revitUser = await prisma.revitUser.findUnique({
+                                where: { email: dbUser.email },
+                                select: { id: true, status: true }
+                            });
+                            if (revitUser && revitUser.status === 'ACTIVE') {
+                                // Trial user: promote staff record → ACTIVE + role REVIT_USER
+                                await prisma.user.update({
+                                    where: { id: dbUser.id },
+                                    data: { status: UserStatus.ACTIVE, role: 'REVIT_USER' }
+                                });
+                                console.log(`[NextAuth] Trial user promoted: ${dbUser.email}`);
+                                return true; // proxy.ts redirect về /revit-portal qua userType=revit
+                            }
+                        } catch (e) {
+                            console.error('[NextAuth signIn] revitUser bypass check failed:', e);
+                        }
                         return '/login?error=ACCOUNT_PENDING';
                     }
                     return '/login?error=ACCOUNT_SUSPENDED';
@@ -359,6 +403,10 @@ export const authOptions: NextAuthOptions = {
                             token.role = dbUser.role;
                             token.status = dbUser.status;
                             token.mustChangePassword = dbUser.mustChangePassword;
+                            // REVIT_USER role → đây là trial account → redirect /revit-portal
+                            if (dbUser.role === 'REVIT_USER') {
+                                token.userType = 'revit';
+                            }
                         } else if (account?.provider !== 'credentials') {
                             // OAuth user vừa được tạo bởi PrismaAdapter nhưng chưa có trong DB
                             // Thử tìm theo email
@@ -373,6 +421,18 @@ export const authOptions: NextAuthOptions = {
                                     token.role = dbUserByEmail.role;
                                     token.status = dbUserByEmail.status;
                                     token.mustChangePassword = dbUserByEmail.mustChangePassword;
+                                } else {
+                                    // Không tìm thấy trong users table → thử revit_users
+                                    const revitByEmail = await prisma.revitUser.findUnique({
+                                        where: { email: emailToSearch },
+                                        select: { id: true, status: true }
+                                    });
+                                    if (revitByEmail) {
+                                        token.id = revitByEmail.id;
+                                        token.role = 'REVIT_USER';
+                                        token.status = revitByEmail.status;
+                                        token.userType = 'revit';
+                                    }
                                 }
                             }
                         }
