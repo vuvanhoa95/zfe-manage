@@ -790,9 +790,11 @@ model RevitUser {
   email               String    @unique
   name                String?
   password            String?
-  /// Trạng thái: ACTIVE | SUSPENDED
+  /// Tổ chức / Doanh nghiệp của user
+  organization        String?
+  /// Trạng thái: ACTIVE | TRIAL | SUSPENDED
   status              String    @default("ACTIVE")
-  /// Gói license: 1M, 3M, 6M, 1Y, LIFETIME
+  /// Gói license: 1M, 3M, 6M, 1Y, LIFETIME, TRIAL_30D
   licensePlan         String    @default("1M")
   /// License đang kích hoạt?
   licenseActive       Boolean   @default(true)
@@ -813,6 +815,12 @@ model RevitUser {
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+
+  // ===== TRIAL FIELDS =====
+  /// Đã sử dụng trial? (Mỗi email chỉ được dùng 1 lần)
+  trialUsed            Boolean   @default(false)
+  /// Nguồn đăng ký tài khoản: google | microsoft | manual
+  registrationProvider String?
 
   // ===== MCP AI LICENSE =====
   /// Có quyền sử dụng MCP AI?
@@ -848,5 +856,6 @@ model RevitLicenseKey {
   note      String?
   createdAt DateTime  @default(now())
 
+  @@index([usedBy])
   @@map("revit_license_keys")
 }

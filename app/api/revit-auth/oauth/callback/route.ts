@@ -3,10 +3,14 @@
  * 
  * OAuth callback handler for Revit Add-in.
  * Receives authorization code from Google/Microsoft,
- * exchanges it for user profile, checks BOTH User + RevitUser tables,
- * generates active token, and redirects to localhost listener.
+ * exchanges for user profile, checks BOTH RevitUser + User tables.
  * 
- * ⚡ v2: Dual-table lookup (User + RevitUser)
+ * ⚡ v3: Auto-creates 30-day TRIAL for first-time OAuth sign-ups
+ * 
+ * Flow:
+ *  1. RevitUser exists → login (ACTIVE/TRIAL) or block (SUSPENDED/expired)
+ *  2. User (staff) exists → check Revit license  
+ *  3. New email → auto-create RevitUser with TRIAL_30D (no admin approval needed)
  */
 
 import { NextResponse } from 'next/server';
@@ -14,6 +18,8 @@ import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 
 const TOKEN_EXPIRY_DAYS = 30;
+const TRIAL_DAYS = 30;
+
 const UserStatus = { ACTIVE: 'ACTIVE', PENDING: 'PENDING', SUSPENDED: 'SUSPENDED' } as const;
 
 const SUPER_ADMIN_EMAILS = [
@@ -49,7 +55,7 @@ export async function GET(req: Request) {
         const baseUrl = process.env.NEXTAUTH_URL || `https://${req.headers.get('host')}`;
         const callbackUrl = `${baseUrl}/api/revit-auth/oauth/callback`;
 
-        // Exchange authorization code for access token + user info
+        // === STEP 1: Exchange authorization code for user info ===
         let email: string = '';
         let name: string = '';
         let avatarUrl: string | null = null;
@@ -75,7 +81,6 @@ export async function GET(req: Request) {
 
             const tokenData = await tokenRes.json();
 
-            // Get user profile
             const profileRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
                 headers: { Authorization: `Bearer ${tokenData.access_token}` },
             });
@@ -110,27 +115,24 @@ export async function GET(req: Request) {
 
             const tokenData = await tokenRes.json();
 
-            // Strategy 1: Get from Microsoft Graph API
+            // Strategy 1: Microsoft Graph API
             try {
                 const profileRes = await fetch('https://graph.microsoft.com/v1.0/me', {
                     headers: { Authorization: `Bearer ${tokenData.access_token}` },
                 });
                 const profile = await profileRes.json();
-                console.log('[Revit OAuth] MS Graph profile:', JSON.stringify({ mail: profile.mail, upn: profile.userPrincipalName, name: profile.displayName }));
-
                 email = (profile.mail || profile.userPrincipalName)?.toLowerCase();
                 name = profile.displayName || 'User';
             } catch (graphErr) {
                 console.error('[Revit OAuth] Graph API failed:', graphErr);
             }
 
-            // Strategy 2: Fallback to id_token (works for personal MS accounts)
+            // Strategy 2: Fallback to id_token
             if (!email && tokenData.id_token) {
                 try {
                     const payload = JSON.parse(
                         Buffer.from(tokenData.id_token.split('.')[1], 'base64').toString()
                     );
-                    console.log('[Revit OAuth] id_token claims:', JSON.stringify({ email: payload.email, preferred_username: payload.preferred_username, name: payload.name }));
                     email = (payload.email || payload.preferred_username)?.toLowerCase();
                     name = name || payload.name || 'User';
                 } catch (jwtErr) {
@@ -145,23 +147,38 @@ export async function GET(req: Request) {
             return renderErrorPage('Không lấy được email từ tài khoản OAuth.');
         }
 
-        // === DATABASE OPERATIONS (Dual-table lookup) ===
-
-        // 1. Check RevitUser table first (standalone Revit users)
+        // === STEP 2: Check RevitUser table (standalone customers) ===
         const revitUser = await prisma.revitUser.findUnique({ where: { email } });
 
         if (revitUser) {
-            // Found in RevitUser table
-            if (revitUser.status !== 'ACTIVE') {
-                return redirectToRevit(port, { success: false, error: 'ACCOUNT_SUSPENDED', message: 'Tài khoản đã bị đình chỉ. Liên hệ Admin.' });
-            }
-            if (!revitUser.licenseActive) {
-                return redirectToRevit(port, { success: false, error: 'NO_LICENSE', message: 'License chưa được kích hoạt. Liên hệ Admin.' });
-            }
-            if (revitUser.licenseExpiry && revitUser.licenseExpiry < new Date()) {
-                return redirectToRevit(port, { success: false, error: 'LICENSE_EXPIRED', message: 'License đã hết hạn. Liên hệ Admin để gia hạn.' });
+            // Found in RevitUser table — check status
+            if (revitUser.status === 'SUSPENDED') {
+                return redirectToRevit(port, {
+                    success: false, error: 'ACCOUNT_SUSPENDED',
+                    message: 'Tài khoản đã bị đình chỉ. Liên hệ Admin để được hỗ trợ.',
+                });
             }
 
+            if (!revitUser.licenseActive) {
+                return redirectToRevit(port, {
+                    success: false, error: 'NO_LICENSE',
+                    message: 'License chưa được kích hoạt. Liên hệ Admin.',
+                });
+            }
+
+            // Check expiry (applies to TRIAL and paid plans)
+            if (revitUser.licenseExpiry && revitUser.licenseExpiry < new Date()) {
+                const isTrialExpired = revitUser.status === 'TRIAL' || revitUser.licensePlan === 'TRIAL_30D';
+                return redirectToRevit(port, {
+                    success: false,
+                    error: isTrialExpired ? 'TRIAL_EXPIRED' : 'LICENSE_EXPIRED',
+                    message: isTrialExpired
+                        ? 'Thời gian dùng thử 30 ngày đã hết. Liên hệ ZFenix để mua license chính thức.'
+                        : 'License đã hết hạn. Liên hệ Admin để gia hạn.',
+                });
+            }
+
+            // All checks passed — generate new token and login
             const newToken = crypto.randomBytes(32).toString('hex');
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
@@ -176,91 +193,165 @@ export async function GET(req: Request) {
                 },
             });
 
-            console.log(`[Revit OAuth] Login: ${email} (revit) via ${provider} on ${machineId}`);
+            const isTrial = revitUser.status === 'TRIAL' || revitUser.licensePlan === 'TRIAL_30D';
+            console.log(`[Revit OAuth] Login: ${email} (revitUser/${revitUser.status}) via ${provider} on ${machineId}`);
+
             return redirectToRevit(port, {
-                success: true, token: newToken, email: revitUser.email,
-                name: revitUser.name || name, role: 'USER', company: '',
+                success: true,
+                token: newToken,
+                email: revitUser.email,
+                name: revitUser.name || name,
+                role: 'USER',
+                company: '',
                 expiresAt: expiresAt.toISOString(),
                 licensePlan: revitUser.licensePlan || '',
                 licenseActive: String(revitUser.licenseActive),
                 licenseStart: revitUser.licenseStart?.toISOString() || '',
                 licenseExpiry: revitUser.licenseExpiry?.toISOString() || '',
+                isTrial: String(isTrial),
+                isNewUser: 'false',
             });
         }
 
-        // 2. Check User table (staff with Revit license)
-        let user = await prisma.user.findUnique({ where: { email } });
+        // === STEP 3: Check User table (ZFenix staff with Revit license) ===
+        const staffUser = await prisma.user.findUnique({ where: { email } });
 
-        if (!user) {
-            // Auto-create user with PENDING status (or ACTIVE for super admin)
-            const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email);
-            user = await prisma.user.create({
+        if (staffUser) {
+            // Staff account exists — check status
+            if (staffUser.status !== UserStatus.ACTIVE) {
+                const msg = staffUser.status === UserStatus.PENDING
+                    ? 'Tài khoản đang chờ phê duyệt. Liên hệ Admin.'
+                    : 'Tài khoản đã bị đình chỉ. Liên hệ Admin.';
+                return redirectToRevit(port, { success: false, error: 'ACCOUNT_' + staffUser.status, message: msg });
+            }
+
+            // Check Revit license
+            if (!staffUser.revitLicenseActive) {
+                return redirectToRevit(port, {
+                    success: false, error: 'NO_LICENSE',
+                    message: 'Tài khoản chưa được cấp quyền sử dụng Revit Add-in. Liên hệ Admin.',
+                });
+            }
+
+            // Check license expiry
+            if (staffUser.revitLicenseExpiry && staffUser.revitLicenseExpiry < new Date()) {
+                return redirectToRevit(port, {
+                    success: false, error: 'LICENSE_EXPIRED',
+                    message: 'License đã hết hạn. Liên hệ Admin để gia hạn.',
+                });
+            }
+
+            // Generate token
+            const newToken = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
+
+            await prisma.user.update({
+                where: { id: staffUser.id },
                 data: {
-                    email, name, image: avatarUrl,
-                    role: isSuperAdmin ? 'ADMIN' : 'USER',
-                    status: isSuperAdmin ? UserStatus.ACTIVE : UserStatus.PENDING,
-                    revitLicenseActive: isSuperAdmin,
+                    revitActiveToken: newToken,
+                    revitMachineId: machineId,
+                    revitLastLogin: new Date(),
+                    ...(name && name !== staffUser.name ? { name } : {}),
+                    ...(avatarUrl && avatarUrl !== staffUser.image ? { image: avatarUrl } : {}),
                 },
             });
 
-            if (!isSuperAdmin) {
-                return redirectToRevit(port, {
-                    success: false, error: 'ACCOUNT_PENDING',
-                    message: 'Tài khoản mới đã được tạo. Vui lòng chờ Admin phê duyệt.',
-                });
-            }
-        }
+            console.log(`[Revit OAuth] Login: ${email} (staff) via ${provider} on ${machineId}`);
 
-        // Check status
-        if (user.status !== UserStatus.ACTIVE) {
-            const msg = user.status === UserStatus.PENDING
-                ? 'Tài khoản đang chờ phê duyệt. Liên hệ Admin.'
-                : 'Tài khoản đã bị đình chỉ. Liên hệ Admin.';
-            return redirectToRevit(port, { success: false, error: 'ACCOUNT_' + user.status, message: msg });
-        }
-
-        // Check Revit license
-        if (!user.revitLicenseActive) {
             return redirectToRevit(port, {
-                success: false, error: 'NO_LICENSE',
-                message: 'Tài khoản chưa được cấp quyền sử dụng Revit Add-in. Liên hệ Admin.',
+                success: true,
+                token: newToken,
+                email: staffUser.email,
+                name: staffUser.name || name,
+                role: staffUser.role,
+                company: staffUser.department || '',
+                expiresAt: expiresAt.toISOString(),
+                licensePlan: staffUser.revitLicensePlan || '',
+                licenseActive: String(staffUser.revitLicenseActive),
+                licenseStart: staffUser.revitLicenseStart?.toISOString() || '',
+                licenseExpiry: staffUser.revitLicenseExpiry?.toISOString() || '',
+                isTrial: 'false',
+                isNewUser: 'false',
             });
         }
 
-        // Check license expiry
-        if (user.revitLicenseExpiry && user.revitLicenseExpiry < new Date()) {
+        // === STEP 4: New user — Auto-create 30-day TRIAL ===
+        const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(email);
+
+        if (isSuperAdmin) {
+            // Super admin: create in User table with ACTIVE status
+            const superAdmin = await prisma.user.create({
+                data: {
+                    email, name, image: avatarUrl,
+                    role: 'ADMIN',
+                    status: UserStatus.ACTIVE,
+                    revitLicenseActive: true,
+                },
+            });
+
+            const newToken = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
+
+            await prisma.user.update({
+                where: { id: superAdmin.id },
+                data: { revitActiveToken: newToken, revitMachineId: machineId, revitLastLogin: new Date() },
+            });
+
+            console.log(`[Revit OAuth] SuperAdmin first login: ${email} via ${provider}`);
             return redirectToRevit(port, {
-                success: false, error: 'LICENSE_EXPIRED',
-                message: 'License đã hết hạn. Liên hệ Admin để gia hạn.',
+                success: true, token: newToken, email, name,
+                role: 'ADMIN', company: '',
+                expiresAt: expiresAt.toISOString(),
+                licensePlan: 'LIFETIME', licenseActive: 'true',
+                licenseStart: '', licenseExpiry: '',
+                isTrial: 'false', isNewUser: 'true',
             });
         }
 
-        // === CREATE TOKEN (single device lock) ===
+        // === AUTO-CREATE TRIAL USER (no admin approval needed) ===
+        const trialStart = new Date();
+        const trialExpiry = new Date();
+        trialExpiry.setDate(trialExpiry.getDate() + TRIAL_DAYS);
+
         const newToken = crypto.randomBytes(32).toString('hex');
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + TOKEN_EXPIRY_DAYS);
+        const tokenExpiresAt = new Date();
+        tokenExpiresAt.setDate(tokenExpiresAt.getDate() + TOKEN_EXPIRY_DAYS);
 
-        await prisma.user.update({
-            where: { id: user.id },
+        const newRevitUser = await prisma.revitUser.create({
             data: {
-                revitActiveToken: newToken,
-                revitMachineId: machineId,
-                revitLastLogin: new Date(),
-                ...(name && name !== user.name ? { name } : {}),
-                ...(avatarUrl && avatarUrl !== user.image ? { image: avatarUrl } : {}),
+                email,
+                name: name || email.split('@')[0],
+                status: 'TRIAL',
+                licensePlan: 'TRIAL_30D',
+                licenseActive: true,
+                licenseStart: trialStart,
+                licenseExpiry: trialExpiry,
+                trialUsed: true,
+                registrationProvider: provider,
+                activeToken: newToken,
+                machineId: machineId,
+                lastLogin: new Date(),
             },
         });
 
-        console.log(`[Revit OAuth] Login: ${email} (staff) via ${provider} on ${machineId}`);
+        console.log(`[Revit OAuth] NEW TRIAL user created: ${email} via ${provider} on ${machineId}, expires: ${trialExpiry.toISOString()}`);
 
         return redirectToRevit(port, {
-            success: true, token: newToken, email: user.email,
-            name: user.name || name, role: user.role,
-            company: user.department || '', expiresAt: expiresAt.toISOString(),
-            licensePlan: user.revitLicensePlan || '',
-            licenseActive: String(user.revitLicenseActive),
-            licenseStart: user.revitLicenseStart?.toISOString() || '',
-            licenseExpiry: user.revitLicenseExpiry?.toISOString() || '',
+            success: true,
+            token: newToken,
+            email: newRevitUser.email,
+            name: newRevitUser.name || name,
+            role: 'USER',
+            company: '',
+            expiresAt: tokenExpiresAt.toISOString(),
+            licensePlan: 'TRIAL_30D',
+            licenseActive: 'true',
+            licenseStart: trialStart.toISOString(),
+            licenseExpiry: trialExpiry.toISOString(),
+            isTrial: 'true',
+            isNewUser: 'true',
         });
 
     } catch (error) {
@@ -282,7 +373,7 @@ function redirectToRevit(port: string, data: Record<string, any>) {
 }
 
 /**
- * Render a simple error page in the browser
+ * Render a branded error page in the browser
  */
 function renderErrorPage(message: string) {
     const html = `<!DOCTYPE html>

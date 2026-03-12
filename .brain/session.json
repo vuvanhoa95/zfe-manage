@@ -1,66 +1,42 @@
 {
-  "updated_at": "2026-03-04T17:08:00Z",
+  "updated_at": "2026-03-11T12:15:00Z",
   "working_on": {
-    "feature": "Bỏ Nhân sự ngoài + Refactor + Deploy",
-    "task": "Hoàn thành toàn bộ - Đã deploy lên Vercel",
-    "status": "COMPLETED",
-    "files": [],
-    "notes": "Đã commit, push, deploy. Vercel auto-build từ main branch."
+    "feature": "Revit User Deletion & Performance Audit",
+    "task": "Finalize Production Deployment",
+    "status": "completed",
+    "files": [
+      "app/api/revit-users/route.ts",
+      "app/api/users/route.ts",
+      "prisma/schema.prisma"
+    ],
+    "notes": "System is now optimized and stable."
   },
   "pending_tasks": [
-    { "task": "Tách TaskTab.tsx (4,662 dòng) thành sub-components", "priority": "medium", "notes": "God file - cần session refactor riêng" },
-    { "task": "Kiểm tra Vercel build thành công sau schema change", "priority": "high", "notes": "Xóa model OutsourcingStaff có thể cần prisma migrate trên production" },
-    { "task": "Integrate Social Login (Phase 01-05 in progress)", "priority": "medium" },
-    { "task": "Xóa prisma/prisma/dev-CIC-PC.db nếu còn trong .gitignore", "priority": "low" }
+    {
+      "task": "Theo dõi hiệu năng server sau deploy",
+      "priority": "low"
+    }
   ],
   "recent_changes": [
     {
-      "timestamp": "2026-03-04T15:00:00Z",
-      "type": "feature",
-      "description": "Bỏ mục 'Nhân sự ngoài' khỏi sidebar. Nhân sự trong báo giá lấy từ User (ACTIVE) thay vì OutsourcingStaff.",
-      "files": [
-        "components/layout/Sidebar.tsx",
-        "lib/contexts/QuotationDataContext.tsx",
-        "app/api/quotation/initial-data/route.ts",
-        "app/api/users/route.ts",
-        "components/quotation/PricingTable.tsx"
-      ]
+      "type": "bugfix",
+      "description": "Sửa lỗi không xóa được user do ràng buộc license key.",
+      "files": ["app/api/revit-users/route.ts", "app/api/users/route.ts"]
     },
     {
-      "timestamp": "2026-03-04T16:55:00Z",
-      "type": "refactor",
-      "description": "Đợt 1 Refactor: Xóa 13 file rác (-CIC-PC, -DESKTOP-*), 6 file/folder dead code outsourcing-staff, 6 console.log debug. Tổng -18,961 dòng.",
-      "files": [
-        "components/quotation/DataTab-CIC-PC.tsx (DELETED)",
-        "components/quotation/PricingTable-CIC-PC.tsx (DELETED)",
-        "components/quotation/OutsourceCostDetail.tsx (DELETED)",
-        "app/(dashboard)/outsourcing-staff/ (DELETED)",
-        "app/api/outsourcing-staff/ (DELETED)",
-        "components/project/TaskTab.tsx",
-        "components/quotation/CatalogTab.tsx"
-      ]
-    },
-    {
-      "timestamp": "2026-03-04T17:05:00Z",
-      "type": "refactor",
-      "description": "Cleanup RBAC: xóa nav:outsourcing_staff + outsourcing:* permissions. Xóa model OutsourcingStaff khỏi schema.prisma (giữ outsourcingStaffId trong CashFlow).",
-      "files": [
-        "lib/rbac.ts",
-        "prisma/schema.prisma"
-      ]
-    },
-    {
-      "timestamp": "2026-03-04T17:07:00Z",
-      "type": "deploy",
-      "description": "Commit a19602f pushed to main. Vercel auto-deploy triggered.",
-      "files": []
+      "type": "optimization",
+      "description": "Thêm Index database và thu gọn payload API.",
+      "files": ["prisma/schema.prisma", "app/api/users/route.ts"]
     }
   ],
   "decisions_made": [
-    { "decision": "Map User→OutsourcingStaff interface", "reason": "Giữ nguyên interface cũ để không phải sửa PricingTable, DataTab. user.department→discipline." },
-    { "decision": "Giữ cột outsourcingStaffId trong CashFlow", "reason": "Không xóa cột DB để tương thích ngược. Chỉ bỏ FK constraint + relation." },
-    { "decision": "Backup branch trước refactor", "reason": "backup/before-refactor-20260304 cho rollback." },
-    { "decision": "Deploy ngay, tách TaskTab sau", "reason": "Refactor TaskTab (4662 dòng) cần session riêng, không nên block deploy." }
-  ],
-  "errors_encountered": []
+    {
+      "decision": "Dùng select trong Prisma",
+      "reason": "Giảm payload API từ bulk 1000 users xuống mức tối thiểu (chỉ các trường hiển thị)."
+    },
+    {
+      "decision": "Dùng db push thay vì migrate dev",
+      "reason": "Đẩy Index lên Neon nhanh chóng và an toàn, tránh lỗi lệch history migration gây mất data."
+    }
+  ]
 }

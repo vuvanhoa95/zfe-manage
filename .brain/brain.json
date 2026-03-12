@@ -1,99 +1,43 @@
 {
   "meta": {
-    "last_updated": "2026-03-04T17:01:00Z",
-    "awf_version": "4.1.2"
+    "schema_version": "1.1.0",
+    "awf_version": "3.3.0",
+    "last_updated": "2026-03-11T12:15:00Z"
   },
   "project": {
     "name": "ZfeManage",
-    "status": "In Development - Quotation Staff Migration Complete",
-    "tech_stack": {
-      "framework": "Next.js 15 (App Router, Turbopack dev)",
-      "database": "PostgreSQL (Neon)",
-      "orm": "Prisma",
-      "auth": "NextAuth.js (v4.30.0-beta.9)",
-      "styling": "Tailwind CSS",
-      "charts": "Recharts (Lazy loaded)",
-      "ui_libs": "lucide-react, @hello-pangea/dnd, react-datepicker"
-    }
+    "type": "Next.js Management Platform",
+    "status": "Production"
   },
-  "critical_optimizations": {
-    "db_connection": "Using DIRECT_URL for Neon to avoid pooler issues.",
-    "schema_initialization": "Cached global singleton in lib/db-schema.ts.",
-    "dashboard_stats": "Parallel Promise.allSettled fetching with 30s in-memory cache.",
-    "list_view_updates": "Optimistic & in-place state updates for task assignments.",
-    "quotation_staff": "Nhân sự trong báo giá lấy từ User (ACTIVE) thay vì OutsourcingStaff. Map: user.department→discipline."
+  "tech_stack": {
+    "frontend": "Next.js, Tailwind CSS",
+    "backend": "Next.js API Routes",
+    "database": "PostgreSQL (Neon), Prisma"
   },
-  "ui_architecture": {
-    "task_list_view": {
-      "sticky_layers": [
-        { "panel": "Header controls (Thêm CV, View)", "css": "sticky top-0 z-40" },
-        { "panel": "GroupTool (Nhóm, Cột)", "css": "sticky top-[56px] z-30" },
-        { "panel": "Filters (Tìm, lọc...)", "css": "sticky top-[112px] z-30" },
-        { "panel": "Table thead (tiêu đề cột)", "css": "sticky top-0 z-20 (trong overflow-y-auto container)" }
-      ],
-      "table_scroll": "overflow-x-auto overflow-y-auto max-h-[calc(100vh-260px)] → thead sticky top-0 hoạt động đúng.",
-      "multi_select": {
-        "state": "useState<Set<string>>()",
-        "handler": "handleTaskSelect - Shift=range, Ctrl=toggle, click=toggle",
-        "key_gotcha": "Global click listener dùng data-task-select attribute để tránh reset khi click checkbox.",
-        "bulk_toolbar": "createPortal → document.body (z-9999). Fix 'fixed bị trapped' bởi parent transform."
-      }
-    },
-    "quotation_staff_flow": {
-      "data_source": "/api/users?status=ACTIVE (thay vì /api/outsourcing-staff)",
-      "context": "QuotationDataContext.tsx → fetchOutsourceStaff() → map User→OutsourcingStaff interface",
-      "batch_api": "app/api/quotation/initial-data/route.ts → prisma.user.findMany({ where: { status: 'ACTIVE' } })",
-      "ui": "PricingTable.tsx → dropdown 'Chọn nhân sự' hiển thị name + phòng ban"
-    }
-  },
-  "removed_modules": {
-    "outsourcing_staff": {
-      "removed_date": "2026-03-04",
-      "reason": "Nhân sự trong báo giá giờ lấy từ User thay vì bảng riêng",
-      "deleted_files": [
-        "app/(dashboard)/outsourcing-staff/",
-        "app/api/outsourcing-staff/",
-        "components/quotation/OutsourceCostDetail.tsx"
-      ],
-      "note": "Model OutsourcingStaff vẫn còn trong schema.prisma, chưa migration"
-    }
-  },
-  "knowledge_items": {
-    "patterns": [
-      {
-        "id": "inline-update",
-        "description": "Cập nhật item trực tiếp trong mảng state sau khi gọi API PATCH/PUT để giữ scroll position.",
-        "file": "components/project/TaskTab.tsx"
-      },
-      {
-        "id": "global-schema-cache",
-        "description": "Sử dụng biến global để cache kết quả ensureCoreSchema (Next.js serverless runtime).",
-        "file": "lib/db-schema.ts"
-      },
-      {
-        "id": "portal-fixed-toolbar",
-        "description": "Khi cần element fixed/sticky nhưng bị trapped bởi CSS transform của parent → dùng createPortal render về document.body.",
-        "file": "components/project/TaskTab.tsx"
-      },
-      {
-        "id": "interface-mapping",
-        "description": "Khi thay đổi data source nhưng muốn giữ UI cũ: map fields mới sang interface cũ (User→OutsourcingStaff). Giảm scope thay đổi.",
-        "file": "lib/contexts/QuotationDataContext.tsx"
-      }
-    ],
-    "gotchas": [
-      {
-        "id": "set-state-render",
-        "description": "useState<Set<T>>: thay đổi Set không trigger re-render nếu return cùng reference. Luôn return new Set(prev) khi update."
-      },
-      {
-        "id": "overflow-breaks-sticky",
-        "description": "Bất kỳ overflow value nào khác visible trên phần tử cha đều 'nhốt' sticky children bên trong."
-      },
-      {
-        "id": "git-conflict-files",
-        "description": "Git merge trên Windows tạo file rác với suffix -CIC-PC, -DESKTOP-*. Cần kiểm tra và xóa thường xuyên, kể cả trong node_modules."
-      }
+  "database_schema": {
+    "summary": "Quản lý nhân sự, dự án, và license Revit Add-in.",
+    "recent_changes": [
+      "Thêm index [usedBy] vào bảng revit_license_keys để tối ưu lệnh xóa."
     ]
-  }
+  },
+  "api_endpoints": [
+    {
+      "path": "/api/users",
+      "method": "GET",
+      "explained": "Lấy danh sách nhân sự (đã tối ưu select fields để giảm payload)."
+    },
+    {
+      "path": "/api/revit-users",
+      "method": "GET",
+      "explained": "Lấy danh sách người dùng Revit License (đã tối ưu select fields)."
+    },
+    {
+      "path": "/api/revit-users",
+      "method": "DELETE",
+      "explained": "Xóa người dùng Revit (có bước tự động gỡ license key liên quan)."
+    }
+  ],
+  "business_rules": [
+    "Xóa User/Staff: Phải set usedBy = null trong RevitLicenseKey trước khi xóa để tránh lỗi Foreign Key."
+  ]
 }

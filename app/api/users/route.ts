@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
             where.status = status;
         }
 
-        // Lấy đầy đủ thông tin hồ sơ người dùng theo schema hiện tại
+        // Lấy thông tin cơ bản để hiển thị danh sách (giảm payload)
         const users = await prisma.user.findMany({
             where,
             select: {
@@ -60,20 +60,15 @@ export async function GET(request: NextRequest) {
                 name: true,
                 email: true,
                 role: true,
+                status: true,
                 createdAt: true,
                 title: true,
                 department: true,
-                experience: true,
-                bankAccount: true,
-                taxCode: true,
-                status: true,
-                // Revit Add-in License fields
+                // Revit Add-in License fields (cần để check bên Tab Revit)
                 revitLicenseActive: true,
                 revitLicensePlan: true,
                 revitLicenseStart: true,
                 revitLicenseExpiry: true,
-                revitMachineId: true,
-                revitLastLogin: true,
             },
             orderBy: {
                 name: 'asc',
@@ -292,6 +287,14 @@ export async function DELETE(request: NextRequest) {
             // 1. Xóa records có Cascade (Account, Session)
             await tx.account.deleteMany({ where: { userId } });
             await tx.session.deleteMany({ where: { userId } });
+
+            // 1.1 Gỡ email khỏi bảng RevitLicenseKey để tránh lỗi khóa ngoại (nếu có)
+            if (targetUser.email) {
+                await tx.revitLicenseKey.updateMany({
+                    where: { usedBy: targetUser.email },
+                    data: { usedBy: null }
+                });
+            }
 
             // 2. Nullable FKs → set NULL
             await tx.task.updateMany({ where: { assignedToId: userId }, data: { assignedToId: null } });

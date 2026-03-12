@@ -1,0 +1,760 @@
+﻿-------------------------- REMOTE BUILD OUTPUT ---------------------------
+starting build "3756eff6-16e6-4d54-bf97-eb0efee9448a"
+FETCHSOURCE
+Fetching storage object: gs://run-sources-dungphu-invoice-2026-asia-southeast1/services/zfe-manage-api/1773207109.05721-9f7c79d3d54a4f75b3bc7770737c5ee5.zip#1773207113371697
+Copying gs://run-sources-dungphu-invoice-2026-asia-southeast1/services/zfe-manage-api/1773207109.05721-9f7c79d3d54a4f75b3bc7770737c5ee5.zip#1773207113371697...
+/ [0 files][    0.0 B/  6.1 MiB]                                                
+/ [1 files][  6.1 MiB/  6.1 MiB]
+Operation completed over 1 objects/6.1 MiB.
+Archive:  /tmp/source-archive.zip
+   creating: /workspace/.brain/
+   creating: /workspace/.cursor/
+   creating: /workspace/app/
+   creating: /workspace/components/
+   creating: /workspace/docs/
+   creating: /workspace/hooks/
+   creating: /workspace/lib/
+   creating: /workspace/plans/
+   creating: /workspace/prisma/
+   creating: /workspace/public/
+   creating: /workspace/scripts/
+   creating: /workspace/templates/
+   creating: /workspace/types/
+   creating: /workspace/.cursor/commands/
+   creating: /workspace/.cursor/rules/
+   creating: /workspace/app/(dashboard)/
+   creating: /workspace/app/api/
+   creating: /workspace/app/change-password/
+   creating: /workspace/app/forgot-password/
+   creating: /workspace/app/login/
+   creating: /workspace/app/reset-password/
+   creating: /workspace/app/revit-portal/
+   creating: /workspace/app/(dashboard)/company-profile/
+   creating: /workspace/app/(dashboard)/customers/
+   creating: /workspace/app/(dashboard)/projects/
+   creating: /workspace/app/(dashboard)/quotations/
+   creating: /workspace/app/(dashboard)/reports/
+   creating: /workspace/app/(dashboard)/revit-licenses/
+   creating: /workspace/app/(dashboard)/settings/
+   creating: /workspace/app/(dashboard)/users/
+   creating: /workspace/app/(dashboard)/customers/new/
+   creating: /workspace/app/(dashboard)/projects/new/
+   creating: /workspace/app/(dashboard)/projects/[id]/
+   creating: /workspace/app/(dashboard)/quotations/new/
+   creating: /workspace/app/(dashboard)/quotations/quick-form/
+   creating: /workspace/app/(dashboard)/quotations/[id]/
+   creating: /workspace/app/(dashboard)/quotations/[id]/edit/
+   creating: /workspace/app/(dashboard)/quotations/[id]/versions/
+   creating: /workspace/app/(dashboard)/users/licenses/
+   creating: /workspace/app/(dashboard)/users/permissions/
+   creating: /workspace/app/api/admin/
+   creating: /workspace/app/api/ai/
+   creating: /workspace/app/api/auth/
+   creating: /workspace/app/api/catalog/
+   creating: /workspace/app/api/company-profile/
+   creating: /workspace/app/api/cron/
+   creating: /workspace/app/api/custom-fields/
+   creating: /workspace/app/api/customers/
+   creating: /workspace/app/api/dashboard/
+   creating: /workspace/app/api/dev/
+   creating: /workspace/app/api/feedback/
+   creating: /workspace/app/api/health/
+   creating: /workspace/app/api/notifications/
+   creating: /workspace/app/api/projects/
+   creating: /workspace/app/api/quotation/
+   creating: /workspace/app/api/quotation-templates/
+   creating: /workspace/app/api/quotations/
+   creating: /workspace/app/api/revisions/
+   creating: /workspace/app/api/revit-auth/
+   creating: /workspace/app/api/revit-portal/
+   creating: /workspace/app/api/revit-users/
+   creating: /workspace/app/api/settings/
+   creating: /workspace/app/api/tasks/
+   creating: /workspace/app/api/test-api/
+   creating: /workspace/app/api/units/
+   creating: /workspace/app/api/users/
+   creating: /workspace/app/api/admin/permissions/
+   creating: /workspace/app/api/admin/reset-super-admin/
+   creating: /workspace/app/api/admin/update-user/
+   creating: /workspace/app/api/admin/permissions/runtime/
+   creating: /workspace/app/api/ai/chat/
+   creating: /workspace/app/api/ai/chat-assistant/
+   creating: /workspace/app/api/ai/company-lookup/
+   creating: /workspace/app/api/ai/enhance-project-description/
+   creating: /workspace/app/api/ai/generate-intro/
+   creating: /workspace/app/api/ai/generate-tasks/
+   creating: /workspace/app/api/ai/parse-voice/
+   creating: /workspace/app/api/ai/pricing-suggest/
+   creating: /workspace/app/api/ai/scan-card/
+   creating: /workspace/app/api/ai/search-project-images/
+   creating: /workspace/app/api/ai/task-chat/
+   creating: /workspace/app/api/auth/forgot-password/
+   creating: /workspace/app/api/auth/reset-password/
+   creating: /workspace/app/api/auth/session-redirect/
+   creating: /workspace/app/api/auth/[...nextauth]/
+   creating: /workspace/app/api/company-profile/upload-logo/
+   creating: /workspace/app/api/cron/backup-db/
+   creating: /workspace/app/api/cron/deadlines/
+   creating: /workspace/app/api/cron/weekly-report/
+   creating: /workspace/app/api/custom-fields/values/
+   creating: /workspace/app/api/custom-fields/[id]/
+   creating: /workspace/app/api/customers/[id]/
+   creating: /workspace/app/api/dashboard/alerts/
+   creating: /workspace/app/api/dashboard/stats/
+   creating: /workspace/app/api/dashboard/work-summary/
+   creating: /workspace/app/api/dev/check-database-url/
+   creating: /workspace/app/api/dev/clear-auth-cookies/
+   creating: /workspace/app/api/dev/reset-database/
+   creating: /workspace/app/api/dev/seed-sample-tasks/
+   creating: /workspace/app/api/health/database/
+   creating: /workspace/app/api/projects/status-report/
+   creating: /workspace/app/api/projects/upload-image/
+   creating: /workspace/app/api/projects/[id]/
+   creating: /workspace/app/api/projects/[id]/cashflows/
+   creating: /workspace/app/api/projects/[id]/final-quotation/
+   creating: /workspace/app/api/projects/[id]/issues/
+   creating: /workspace/app/api/projects/[id]/members/
+   creating: /workspace/app/api/projects/[id]/staff-options/
+   creating: /workspace/app/api/projects/[id]/tasks/
+   creating: /workspace/app/api/projects/[id]/cashflows/generate/
+   creating: /workspace/app/api/projects/[id]/cashflows/[cashflowId]/
+   creating: /workspace/app/api/projects/[id]/cashflows/[cashflowId]/comments/
+   creating: /workspace/app/api/projects/[id]/members/[memberId]/
+   creating: /workspace/app/api/projects/[id]/tasks/report/
+   creating: /workspace/app/api/quotation/initial-data/
+   creating: /workspace/app/api/quotation-templates/[id]/
+   creating: /workspace/app/api/quotation-templates/[id]/apply/
+   creating: /workspace/app/api/quotations/[id]/
+   creating: /workspace/app/api/quotations/[id]/ai-review/
+   creating: /workspace/app/api/quotations/[id]/duplicate/
+   creating: /workspace/app/api/quotations/[id]/export-docx/
+   creating: /workspace/app/api/quotations/[id]/export-pdf/
+   creating: /workspace/app/api/quotations/[id]/status/
+   creating: /workspace/app/api/revisions/[id]/
+   creating: /workspace/app/api/revisions/[id]/restore/
+   creating: /workspace/app/api/revit-auth/activate/
+   creating: /workspace/app/api/revit-auth/login/
+   creating: /workspace/app/api/revit-auth/oauth/
+   creating: /workspace/app/api/revit-auth/verify/
+   creating: /workspace/app/api/revit-auth/oauth/callback/
+   creating: /workspace/app/api/revit-portal/me/
+   creating: /workspace/app/api/settings/payment-checklist/
+   creating: /workspace/app/api/tasks/[taskId]/
+   creating: /workspace/app/api/users/change-password/
+   creating: /workspace/app/api/users/license/
+   creating: /workspace/app/api/users/me/
+   creating: /workspace/components/ai/
+   creating: /workspace/components/auth/
+   creating: /workspace/components/charts/
+   creating: /workspace/components/customer/
+   creating: /workspace/components/dashboard/
+   creating: /workspace/components/layout/
+   creating: /workspace/components/project/
+   creating: /workspace/components/quotation/
+   creating: /workspace/components/settings/
+   creating: /workspace/components/technical/
+   creating: /workspace/components/templates/
+   creating: /workspace/components/ui/
+   creating: /workspace/components/quotation/preview/
+   creating: /workspace/docs/reports/
+   creating: /workspace/lib/ai/
+   creating: /workspace/lib/cache/
+   creating: /workspace/lib/contexts/
+   creating: /workspace/lib/custom-fields/
+   creating: /workspace/lib/email/
+   creating: /workspace/lib/export/
+   creating: /workspace/lib/hooks/
+   creating: /workspace/lib/themes/
+   creating: /workspace/lib/utils/
+   creating: /workspace/lib/validation/
+   creating: /workspace/lib/email/templates/
+   creating: /workspace/plans/20260302-social-login-integration/
+   creating: /workspace/plans/20260303-ai-features/
+   creating: /workspace/plans/240226-0930-project-tasks-mvp/
+   creating: /workspace/plans/260226-1100-work-dashboard-report/
+   creating: /workspace/prisma/migrations/
+   creating: /workspace/prisma/prisma/
+   creating: /workspace/prisma/migrations/20260302095133_init_postgresql/
+   creating: /workspace/prisma/migrations/20260302144618_add_social_auth_and_status/
+   creating: /workspace/prisma/migrations/20260303182510_add_system_config/
+   creating: /workspace/prisma/migrations/20260303182857_add_project_phases_disciplines_areas/
+   creating: /workspace/prisma/migrations/20260303184532_add_project_levels/
+   creating: /workspace/prisma/migrations/20260305042500_cashflow_date_nullable/
+   creating: /workspace/prisma/migrations/20260305044000_cashflow_comments_activities/
+   creating: /workspace/prisma/migrations/20260305054500_comment_attachments_mentions/
+   creating: /workspace/public/uploads/
+   creating: /workspace/public/uploads/company-logo/
+   creating: /workspace/public/uploads/project-images/
+   creating: /workspace/public/uploads/projects/
+  inflating: /workspace/.cursorrules
+  inflating: /workspace/.env.example
+  inflating: /workspace/.gitattributes
+  inflating: /workspace/.npmrc
+  inflating: /workspace/.vercelignore
+  inflating: /workspace/AUTO_DEPLOY_SETUP.md
+  inflating: /workspace/brand-overview-zfenix.md
+  inflating: /workspace/build_log.txt
+  inflating: /workspace/build_log_utf8.txt
+  inflating: /workspace/build_log_utf8_2.txt
+  inflating: /workspace/CHANGELOG.md
+  inflating: /workspace/COST_ANALYSIS.md
+  inflating: /workspace/deploy-production.ps1
+  inflating: /workspace/deploy-production.sh
+  inflating: /workspace/DEVELOPMENT.md
+  inflating: /workspace/Dockerfile
+  inflating: /workspace/eslint.config.mjs
+  inflating: /workspace/FIX_DEPLOYMENT_ISSUES.md
+  inflating: /workspace/next.config.ts
+  inflating: /workspace/nextauth-debug2.log
+  inflating: /workspace/open-in-cursor.ps1
+  inflating: /workspace/package-lock.json
+  inflating: /workspace/package.json
+  inflating: /workspace/PDF_EXPORT_IMPROVEMENTS.md
+  inflating: /workspace/PERFORMANCE_OPTIMIZATIONS.md
+  inflating: /workspace/postcss.config.mjs
+  inflating: /workspace/PROJECT_MANAGEMENT_PLAN.md
+  inflating: /workspace/proxy.ts
+  inflating: /workspace/quick-commit.ps1
+  inflating: /workspace/QUICK_COMMIT_GUIDE.md
+  inflating: /workspace/QUICK_SETUP_AUTO_DEPLOY.md
+  inflating: /workspace/QUICK_UPDATE_USER.md
+  inflating: /workspace/README.md
+  inflating: /workspace/reset-local.ps1
+  inflating: /workspace/run-command.ps1
+  inflating: /workspace/setup-auto-deploy.ps1
+  inflating: /workspace/SPEED_OPTIMIZATION.md
+  inflating: /workspace/tsconfig.json
+  inflating: /workspace/UPDATE_USER_GUIDE.md
+  inflating: /workspace/vercel.json
+  inflating: /workspace/VERCEL_DEPLOY_CHECKLIST.md
+  inflating: /workspace/.brain/brain.json
+  inflating: /workspace/.brain/handover.md
+  inflating: /workspace/.brain/session.json
+  inflating: /workspace/.brain/session_log.txt
+  inflating: /workspace/.cursor/INTEGRATION_SUMMARY.md
+  inflating: /workspace/.cursor/QUICK_COMMANDS.md
+  inflating: /workspace/.cursor/README.md
+  inflating: /workspace/.cursor/RULES_ENHANCEMENTS.md
+  inflating: /workspace/.cursor/WORKFLOW_INTEGRATION.md
+  inflating: /workspace/.cursor/commands/01-init-project.md
+  inflating: /workspace/.cursor/commands/02-brainstorm-ideas.md
+  inflating: /workspace/.cursor/commands/03-plan-features.md
+  inflating: /workspace/.cursor/commands/04-design-technical.md
+  inflating: /workspace/.cursor/commands/04-open-prisma-studio.md
+  inflating: /workspace/.cursor/commands/05-visualize-ui-ux.md
+  inflating: /workspace/.cursor/commands/06-setup-database.md
+  inflating: /workspace/.cursor/commands/06-start-development.md
+  inflating: /workspace/.cursor/commands/07-generate-prisma.md
+  inflating: /workspace/.cursor/commands/08-run-migrations.md
+  inflating: /workspace/.cursor/commands/09-code-implement.md
+  inflating: /workspace/.cursor/commands/10-start-dev-server.md
+  inflating: /workspace/.cursor/commands/11-run-application.md
+  inflating: /workspace/.cursor/commands/12-preview-localhost.md
+  inflating: /workspace/.cursor/commands/13-debug-fix-errors.md
+  inflating: /workspace/.cursor/commands/14-commit-and-deploy.ps1
+  inflating: /workspace/.cursor/commands/14-test-application.md
+  inflating: /workspace/.cursor/commands/15-lint-code.md
+  inflating: /workspace/.cursor/commands/16-refactor-code.md
+  inflating: /workspace/.cursor/commands/17-audit-security.md
+  inflating: /workspace/.cursor/commands/18-review-project.md
+  inflating: /workspace/.cursor/commands/19-build-production.md
+  inflating: /workspace/.cursor/commands/20-deployment-checklist.md
+  inflating: /workspace/.cursor/commands/21-commit-changes.md
+  inflating: /workspace/.cursor/commands/22-deploy-production.md
+  inflating: /workspace/.cursor/commands/23-recap-context.md
+  inflating: /workspace/.cursor/commands/24-save-brain.md
+  inflating: /workspace/.cursor/commands/25-next-steps.md
+  inflating: /workspace/.cursor/commands/26-rollback-recovery.md
+  inflating: /workspace/.cursor/commands/27-help-guide.md
+  inflating: /workspace/.cursor/commands/28-customize-ai.md
+  inflating: /workspace/.cursor/commands/29-awf-update.md
+  inflating: /workspace/.cursor/commands/30-prisma-studio.md
+  inflating: /workspace/.cursor/commands/31-reset-database.md
+  inflating: /workspace/.cursor/commands/32-export-docx-template.md
+  inflating: /workspace/.cursor/commands/auto-open-browser.ps1
+  inflating: /workspace/.cursor/commands/check-and-open-browser.ps1
+  inflating: /workspace/.cursor/commands/check-server.ps1
+  inflating: /workspace/.cursor/commands/README.md
+  inflating: /workspace/.cursor/rules/awf-audit.mdc
+  inflating: /workspace/.cursor/rules/awf-brainstorm.mdc
+  inflating: /workspace/.cursor/rules/awf-code.mdc
+  inflating: /workspace/.cursor/rules/awf-customize.mdc
+  inflating: /workspace/.cursor/rules/awf-debug.mdc
+  inflating: /workspace/.cursor/rules/awf-deploy.mdc
+  inflating: /workspace/.cursor/rules/awf-design.mdc
+  inflating: /workspace/.cursor/rules/awf-help.mdc
+  inflating: /workspace/.cursor/rules/awf-init.mdc
+  inflating: /workspace/.cursor/rules/awf-master.mdc
+  inflating: /workspace/.cursor/rules/awf-next.mdc
+  inflating: /workspace/.cursor/rules/awf-plan.mdc
+  inflating: /workspace/.cursor/rules/awf-recap.mdc
+  inflating: /workspace/.cursor/rules/awf-refactor.mdc
+  inflating: /workspace/.cursor/rules/awf-review.mdc
+  inflating: /workspace/.cursor/rules/awf-rollback.mdc
+  inflating: /workspace/.cursor/rules/awf-run.mdc
+  inflating: /workspace/.cursor/rules/awf-save-brain.mdc
+  inflating: /workspace/.cursor/rules/awf-test.mdc
+  inflating: /workspace/.cursor/rules/awf-update.mdc
+  inflating: /workspace/.cursor/rules/awf-visualize.mdc
+  inflating: /workspace/.cursor/rules/coding-standards.mdc
+  inflating: /workspace/.cursor/rules/database-protection.mdc
+  inflating: /workspace/app/favicon.ico
+  inflating: /workspace/app/globals.css
+  inflating: /workspace/app/layout.tsx
+  inflating: /workspace/app/page.tsx
+  inflating: /workspace/app/(dashboard)/layout.tsx
+  inflating: /workspace/app/(dashboard)/page.tsx
+  inflating: /workspace/app/(dashboard)/company-profile/page.tsx
+  inflating: /workspace/app/(dashboard)/customers/page.tsx
+  inflating: /workspace/app/(dashboard)/customers/new/page.tsx
+  inflating: /workspace/app/(dashboard)/projects/page.tsx
+  inflating: /workspace/app/(dashboard)/projects/new/page.tsx
+  inflating: /workspace/app/(dashboard)/projects/[id]/page.tsx
+  inflating: /workspace/app/(dashboard)/quotations/page.tsx
+  inflating: /workspace/app/(dashboard)/quotations/new/page.tsx
+  inflating: /workspace/app/(dashboard)/quotations/quick-form/page.tsx
+  inflating: /workspace/app/(dashboard)/quotations/[id]/edit/page.tsx
+  inflating: /workspace/app/(dashboard)/quotations/[id]/versions/page.tsx
+  inflating: /workspace/app/(dashboard)/reports/page.tsx
+  inflating: /workspace/app/(dashboard)/revit-licenses/page.tsx
+  inflating: /workspace/app/(dashboard)/settings/page.tsx
+  inflating: /workspace/app/(dashboard)/users/page.tsx
+  inflating: /workspace/app/(dashboard)/users/licenses/page.tsx
+  inflating: /workspace/app/(dashboard)/users/permissions/page.tsx
+  inflating: /workspace/app/api/admin/permissions/route.ts
+  inflating: /workspace/app/api/admin/permissions/runtime/route.ts
+  inflating: /workspace/app/api/admin/update-user/route.ts
+  inflating: /workspace/app/api/ai/chat/route.ts
+  inflating: /workspace/app/api/ai/chat-assistant/route.ts
+  inflating: /workspace/app/api/ai/company-lookup/route.ts
+  inflating: /workspace/app/api/ai/enhance-project-description/route.ts
+  inflating: /workspace/app/api/ai/generate-intro/route.ts
+  inflating: /workspace/app/api/ai/generate-tasks/route.ts
+  inflating: /workspace/app/api/ai/parse-voice/route.ts
+  inflating: /workspace/app/api/ai/pricing-suggest/route.ts
+  inflating: /workspace/app/api/ai/scan-card/route.ts
+  inflating: /workspace/app/api/ai/search-project-images/route.ts
+  inflating: /workspace/app/api/ai/task-chat/route.ts
+  inflating: /workspace/app/api/auth/forgot-password/route.ts
+  inflating: /workspace/app/api/auth/reset-password/route.ts
+  inflating: /workspace/app/api/auth/session-redirect/route.ts
+  inflating: /workspace/app/api/auth/[...nextauth]/route.ts
+  inflating: /workspace/app/api/catalog/route.ts
+  inflating: /workspace/app/api/company-profile/route.ts
+  inflating: /workspace/app/api/company-profile/upload-logo/route.ts
+  inflating: /workspace/app/api/cron/backup-db/route.ts
+  inflating: /workspace/app/api/cron/deadlines/route.ts
+  inflating: /workspace/app/api/cron/weekly-report/route.ts
+  inflating: /workspace/app/api/custom-fields/route.ts
+  inflating: /workspace/app/api/custom-fields/values/route.ts
+  inflating: /workspace/app/api/custom-fields/[id]/route.ts
+  inflating: /workspace/app/api/customers/route.ts
+  inflating: /workspace/app/api/customers/[id]/route.ts
+  inflating: /workspace/app/api/dashboard/alerts/route.ts
+  inflating: /workspace/app/api/dashboard/stats/route.ts
+  inflating: /workspace/app/api/dashboard/work-summary/route.ts
+  inflating: /workspace/app/api/dev/check-database-url/route.ts
+  inflating: /workspace/app/api/dev/clear-auth-cookies/route.ts
+  inflating: /workspace/app/api/dev/reset-database/route.ts
+  inflating: /workspace/app/api/dev/seed-sample-tasks/route.ts
+  inflating: /workspace/app/api/feedback/route.ts
+  inflating: /workspace/app/api/health/database/route.ts
+  inflating: /workspace/app/api/notifications/route.ts
+  inflating: /workspace/app/api/projects/route.ts
+  inflating: /workspace/app/api/projects/status-report/route.ts
+  inflating: /workspace/app/api/projects/upload-image/route.ts
+  inflating: /workspace/app/api/projects/[id]/route.ts
+  inflating: /workspace/app/api/projects/[id]/cashflows/route.ts
+  inflating: /workspace/app/api/projects/[id]/cashflows/generate/route.ts
+  inflating: /workspace/app/api/projects/[id]/cashflows/[cashflowId]/route.ts
+  inflating: /workspace/app/api/projects/[id]/cashflows/[cashflowId]/comments/route.ts
+  inflating: /workspace/app/api/projects/[id]/final-quotation/route.ts
+  inflating: /workspace/app/api/projects/[id]/issues/route.ts
+  inflating: /workspace/app/api/projects/[id]/members/route.ts
+  inflating: /workspace/app/api/projects/[id]/members/[memberId]/route.ts
+  inflating: /workspace/app/api/projects/[id]/staff-options/route.ts
+  inflating: /workspace/app/api/projects/[id]/tasks/route.ts
+  inflating: /workspace/app/api/projects/[id]/tasks/report/route.ts
+  inflating: /workspace/app/api/quotation/initial-data/route.ts
+  inflating: /workspace/app/api/quotation-templates/route.ts
+  inflating: /workspace/app/api/quotation-templates/[id]/route.ts
+  inflating: /workspace/app/api/quotation-templates/[id]/apply/route.ts
+  inflating: /workspace/app/api/quotations/route.ts
+  inflating: /workspace/app/api/quotations/[id]/route.ts
+  inflating: /workspace/app/api/quotations/[id]/ai-review/route.ts
+  inflating: /workspace/app/api/quotations/[id]/duplicate/route.ts
+  inflating: /workspace/app/api/quotations/[id]/export-docx/route.ts
+  inflating: /workspace/app/api/quotations/[id]/export-pdf/route.ts
+  inflating: /workspace/app/api/quotations/[id]/status/route.ts
+  inflating: /workspace/app/api/revisions/route.ts
+  inflating: /workspace/app/api/revisions/[id]/restore/route.ts
+  inflating: /workspace/app/api/revit-auth/activate/route.ts
+  inflating: /workspace/app/api/revit-auth/login/route.ts
+  inflating: /workspace/app/api/revit-auth/oauth/route.ts
+  inflating: /workspace/app/api/revit-auth/oauth/callback/route.ts
+  inflating: /workspace/app/api/revit-auth/verify/route.ts
+  inflating: /workspace/app/api/revit-portal/me/route.ts
+  inflating: /workspace/app/api/revit-users/route.ts
+  inflating: /workspace/app/api/settings/payment-checklist/route.ts
+  inflating: /workspace/app/api/tasks/[taskId]/route.ts
+  inflating: /workspace/app/api/test-api/route.ts
+  inflating: /workspace/app/api/units/route.ts
+  inflating: /workspace/app/api/users/route.ts
+  inflating: /workspace/app/api/users/change-password/route.ts
+  inflating: /workspace/app/api/users/license/route.ts
+  inflating: /workspace/app/api/users/me/route.ts
+  inflating: /workspace/app/change-password/page.tsx
+  inflating: /workspace/app/forgot-password/page.tsx
+  inflating: /workspace/app/login/page.tsx
+  inflating: /workspace/app/reset-password/page.tsx
+  inflating: /workspace/app/revit-portal/page.tsx
+  inflating: /workspace/components/Providers.tsx
+  inflating: /workspace/components/ai/AiAssistant.tsx
+  inflating: /workspace/components/auth/PermissionGuard.tsx
+  inflating: /workspace/components/auth/RBACProvider.tsx
+  inflating: /workspace/components/charts/CostChart.tsx
+  inflating: /workspace/components/charts/GrowthChart.tsx
+  inflating: /workspace/components/charts/QuotationChart.tsx
+  inflating: /workspace/components/charts/RevenueChart.tsx
+  inflating: /workspace/components/customer/CardScanner.tsx
+  inflating: /workspace/components/customer/CompanyAutocomplete.tsx
+  inflating: /workspace/components/dashboard/AlertsWidget.tsx
+  inflating: /workspace/components/dashboard/DashboardWorkOverview.tsx
+  inflating: /workspace/components/dashboard/PaymentMilestonesTimeline.tsx
+  inflating: /workspace/components/layout/Header.tsx
+  inflating: /workspace/components/layout/Sidebar.tsx
+  inflating: /workspace/components/project/AIImageSearch.tsx
+  inflating: /workspace/components/project/AITaskGenerator.tsx
+  inflating: /workspace/components/project/BillingTab.tsx
+  inflating: /workspace/components/project/CashFlowComments.tsx
+  inflating: /workspace/components/project/CashFlowForecast.tsx
+  inflating: /workspace/components/project/CashFlowTab.tsx
+  inflating: /workspace/components/project/FeedbackButton.tsx
+  inflating: /workspace/components/project/ProjectEditor.tsx
+  inflating: /workspace/components/project/ProjectQuotationsPanel.tsx
+  inflating: /workspace/components/project/ProjectTab.tsx
+  inflating: /workspace/components/project/RiskBadge.tsx
+  inflating: /workspace/components/project/TaskTab.tsx
+  inflating: /workspace/components/project/WorkDashboard.tsx
+  inflating: /workspace/components/project/WorkReportTab.tsx
+  inflating: /workspace/components/project/WorkTabsContainer.tsx
+  inflating: /workspace/components/quotation/AIAssistant.tsx
+  inflating: /workspace/components/quotation/AIIntroGenerator.tsx
+  inflating: /workspace/components/quotation/AIPricingSuggestion.tsx
+  inflating: /workspace/components/quotation/CatalogTab.tsx
+  inflating: /workspace/components/quotation/DataTab.tsx
+  inflating: /workspace/components/quotation/ExportPdfModal.tsx
+  inflating: /workspace/components/quotation/PaymentMilestones.tsx
+  inflating: /workspace/components/quotation/PreviewTab.tsx
+  inflating: /workspace/components/quotation/PricingTable.tsx
+  inflating: /workspace/components/quotation/ProjectSelector.tsx
+  inflating: /workspace/components/quotation/QuotationEditor.tsx
+  inflating: /workspace/components/quotation/QuotationList.tsx
+  inflating: /workspace/components/quotation/SaveTemplateModal.tsx
+  inflating: /workspace/components/quotation/TemplatePickerModal.tsx
+  inflating: /workspace/components/quotation/VoiceInput.tsx
+  inflating: /workspace/components/quotation/VoiceInputModal.tsx
+  inflating: /workspace/components/quotation/ZfenixQuoteForm.tsx
+  inflating: /workspace/components/quotation/preview/AIReviewer.tsx
+  inflating: /workspace/components/quotation/preview/ExportExcelButton.tsx
+  inflating: /workspace/components/quotation/preview/ExportWordButton.tsx
+  inflating: /workspace/components/quotation/preview/InlineEditor.tsx
+  inflating: /workspace/components/quotation/preview/MediaUploader.tsx
+  inflating: /workspace/components/quotation/preview/PreviewModeToggle.tsx
+  inflating: /workspace/components/quotation/preview/QuickCopyButtons.tsx
+  inflating: /workspace/components/quotation/preview/SectionDragDrop.tsx
+  inflating: /workspace/components/quotation/preview/TemplateSelector.tsx
+  inflating: /workspace/components/quotation/preview/ThemePicker.tsx
+  inflating: /workspace/components/settings/AISettings.tsx
+  inflating: /workspace/components/settings/CompanyProfileSettings.tsx
+  inflating: /workspace/components/settings/CustomFieldsSettings.tsx
+  inflating: /workspace/components/settings/PaymentChecklistSettings.tsx
+  inflating: /workspace/components/technical/TechnicalBadge.tsx
+  inflating: /workspace/components/technical/TechnicalCommandPalette.tsx
+  inflating: /workspace/components/technical/TechnicalError.tsx
+  inflating: /workspace/components/technical/TechnicalGrid.tsx
+  inflating: /workspace/components/technical/TechnicalLoading.tsx
+  inflating: /workspace/components/technical/TechnicalMetrics.tsx
+  inflating: /workspace/components/technical/TechnicalTable.tsx
+  inflating: /workspace/components/technical/TechnicalTooltip.tsx
+  inflating: /workspace/components/templates/MinimalistTemplate.tsx
+  inflating: /workspace/components/templates/StandardTemplate.tsx
+  inflating: /workspace/components/ui/AnimatedTabPanels.tsx
+  inflating: /workspace/components/ui/ContentCard.tsx
+  inflating: /workspace/components/ui/GroupTool.tsx
+  inflating: /workspace/components/ui/PageHeader.tsx
+  inflating: /workspace/components/ui/PageTransition.tsx
+  inflating: /workspace/components/ui/RichTextEditor.tsx
+  inflating: /workspace/components/ui/ZfIcon.tsx
+  inflating: /workspace/docs/BRIEF-improve-tab-loading-speed.md
+  inflating: /workspace/docs/BRIEF.md
+  inflating: /workspace/docs/BRIEF_PHASE_2.md
+  inflating: /workspace/docs/DASHBOARD_CHARTS_DESIGN.md
+  inflating: /workspace/docs/DATABASE_URL_SETUP.md
+  inflating: /workspace/docs/DATA_PROTECTION.md
+  inflating: /workspace/docs/design-specs-work-dashboard-report.md
+  inflating: /workspace/docs/DESIGN.md
+  inflating: /workspace/docs/DESIGN_APPLICATION_GUIDE.md
+  inflating: /workspace/docs/email-preview.html
+  inflating: /workspace/docs/EMAIL_SETUP.md
+  inflating: /workspace/docs/LOCAL_DEVELOPMENT_SETUP.md
+  inflating: /workspace/docs/MIGRATE_TO_POSTGRESQL.md
+  inflating: /workspace/docs/PERFORMANCE_OPTIMIZATION.md
+  inflating: /workspace/docs/PERFORMANCE_OPTIMIZATION_SUMMARY.md
+  inflating: /workspace/docs/PROJECT_ASSESSMENT.md
+  inflating: /workspace/docs/ROADMAP_AI_FIRST.md
+  inflating: /workspace/docs/SPECS-improve-tab-loading-speed.md
+  inflating: /workspace/docs/SPECS.md
+  inflating: /workspace/docs/TEST_WORK_MODULE.md
+  inflating: /workspace/docs/reports/audit_performance_performance_20260311.md
+  inflating: /workspace/hooks/useDebounce.ts
+  inflating: /workspace/hooks/useLanguage.ts
+  inflating: /workspace/lib/api-auth.ts
+  inflating: /workspace/lib/api-security.ts
+  inflating: /workspace/lib/auth.ts
+  inflating: /workspace/lib/cache.ts
+  inflating: /workspace/lib/db-error-messages.ts
+  inflating: /workspace/lib/db-health.ts
+  inflating: /workspace/lib/db-protection.ts
+  inflating: /workspace/lib/db-schema.ts
+  inflating: /workspace/lib/docx-generator.ts
+  inflating: /workspace/lib/email.ts
+  inflating: /workspace/lib/i18n.ts
+  inflating: /workspace/lib/logging.ts
+  inflating: /workspace/lib/number-to-words-vn.ts
+  inflating: /workspace/lib/pdf-generator.ts
+  inflating: /workspace/lib/permissions.ts
+  inflating: /workspace/lib/prisma.ts
+  inflating: /workspace/lib/project-permissions.ts
+  inflating: /workspace/lib/quotation-number.ts
+  inflating: /workspace/lib/rbac.ts
+  inflating: /workspace/lib/revit-auth.ts
+  inflating: /workspace/lib/utils.ts
+  inflating: /workspace/lib/ai/chat-assistant.ts
+  inflating: /workspace/lib/ai/claude.ts
+  inflating: /workspace/lib/ai/intro-generator.ts
+  inflating: /workspace/lib/ai/openai.ts
+  inflating: /workspace/lib/ai/pricing-analyzer.ts
+  inflating: /workspace/lib/ai/project-risk.ts
+  inflating: /workspace/lib/ai/prompts.ts
+  inflating: /workspace/lib/ai/review-quotation.ts
+  inflating: /workspace/lib/ai/system-prompt.ts
+  inflating: /workspace/lib/cache/localStorageCache.ts
+  inflating: /workspace/lib/contexts/QuotationDataContext.tsx
+  inflating: /workspace/lib/custom-fields/ensureCustomFieldsSchema.ts
+  inflating: /workspace/lib/email/client.ts
+  inflating: /workspace/lib/email/send.ts
+  inflating: /workspace/lib/email/templates/deadline-reminder.tsx
+  inflating: /workspace/lib/email/templates/password-reset-request.tsx
+  inflating: /workspace/lib/email/templates/quotation-accepted.tsx
+  inflating: /workspace/lib/email/templates/quotation-created.tsx
+  inflating: /workspace/lib/email/templates/user-invite.tsx
+  inflating: /workspace/lib/email/templates/weekly-report.tsx
+  inflating: /workspace/lib/export/excel-export.ts
+  inflating: /workspace/lib/export/word-export.ts
+  inflating: /workspace/lib/hooks/useCommandPalette.ts
+  inflating: /workspace/lib/themes/quotation-themes.ts
+  inflating: /workspace/lib/utils/copy-to-clipboard.ts
+  inflating: /workspace/lib/utils/group-sort.ts
+  inflating: /workspace/lib/utils/table-to-markdown.ts
+  inflating: /workspace/lib/validation/custom-field.ts
+  inflating: /workspace/lib/validation/customer.ts
+  inflating: /workspace/lib/validation/project.ts
+  inflating: /workspace/lib/validation/quotation-templates.ts
+  inflating: /workspace/lib/validation/quotation.ts
+  inflating: /workspace/lib/validation/task.ts
+  inflating: /workspace/plans/PROJECT_MODULE_PLAN.md
+  inflating: /workspace/plans/20260302-social-login-integration/phase-01-database-schema.md
+  inflating: /workspace/plans/20260302-social-login-integration/phase-02-google-auth.md
+  inflating: /workspace/plans/20260302-social-login-integration/phase-03-microsoft-auth.md
+  inflating: /workspace/plans/20260302-social-login-integration/phase-04-user-workflow.md
+  inflating: /workspace/plans/20260302-social-login-integration/phase-05-ui-updates.md
+  inflating: /workspace/plans/20260302-social-login-integration/plan.md
+  inflating: /workspace/plans/20260303-ai-features/phase-02-description-enhancer.md
+  inflating: /workspace/plans/20260303-ai-features/phase-03-auto-task-generator.md
+  inflating: /workspace/plans/20260303-ai-features/phase-04-deadline-risk.md
+  inflating: /workspace/plans/20260303-ai-features/phase-05-cashflow-forecast.md
+  inflating: /workspace/plans/20260303-ai-features/phase-06-customer-lookup.md
+  inflating: /workspace/plans/20260303-ai-features/plan.md
+  inflating: /workspace/plans/240226-0930-project-tasks-mvp/phase-01-foundation.md
+  inflating: /workspace/plans/240226-0930-project-tasks-mvp/phase-02-views-and-progress.md
+  inflating: /workspace/plans/240226-0930-project-tasks-mvp/phase-03-my-work-and-polish.md
+  inflating: /workspace/plans/260226-1100-work-dashboard-report/phase-01-dashboard.md
+  inflating: /workspace/plans/260226-1100-work-dashboard-report/phase-02-report.md
+  inflating: /workspace/plans/260226-1100-work-dashboard-report/phase-03-polish-and-permissions.md
+  inflating: /workspace/plans/260226-1100-work-dashboard-report/plan.md
+  inflating: /workspace/prisma/schema.prisma
+  inflating: /workspace/prisma/seed.ts
+  inflating: /workspace/prisma/migrations/migration_lock.toml
+  inflating: /workspace/prisma/migrations/20260302095133_init_postgresql/migration.sql
+  inflating: /workspace/prisma/migrations/20260302144618_add_social_auth_and_status/migration.sql
+  inflating: /workspace/prisma/migrations/20260303182510_add_system_config/migration.sql
+  inflating: /workspace/prisma/migrations/20260303182857_add_project_phases_disciplines_areas/migration.sql
+  inflating: /workspace/prisma/migrations/20260303184532_add_project_levels/migration.sql
+  inflating: /workspace/prisma/migrations/20260305042500_cashflow_date_nullable/migration.sql
+  inflating: /workspace/prisma/migrations/20260305044000_cashflow_comments_activities/migration.sql
+  inflating: /workspace/prisma/migrations/20260305054500_comment_attachments_mentions/migration.sql
+  inflating: /workspace/public/file.svg
+  inflating: /workspace/public/globe.svg
+  inflating: /workspace/public/logo-trans.png
+  inflating: /workspace/public/logo-white.png
+  inflating: /workspace/public/logo.png
+  inflating: /workspace/public/Logo_Trans.png
+  inflating: /workspace/public/next.svg
+  inflating: /workspace/public/vercel.svg
+  inflating: /workspace/public/window.svg
+  inflating: /workspace/public/uploads/company-logo/1769591327268-zj72j07rqq.png
+  inflating: /workspace/public/uploads/company-logo/1769592011452-et61mp2ez6c.png
+  inflating: /workspace/public/uploads/project-images/1769592089898-dw14anwna4m.jpg
+  inflating: /workspace/public/uploads/project-images/1769597372613-9fytpmkqr4s.jpg
+  inflating: /workspace/public/uploads/project-images/1769597810795-zyn5lm572ue.jpg
+  inflating: /workspace/public/uploads/projects/datacenter.png
+  inflating: /workspace/public/uploads/projects/factory.png
+  inflating: /workspace/public/uploads/projects/office.png
+  inflating: /workspace/public/uploads/projects/urban.png
+  inflating: /workspace/scripts/check-all-projects.ts
+  inflating: /workspace/scripts/check-database-url.ts
+  inflating: /workspace/scripts/check-neon-connection.ts
+  inflating: /workspace/scripts/fix-all-project-images.ts
+  inflating: /workspace/scripts/fix-database-connection.ts
+  inflating: /workspace/scripts/fix-password.js
+  inflating: /workspace/scripts/git-commit.js
+  inflating: /workspace/scripts/list-projects.ts
+  inflating: /workspace/scripts/seed-admin.js
+  inflating: /workspace/scripts/test-database-connection.ts
+  inflating: /workspace/scripts/test-login-api.ts
+  inflating: /workspace/scripts/test-smoke.ts
+  inflating: /workspace/scripts/test-task-assignee.ts
+  inflating: /workspace/scripts/update-project-images.ts
+  inflating: /workspace/scripts/update-user-neon.js
+  inflating: /workspace/scripts/update-user-simple.js
+  inflating: /workspace/scripts/update-user.ts
+  inflating: /workspace/templates/README.md
+  inflating: /workspace/types/ai.ts
+  inflating: /workspace/types/auth.ts
+  inflating: /workspace/types/html-docx-js.d.ts
+  inflating: /workspace/types/quotation.ts
+BUILD
+Already have image (with digest): gcr.io/cloud-builders/docker
+Sending build context to Docker daemon  11.23MB
+Step 1/25 : FROM node:20-alpine AS builder
+20-alpine: Pulling from library/node
+589002ba0eae: Already exists
+ed2fdcee5269: Pulling fs layer
+7ad115895a6a: Pulling fs layer
+9d10d4687fae: Pulling fs layer
+9d10d4687fae: Verifying Checksum
+9d10d4687fae: Download complete
+7ad115895a6a: Verifying Checksum
+7ad115895a6a: Download complete
+ed2fdcee5269: Verifying Checksum
+ed2fdcee5269: Download complete
+ed2fdcee5269: Pull complete
+7ad115895a6a: Pull complete
+9d10d4687fae: Pull complete
+Digest: sha256:b88333c42c23fbd91596ebd7fd10de239cedab9617de04142dde7315e3bc0afa
+Status: Downloaded newer image for node:20-alpine
+ ---> 6757e50d3b6b
+Step 2/25 : WORKDIR /app
+ ---> Running in d4cc9200cee3
+Removing intermediate container d4cc9200cee3
+ ---> 84f4c64ac10d
+Step 3/25 : RUN apk add --no-cache libc6-compat
+ ---> Running in 7d26a4711186
+(1/3) Installing musl-obstack (1.2.3-r2)
+(2/3) Installing libucontext (1.3.3-r0)
+(3/3) Installing gcompat (1.1.0-r4)
+OK: 11.0 MiB in 21 packages
+Removing intermediate container 7d26a4711186
+ ---> 340b3992f5e7
+Step 4/25 : COPY package*.json ./
+ ---> 13a9aa0d20af
+Step 5/25 : COPY prisma ./prisma/
+ ---> f4f9f4304ca0
+Step 6/25 : RUN npm install --legacy-peer-deps
+ ---> Running in 3f6466975f62
+[91mnpm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+[0m[91mnpm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+[0m[91mnpm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+[0m[91mnpm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+[0m[91mnpm warn deprecated fstream@1.0.12: This package is no longer supported.
+[0m[91mnpm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[0m[91mnpm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[0m[91mnpm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[0m[91mnpm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[0m
+> zfemanage@0.1.0 postinstall
+> prisma generate --no-hints
+[91mwarn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+[0mPrisma schema loaded from prisma/schema.prisma
+[91m???????????????????????????????????????????????????????????
+?  Update available 6.19.2 -> 7.4.2                       ?
+?                                                         ?
+?  This is a major update - please follow the guide at    ?
+?  https://pris.ly/d/major-version-upgrade                ?
+?                                                         ?
+?  Run the following to update                            ?
+?    npm i --save-dev prisma@latest                       ?
+?    npm i @prisma/client@latest                          ?
+???????????????????????????????????????????????????????????
+[0m
+? Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 843ms
+added 937 packages, and audited 938 packages in 1m
+262 packages are looking for funding
+  run `npm fund` for details
+4 vulnerabilities (1 moderate, 3 high)
+Some issues need review, and may require choosing
+a different dependency.
+Run `npm audit` for details.
+[91mnpm notice
+npm notice New major version of npm available! 10.8.2 -> 11.11.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.11.0
+npm notice To update run: npm install -g npm@11.11.0
+npm notice
+[0mRemoving intermediate container 3f6466975f62
+ ---> d9f432443532
+Step 7/25 : COPY . .
+ ---> d94e58ac1a4b
+Step 8/25 : RUN npx prisma generate
+ ---> Running in 13a969282fe6
+[91mwarn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+[0mPrisma schema loaded from prisma/schema.prisma
+? Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 947ms
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+Removing intermediate container 13a969282fe6
+ ---> f064414c78dc
+Step 9/25 : RUN npm run build
+ ---> Running in 3d9e075b791d
+> zfemanage@0.1.0 build
+> npx prisma generate --no-hints && next build
+[91mwarn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+[0mPrisma schema loaded from prisma/schema.prisma
+? Generated Prisma Client (v6.19.2) to ./node_modules/@prisma/client in 829ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+? Next.js 16.1.5 (Turbopack)
+  Creating an optimized production build ...
+? Compiled successfully in 88s
+  Running TypeScript ...
+[91m
+<--- Last few GCs --->
+[163:0x7f860bb99650]    71841 ms: Scavenge (reduce) 2044.5 (2080.4) -> 2043.7 (2080.4) MB, 11.73 / 0.00 ms  (average mu = 0.094, current mu = 0.002) allocation failure;
+[163:0x7f860bb99650]    71874 ms: Scavenge (reduce) 2044.9 (2080.6) -> 2044.2 (2080.9) MB, 25.36 / 0.00 ms  (average mu = 0.094, current mu = 0.002) allocation failure;
+[163:0x7f860bb99650]    71893 ms: Scavenge (reduce) 2045.0 (2080.9) -> 2044.3 (2080.9) MB, 13.33 / 0.00 ms  (average mu = 0.094, current mu = 0.002) allocation failure;
+[0m[91m
+[0m[91m
+<--- JS stacktrace --->
+[0m[91mFATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory
+[0m[91m----- Native stack trace -----
+[0m[91mNext.js build worker exited with code: null and signal: SIGABRT
+The command '/bin/sh -c npm run build' returned a non-zero code: 1
+ERROR
+ERROR: build step 0 "gcr.io/cloud-builders/docker" failed: step exited with non-zero status: 1
+[0m
+--------------------------------------------------------------------------
