@@ -264,8 +264,9 @@ export const authOptions: NextAuthOptions = {
                     }
 
                     // ============================================================
-                    // TRIAL USER CHECK: Tìm trong bảng revit_users
-                    // Các user dùng thử đăng ký qua Revit Add-in → cho vào /revit-portal
+                    // REVIT LICENSE USER CHECK: Tìm trong bảng revit_users
+                    // Nếu email chỉ có trong revit_users (không phải nhân sự dự án)
+                    // → cho phép login và redirect về /revit-portal
                     // ============================================================
                     try {
                         const revitUser = await prisma.revitUser.findUnique({
@@ -273,12 +274,30 @@ export const authOptions: NextAuthOptions = {
                             select: { id: true, status: true, licenseActive: true }
                         });
                         if (revitUser) {
-                            if (revitUser.status === 'ACTIVE') {
-                                // Cho phép login, jwt callback sẽ set userType='revit'
-                                // proxy.ts sẽ redirect về /revit-portal
-                                return true;
+                            if (revitUser.status !== 'ACTIVE') {
+                                return '/login?error=ACCOUNT_SUSPENDED';
                             }
-                            return '/login?error=ACCOUNT_SUSPENDED';
+                            // Cho phép login. PrismaAdapter sẽ tạo bản ghi trong users table.
+                            // Dùng upsert để promote ngay sang role=REVIT_USER.
+                            // jwt callback sẽ đọc role=REVIT_USER → set userType='revit' → redirect /revit-portal.
+                            try {
+                                await prisma.user.upsert({
+                                    where: { email: realEmail },
+                                    update: { status: UserStatus.ACTIVE, role: 'REVIT_USER' },
+                                    create: {
+                                        email: realEmail,
+                                        name: realName || revitUser.id,
+                                        role: 'REVIT_USER',
+                                        status: UserStatus.ACTIVE,
+                                    },
+                                });
+                                console.log(`[NextAuth] RevitUser promoted to REVIT_USER role: ${realEmail}`);
+                            } catch (promoteErr) {
+                                // Không fail login nếu promote lỗi.
+                                // jwt callback sẽ fallback tìm revit_users theo email.
+                                console.error('[NextAuth signIn] RevitUser promote failed:', promoteErr);
+                            }
+                            return true;
                         }
                     } catch (e) {
                         console.error('[NextAuth signIn] RevitUser lookup failed:', e);
