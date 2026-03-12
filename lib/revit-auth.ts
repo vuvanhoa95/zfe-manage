@@ -26,6 +26,7 @@ export interface RevitLicenseInfo {
   active: boolean;
   start: string | null;
   expiry: string | null;
+  isTrial?: boolean;
 }
 
 export interface RevitLoginResult {
@@ -253,11 +254,12 @@ export async function revitLogin(
   }
 
   // 3. Kiểm tra trạng thái
-  if (found.status !== 'ACTIVE') {
-    return {
-      success: false,
-      message: `Tài khoản đang ở trạng thái "${found.status}". Liên hệ admin.`,
-    };
+  const allowedStatuses = ['ACTIVE', 'TRIAL'];
+  if (!allowedStatuses.includes(found.status)) {
+    const statusMsg = found.status === 'SUSPENDED'
+      ? 'Tài khoản đã bị đình chỉ. Liên hệ Admin để được hỗ trợ.'
+      : `Tài khoản đang ở trạng thái "${found.status}". Liên hệ admin.`;
+    return { success: false, message: statusMsg };
   }
 
   // 4. Kiểm tra license
@@ -268,11 +270,14 @@ export async function revitLogin(
     };
   }
 
-  // 5. Kiểm tra expiry
+  // 5. Kiểm tra expiry — phân biệt TRIAL hết hạn vs License hết hạn
   if (found.licenseExpiry && found.licenseExpiry < new Date()) {
+    const isTrialExpired = found.status === 'TRIAL' || found.licensePlan === 'TRIAL_30D';
     return {
       success: false,
-      message: 'License Revit Add-in đã hết hạn. Liên hệ Admin để gia hạn.',
+      message: isTrialExpired
+        ? 'Thời gian dùng thử 30 ngày đã hết. Liên hệ ZFenix để mua license chính thức.'
+        : 'License Revit Add-in đã hết hạn. Liên hệ Admin để gia hạn.',
     };
   }
 
@@ -287,6 +292,8 @@ export async function revitLogin(
   console.log(
     `[Revit Auth] Login: ${email} (${found.source}) on ${machineId} (v${addinVersion || 'unknown'})`
   );
+
+  const isTrial = found.status === 'TRIAL' || found.licensePlan === 'TRIAL_30D';
 
   return {
     success: true,
@@ -303,6 +310,7 @@ export async function revitLogin(
       active: found.licenseActive,
       start: found.licenseStart?.toISOString() || null,
       expiry: found.licenseExpiry?.toISOString() || null,
+      isTrial,
     },
     mcpLicense: {
       plan: found.mcpLicensePlan || null,
@@ -332,10 +340,13 @@ export async function revitVerify(token: string): Promise<RevitVerifyResult> {
   }
 
   // Kiểm tra tài khoản vẫn active
-  if (found.status !== 'ACTIVE') {
+  const allowedVerifyStatuses = ['ACTIVE', 'TRIAL'];
+  if (!allowedVerifyStatuses.includes(found.status)) {
     return {
       valid: false,
-      message: `Tài khoản đã bị ${found.status === 'SUSPENDED' ? 'đình chỉ' : 'vô hiệu hóa'}. Liên hệ Admin.`,
+      message: found.status === 'SUSPENDED'
+        ? 'Tài khoản đã bị đình chỉ. Liên hệ Admin.'
+        : `Tài khoản đang ở trạng thái "${found.status}". Liên hệ Admin.`,
     };
   }
 
